@@ -35,5 +35,15 @@
   "invalidDateError": "YYYY-MM-DD আকারে সঠিক তারিখ লিখুন।",
   "banglaLanguage": "বাংলা",
   "englishLanguage": "English",
-  "noFamilyMembersYet": "এখনো পরিবারের কোনো সদস্য যোগ করা হয়নি"
+  "noFamilyMembersYet": "এখনো পরিবারের কোনো সদস্য যোগ করা হয়নি",
+  "addManually": "হাতে লিখে যোগ করুন",
+  "addMedicationManually": "ওষুধ হাতে লিখে যোগ করুন",
+  "medicineName": "ওষুধের নাম",
+  "strengthLabel": "শক্তি",
+  "dosageForm": "ওষুধের ধরন",
+  "startDate": "শুরুর তারিখ",
+  "endDate": "শেষ তারিখ",
+  "saveMedicine": "ওষুধ সংরক্ষণ করুন",
+  "draftStatus": "খসড়া",
+  "invalidDateRange": "শেষের তারিখ শুরুর তারিখের আগে হতে পারে না।"
 }
