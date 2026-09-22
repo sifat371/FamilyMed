@@ -1,4 +1,5 @@
 import 'package:familymed/core/theme/familymed_theme.dart';
+import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -6,6 +7,7 @@ class WelcomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -32,32 +34,22 @@ class WelcomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'FamilyMed',
+                l10n.appName,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
               const SizedBox(height: 18),
               Text(
-                'Medication care for the people you love.',
+                l10n.welcomeHeadline,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Scan prescriptions, build routines, and stay connected '
-                'with your family’s medication care.',
-                textAlign: TextAlign.center,
-              ),
+              Text(l10n.welcomeBody, textAlign: TextAlign.center),
               const Spacer(flex: 2),
-              FilledButton(
-                onPressed: () {},
-                child: const Text('Get started'),
-              ),
+              FilledButton(onPressed: () {}, child: Text(l10n.getStarted)),
               const SizedBox(height: 16),
-              const Text(
-                'AI assists. You always confirm.',
-                textAlign: TextAlign.center,
-              ),
+              Text(l10n.aiConfirmationNote, textAlign: TextAlign.center),
               const Spacer(),
             ],
           ),
