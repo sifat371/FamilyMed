@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: familymed
+          POSTGRES_USER: familymed
+          POSTGRES_PASSWORD: familymed
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U familymed -d familymed"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      FAMILYMED_ENV: test
+      FAMILYMED_DATABASE_URL: postgresql+asyncpg://familymed:familymed@localhost:5432/familymed
+      FAMILYMED_JWT_SECRET: test-secret
+      FAMILYMED_CORS_ORIGINS: http://localhost
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.13'
+      - run: uv sync --all-groups
+        working-directory: backend
+      - run: uv run ruff check .
+        working-directory: backend
+      - run: uv run alembic upgrade head
+        working-directory: backend
+      - run: uv run pytest -v
+        working-directory: backend
+
+  mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: mobile
+      - run: flutter gen-l10n
+        working-directory: mobile
+      - run: dart run build_runner build
+        working-directory: mobile
+      - run: flutter analyze
+        working-directory: mobile
+      - run: flutter test
+        working-directory: mobile
+      - run: flutter build apk --debug
+        working-directory: mobile
