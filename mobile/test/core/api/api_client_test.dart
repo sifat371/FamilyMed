@@ -39,11 +39,27 @@ void main() {
     final events = SessionEvents();
     addTearDown(events.dispose);
 
-    var protectedRequestCount = 0;
+    var firstProtectedCount = 0;
+    var secondProtectedCount = 0;
     var refreshRequestCount = 0;
-    normalAdapter.onGet('/protected', (server) {
-      protectedRequestCount++;
-      if (protectedRequestCount <= 2) {
+
+    normalAdapter.onGet('/protected/one', (server) {
+      firstProtectedCount++;
+      if (firstProtectedCount == 1) {
+        server.reply(401, {
+          'error': {
+            'code': 'INVALID_TOKEN',
+            'message': 'Authentication is invalid or expired.',
+            'details': <String, dynamic>{},
+          },
+        });
+      } else {
+        server.reply(200, {'ok': true});
+      }
+    });
+    normalAdapter.onGet('/protected/two', (server) {
+      secondProtectedCount++;
+      if (secondProtectedCount == 1) {
         server.reply(401, {
           'error': {
             'code': 'INVALID_TOKEN',
@@ -72,12 +88,13 @@ void main() {
     );
 
     final results = await Future.wait([
-      client.get<dynamic>('/protected'),
-      client.get<dynamic>('/protected'),
+      client.get<dynamic>('/protected/one'),
+      client.get<dynamic>('/protected/two'),
     ]);
 
     expect(refreshRequestCount, 1);
-    expect(protectedRequestCount, 4);
+    expect(firstProtectedCount, 2);
+    expect(secondProtectedCount, 2);
     expect((await store.read())!.accessToken, 'new-access');
     expect(results[0].statusCode, 200);
     expect(results[1].statusCode, 200);
