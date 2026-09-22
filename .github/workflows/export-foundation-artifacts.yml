@@ -1,13 +1,20 @@
-name: Export Foundation Artifacts
+name: Finalize Foundation Generated Files
 
 on:
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
-  export:
+  finalize:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.13'
@@ -22,13 +29,55 @@ jobs:
       - name: Generate Android/iOS host projects
         run: flutter create --platforms=android,ios --org com.familymed --project-name familymed .generated_scaffold
         working-directory: mobile
-      - uses: actions/upload-artifact@v4
-        with:
-          name: familymed-foundation-generated
-          include-hidden-files: true
-          path: |
-            backend/uv.lock
-            mobile/pubspec.lock
-            mobile/.generated_scaffold/.metadata
-            mobile/.generated_scaffold/android
-            mobile/.generated_scaffold/ios
+      - name: Install generated host projects and lockfiles
+        shell: bash
+        run: |
+          rm -rf mobile/android mobile/ios
+          cp -a mobile/.generated_scaffold/android mobile/android
+          cp -a mobile/.generated_scaffold/ios mobile/ios
+          cp mobile/.generated_scaffold/.metadata mobile/.metadata
+          rm -rf mobile/.generated_scaffold
+
+          python - <<'PY'
+          from pathlib import Path
+
+          gitignore = Path('.gitignore')
+          text = gitignore.read_text()
+          for line in ('*.iml\n', '**/*.g.dart\n', 'mobile/lib/l10n/app_localizations*.dart\n'):
+              if line not in text:
+                  text += line
+          gitignore.write_text(text)
+
+          analysis = Path('mobile/analysis_options.yaml')
+          analysis.write_text(
+              'include: package:flutter_lints/flutter.yaml\n\n'
+              'analyzer:\n'
+              '  exclude:\n'
+              '    - lib/**/*.g.dart\n'
+              '    - build/**\n'
+              '    - android/**\n'
+              '    - ios/**\n'
+          )
+
+          ci = Path('.github/workflows/ci.yml')
+          text = ci.read_text()
+          needle = '      - run: flutter test\n        working-directory: mobile\n'
+          build = '      - run: flutter build apk --debug\n        working-directory: mobile\n'
+          if build not in text:
+              if needle not in text:
+                  raise SystemExit('Could not find Flutter test step in CI')
+              text = text.replace(needle, needle + build)
+          ci.write_text(text)
+          PY
+      - name: Commit generated foundation files
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Generated foundation files already committed."
+            exit 0
+          fi
+          git commit -m "chore: add generated mobile hosts and lockfiles"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
