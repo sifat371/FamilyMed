@@ -27,7 +27,7 @@ FamilyMed is a family medication-care application. Flutter is the mobile client;
     cd mobile
     flutter pub get
     flutter gen-l10n
-    dart run build_runner build --delete-conflicting-outputs
+    dart run build_runner build
     flutter run
 
 ## Checks
