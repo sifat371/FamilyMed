@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.schemas import AuthResponse, LoginRequest, RefreshResponse, RegisterRequest
 from app.auth.security import (
+    DUMMY_PASSWORD_HASH,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -66,7 +67,9 @@ async def register_user(session: AsyncSession, payload: RegisterRequest) -> Auth
 
 async def login_user(session: AsyncSession, payload: LoginRequest) -> AuthResponse:
     user = await session.scalar(select(User).where(User.email == str(payload.email)))
-    if user is None or not verify_password(payload.password, user.password_hash):
+    encoded_hash = user.password_hash if user is not None else DUMMY_PASSWORD_HASH
+    password_valid = verify_password(payload.password, encoded_hash)
+    if user is None or not password_valid:
         raise ApiError(
             401,
             "INVALID_CREDENTIALS",
