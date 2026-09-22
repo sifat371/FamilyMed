@@ -9,6 +9,7 @@ from app.config import get_settings
 
 settings = get_settings()
 password_hasher = PasswordHash.recommended()
+DUMMY_PASSWORD_HASH = password_hasher.hash("familymed-login-timing-dummy")
 
 
 def invalid_token_error() -> ApiError:
