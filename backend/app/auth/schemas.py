@@ -20,7 +20,7 @@ class RegisterRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: Password
 
     @field_validator("email", mode="before")
     @classmethod
