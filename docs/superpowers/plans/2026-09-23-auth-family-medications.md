@@ -2,144 +2,122 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Deliver the first real FamilyMed vertical slice: a user can register or log in, restore an authenticated session, add Amma as a family member, manually add a draft medicine, and later reload the persisted family/member/medicine data from the FastAPI/PostgreSQL backend.
+**Goal:** Deliver the first real FamilyMed vertical slice: register/login, secure session restore, add Amma, manually add a draft medicine, and reload the persisted member and medicine from FastAPI/PostgreSQL.
 
-**Architecture:** Extend the existing foundation without changing the monorepo boundaries. Backend work adds SQLAlchemy domain models, one Alembic migration, JWT/Argon2 authentication, strict membership-scoped family APIs, and membership-scoped manual medication APIs. Flutter adds Riverpod, Dio, secure token storage, authenticated routing, the approved family onboarding screens, a returning-user family list, family-member profile, and manual-medication form. Schedules, notifications, Today, prescriptions, OCR/HTR, and offline write synchronization remain out of scope.
+**Architecture:** Keep the existing monorepo boundaries. The backend gains SQLAlchemy domain models, one Alembic migration, JWT + Argon2 authentication, membership-scoped family APIs, and membership-scoped manual-medication APIs. Flutter gains Riverpod, Dio, secure token storage, automatic one-shot access-token refresh, authenticated routing, family onboarding/list/profile, and manual medication entry. Schedules, dose events, notifications, Today, prescriptions, OCR/HTR, caregiver sharing, and offline write synchronization remain outside this plan.
 
-**Tech Stack:** Python 3.13, FastAPI, PostgreSQL 17, SQLAlchemy 2.x, Alembic, Pydantic v2, PyJWT, pwdlib/Argon2, pytest, httpx; Flutter/Dart, Riverpod, Dio, flutter_secure_storage, go_router, Flutter localization, existing FamilyMed theme.
+**Tech Stack:** Python 3.13, FastAPI, PostgreSQL 17, SQLAlchemy 2.x, Alembic, Pydantic v2, PyJWT, pwdlib/Argon2, pytest, httpx; Flutter/Dart, flutter_riverpod 2.x, Dio 5.x, flutter_secure_storage, go_router, Flutter localization, existing FamilyMed theme.
 
 **Spec:** `docs/superpowers/specs/2026-09-23-auth-family-medications-design.md`
 
 ## Global Constraints
 
-- Branch: `feat/auth-family-medications`; do not commit product code directly to `main`.
-- Registration/login is email + password only for this slice.
-- Name: trimmed, 1-120 characters. Email: syntactically valid, trimmed and lowercased. Password: 8-128 characters.
-- Access JWT lifetime: 15 minutes. Refresh JWT lifetime: 30 days. JWTs contain `sub=<user UUID>` and `type=access|refresh`.
-- Refresh returns a new access token only; the existing refresh token remains valid until expiry. Do not claim revocation or rotation.
+- Work only on `feat/auth-family-medications` until the finishing workflow.
+- Email/password only. Name is trimmed 1-120 chars; email is syntactically valid, trimmed, lowercased; password is 8-128 chars.
+- Access JWT lifetime is 15 minutes; refresh JWT lifetime is 30 days. Both contain `sub=<user UUID>` and `type=access|refresh`.
+- `/auth/refresh` returns a new access token; the submitted refresh token remains valid until expiry. No revocation or true rotation is implemented.
 - Passwords use Argon2 and never appear in API output or logs.
-- Registration creates User + Family + active owner FamilyMembership atomically.
-- Requests outside the authenticated user's accessible family return 404, not 403, to avoid leaking cross-family resource existence.
-- Family-member language values are exactly `en` or `bn`; date of birth cannot be in the future; timezone must be a valid IANA zone. New Flutter members default to `Asia/Dhaka`.
-- Manual medicines use `medicine_master_id = NULL`, are created with `status=draft`, require `start_date`, and reject `end_date < start_date`.
-- `prescription_id` and `extraction_id` are nullable UUID columns without foreign keys in this migration because those target tables do not exist yet.
-- No schedule, dose, reminder, Today, prescription upload, OCR/HTR, medicine-catalog import, caregiver invitation, or offline write-sync code in this plan.
-- All new mobile copy is localized in both English and Bangla; no hard-coded user-facing strings in widgets.
-- Use the existing FamilyMed teal/cream theme and minimum ~44-48 px primary touch targets.
-- Backend CI remains PostgreSQL-backed; mobile CI must still pass generation, analyze, tests, and Android debug build.
+- Registration creates User + Family + active owner FamilyMembership in one DB transaction.
+- Cross-family member/medication access returns 404, never a revealing 403.
+- Family-member language is exactly `en` or `bn`; DOB cannot be future; timezone must be a valid IANA zone. Flutter defaults new members to `Asia/Dhaka`.
+- Manual medicines have `medicine_master_id=NULL`, server-controlled `status=draft`, required `start_date`, and `end_date >= start_date` when present.
+- `prescription_id` and `extraction_id` are nullable UUID columns without FKs in this migration.
+- No schedule, dose, reminder, Today, prescription upload, OCR/HTR, medicine-catalog import, caregiver invitation, or offline write-sync implementation.
+- Every new mobile string is in both `app_en.arb` and `app_bn.arb`; widgets contain no new hard-coded user-facing copy.
+- Existing FamilyMed teal/cream theme stays authoritative; primary controls remain at least ~44-48 px high.
 
 ## Review Focus
 
-1. **Email normalization collisions:** ` User@Example.com ` and `user@example.com` must resolve to one account and the second registration must return 409.
-2. **Wrong JWT type or expired session:** access tokens cannot refresh; refresh tokens cannot authorize protected endpoints; unrecoverable Flutter refresh failure clears secure tokens and returns to login.
-3. **Cross-family UUID probing:** user A must receive 404 for user B's member/medication on read, list, create, and update paths.
-4. **Invalid dates/timezones:** future DOB, invalid IANA timezone, and medication end date before start date must produce the standard validation envelope without raw framework errors.
-5. **Concurrent mobile 401s:** simultaneous protected requests must share one in-flight refresh instead of issuing duplicate refresh calls or racing token writes.
+1. **Normalized-email collision:** ` User@Example.com ` then `user@example.com` must result in one account and a 409 on the second registration.
+2. **JWT type/session failure:** access tokens cannot refresh, refresh tokens cannot authorize protected routes, and unrecoverable mobile refresh failure clears tokens and auth state.
+3. **Cross-family UUID probing:** user A gets 404 for user B's member/medication on read, list, create, and update paths.
+4. **Invalid dates/timezone:** future DOB, invalid IANA timezone, and medication end-before-start return the standard validation envelope.
+5. **Concurrent mobile 401s:** two simultaneous 401 responses trigger one refresh request and both original calls retry once with the new access token.
 
 ---
 
-## File Structure Locked by This Plan
+## Locked interfaces
 
-```text
-backend/
-├── pyproject.toml
-├── uv.lock
-├── app/
-│   ├── config.py
-│   ├── db.py
-│   ├── models.py
-│   ├── main.py
-│   ├── api/health.py
-│   ├── common/
-│   │   ├── __init__.py
-│   │   ├── auth.py
-│   │   └── errors.py
-│   ├── users/
-│   │   ├── __init__.py
-│   │   └── models.py
-│   ├── auth/
-│   │   ├── __init__.py
-│   │   ├── router.py
-│   │   ├── schemas.py
-│   │   ├── security.py
-│   │   └── service.py
-│   ├── families/
-│   │   ├── __init__.py
-│   │   ├── models.py
-│   │   ├── repository.py
-│   │   ├── router.py
-│   │   ├── schemas.py
-│   │   └── service.py
-│   └── medications/
-│       ├── __init__.py
-│       ├── models.py
-│       ├── repository.py
-│       ├── router.py
-│       ├── schemas.py
-│       └── service.py
-├── migrations/
-│   ├── env.py
-│   └── versions/0002_auth_family_medications.py
-└── tests/
-    ├── conftest.py
-    ├── test_auth.py
-    ├── test_family_members.py
-    └── test_medications.py
+### Backend auth JSON
 
-mobile/
-├── pubspec.yaml
-├── pubspec.lock
-├── lib/
-│   ├── main.dart
-│   ├── app/
-│   │   ├── app.dart
-│   │   └── router.dart
-│   ├── core/
-│   │   ├── api/
-│   │   │   ├── api_client.dart
-│   │   │   └── api_error.dart
-│   │   ├── auth/
-│   │   │   ├── auth_controller.dart
-│   │   │   ├── auth_state.dart
-│   │   │   ├── auth_tokens.dart
-│   │   │   └── token_store.dart
-│   │   └── storage/
-│   │       └── secure_token_store.dart
-│   ├── features/
-│   │   ├── welcome/presentation/welcome_screen.dart
-│   │   ├── auth/
-│   │   │   ├── data/auth_repository.dart
-│   │   │   ├── domain/current_user.dart
-│   │   │   └── presentation/
-│   │   │       ├── login_screen.dart
-│   │   │       └── register_screen.dart
-│   │   ├── family/
-│   │   │   ├── data/family_repository.dart
-│   │   │   ├── domain/family_member.dart
-│   │   │   └── presentation/
-│   │   │       ├── add_family_member_screen.dart
-│   │   │       ├── family_list_screen.dart
-│   │   │       ├── member_profile_screen.dart
-│   │   │       └── who_do_you_care_for_screen.dart
-│   │   └── medications/
-│   │       ├── data/medication_repository.dart
-│   │       ├── domain/member_medication.dart
-│   │       └── presentation/add_manual_medication_screen.dart
-│   └── l10n/
-│       ├── app_en.arb
-│       └── app_bn.arb
-└── test/
-    ├── app_test.dart
-    ├── core/api/api_client_test.dart
-    ├── core/auth/auth_controller_test.dart
-    ├── features/auth/auth_flow_test.dart
-    ├── features/family/family_flow_test.dart
-    └── features/medications/manual_medication_flow_test.dart
+Register/login success:
+
+```json
+{
+  "user": {
+    "id": "uuid",
+    "name": "Sifat",
+    "email": "sifat@example.com",
+    "preferred_language": "en",
+    "timezone": "Asia/Dhaka"
+  },
+  "access_token": "jwt",
+  "refresh_token": "jwt",
+  "token_type": "bearer"
+}
+```
+
+Refresh request/response:
+
+```json
+{"refresh_token": "jwt"}
+```
+
+```json
+{"access_token": "new-jwt", "token_type": "bearer"}
+```
+
+Standard error:
+
+```json
+{
+  "error": {
+    "code": "MACHINE_READABLE_CODE",
+    "message": "Human-readable message",
+    "details": {}
+  }
+}
+```
+
+### Mobile domain interfaces
+
+```dart
+abstract interface class TokenStore {
+  Future<AuthTokens?> read();
+  Future<void> write(AuthTokens tokens);
+  Future<void> clear();
+}
+```
+
+```dart
+abstract interface class AuthRepository {
+  Future<AuthSession> register({required String name, required String email, required String password});
+  Future<AuthSession> login({required String email, required String password});
+  Future<CurrentUser> me();
+}
+```
+
+```dart
+abstract interface class FamilyRepository {
+  Future<List<FamilyMember>> listMembers();
+  Future<FamilyMember> createMember(CreateFamilyMemberInput input);
+  Future<FamilyMember> getMember(String id);
+  Future<FamilyMember> updateMember(String id, UpdateFamilyMemberInput input);
+}
+```
+
+```dart
+abstract interface class MedicationRepository {
+  Future<List<MemberMedication>> listForMember(String memberId);
+  Future<MemberMedication> createManual(String memberId, CreateManualMedicationInput input);
+  Future<MemberMedication> getMedication(String id);
+  Future<MemberMedication> updateMedication(String id, UpdateManualMedicationInput input);
+}
 ```
 
 ---
 
-### Task 1: Backend domain persistence and migration
+### Task 1: Backend models, isolated DB tests, and migration
 
 **Files:**
 - Modify: `backend/app/db.py`
@@ -151,17 +129,15 @@ mobile/
 - Create: `backend/app/medications/__init__.py`
 - Create: `backend/app/medications/models.py`
 - Modify: `backend/migrations/env.py`
-- Create: `backend/migrations/versions/0002_auth_family_medications.py`
+- Create via Alembic: `backend/migrations/versions/0002_auth_family_medications.py`
 - Create: `backend/tests/conftest.py`
-- Test: `backend/tests/test_auth.py`
+- Create: `backend/tests/test_auth.py`
 
-**Interfaces:**
-- Consumes: existing `get_db_session()` and PostgreSQL CI service.
-- Produces: `Base`, `User`, `Family`, `FamilyMembership`, `FamilyMember`, `MedicineMaster`, `MemberMedication`, plus migrated tables at revision `0002_auth_family_medications`.
+**Produces:** `Base`, all six domain tables plus `medicine_master`, and rollback-isolated async API/DB test fixtures.
 
-- [ ] **Step 1: Write the failing persistence test**
+- [ ] **Step 1: Write the failing model test**
 
-Create `backend/tests/test_auth.py` with a database-level test that expects the new models to persist and their defaults to be correct:
+`backend/tests/test_auth.py`:
 
 ```python
 from sqlalchemy import select
@@ -174,11 +150,9 @@ async def test_user_family_membership_models_persist(db_session):
     user = User(name="Sifat", email="sifat@example.com", password_hash="argon2-hash")
     db_session.add(user)
     await db_session.flush()
-
     family = Family(name="Sifat's family", created_by_user_id=user.id)
     db_session.add(family)
     await db_session.flush()
-
     membership = FamilyMembership(
         family_id=family.id,
         user_id=user.id,
@@ -187,7 +161,6 @@ async def test_user_family_membership_models_persist(db_session):
     )
     db_session.add(membership)
     await db_session.flush()
-
     saved = await db_session.scalar(select(User).where(User.id == user.id))
     assert saved is not None
     assert saved.email == "sifat@example.com"
@@ -195,190 +168,253 @@ async def test_user_family_membership_models_persist(db_session):
     assert membership.status == "active"
 ```
 
-`backend/tests/conftest.py` must provide an `AsyncSession` bound to the PostgreSQL test database and isolate each test with a rollback/savepoint so service commits do not leak rows between tests.
-
-- [ ] **Step 2: Run the test and verify RED**
+- [ ] **Step 2: Run RED**
 
 ```bash
 cd backend
 uv run pytest tests/test_auth.py::test_user_family_membership_models_persist -v
 ```
 
-Expected: FAIL because `app.users.models` / `app.families.models` do not exist.
+Expected: import failure because the model modules do not exist.
 
-- [ ] **Step 3: Introduce the declarative base and exact model fields**
+- [ ] **Step 3: Add the declarative base and timestamp mixin**
 
-Modify `backend/app/db.py`:
+Add to `backend/app/db.py`:
 
 ```python
-from sqlalchemy.orm import DeclarativeBase
+from datetime import datetime
+from sqlalchemy import DateTime, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
 ```
 
-Implement model UUID primary keys with `uuid.uuid4`, timezone-aware `created_at`/`updated_at`, and the spec fields. Representative declarations:
+Keep the existing engine/session/readiness functions.
 
-```python
-class User(Base):
-    __tablename__ = "users"
+- [ ] **Step 4: Implement the exact model columns**
 
-    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    name: Mapped[str] = mapped_column(String(120), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    preferred_language: Mapped[str] = mapped_column(String(5), nullable=False, default="en")
-    timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="Asia/Dhaka")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+Use `Mapped[UUID]`, SQLAlchemy `Uuid`, and `default=uuid4` for every PK.
+
+`users`:
+
+```text
+id UUID PK
+name String(120) NOT NULL
+email String(255) NOT NULL UNIQUE INDEX
+password_hash Text NOT NULL
+preferred_language String(5) NOT NULL default "en"
+timezone String(64) NOT NULL default "Asia/Dhaka"
+created_at/updated_at timestamptz
 ```
 
-```python
-class FamilyMembership(Base):
-    __tablename__ = "family_memberships"
-    __table_args__ = (UniqueConstraint("family_id", "user_id", name="uq_family_membership"),)
+`families`:
+
+```text
+id UUID PK
+name String(160) NOT NULL
+created_by_user_id UUID FK users.id NOT NULL
+created_at/updated_at
 ```
 
-`MemberMedication` must include `prescription_id` and `extraction_id` as nullable UUID columns without foreign keys.
+`family_memberships`:
 
-- [ ] **Step 4: Register metadata for Alembic**
+```text
+id UUID PK
+family_id UUID FK families.id NOT NULL
+user_id UUID FK users.id NOT NULL
+role String(20) NOT NULL
+status String(20) NOT NULL
+created_at timestamptz
+UNIQUE(family_id,user_id) named uq_family_membership
+INDEX(user_id,status) named ix_family_memberships_user_status
+```
 
-Create `backend/app/models.py` importing every model module, then update `backend/migrations/env.py`:
+`family_members`:
+
+```text
+id UUID PK
+family_id UUID FK families.id NOT NULL INDEX
+name String(120) NOT NULL
+relationship String(40) NOT NULL
+date_of_birth Date NULL
+preferred_language String(5) NOT NULL
+linked_user_id UUID FK users.id NULL
+profile_image_key Text NULL
+timezone String(64) NOT NULL default "Asia/Dhaka"
+created_at/updated_at
+archived_at timestamptz NULL
+```
+
+`medicine_master`:
+
+```text
+id UUID PK
+brand_name String(160) NULL
+generic_name String(160) NOT NULL
+strength String(80) NULL
+dosage_form String(80) NULL
+manufacturer String(160) NULL
+country String(2) NOT NULL
+source String(120) NOT NULL
+source_reference Text NULL
+normalized_search_text Text NOT NULL
+active Boolean NOT NULL default true
+created_at/updated_at
+```
+
+`member_medications`:
+
+```text
+id UUID PK
+family_member_id UUID FK family_members.id NOT NULL
+medicine_master_id UUID FK medicine_master.id NULL
+prescription_id UUID NULL (no FK)
+extraction_id UUID NULL (no FK)
+display_name String(180) NOT NULL
+strength String(80) NULL
+dosage_form String(80) NULL
+status String(20) NOT NULL default "draft"
+start_date Date NOT NULL
+end_date Date NULL
+created_by_user_id UUID FK users.id NOT NULL
+created_at/updated_at
+INDEX(family_member_id,status) named ix_member_medications_member_status
+```
+
+- [ ] **Step 5: Add exact rollback-isolated test fixtures**
+
+`backend/tests/conftest.py`:
 
 ```python
-from app.db import Base
+import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db import engine, get_db_session
+from app.main import app
+
+
+@pytest.fixture
+async def db_session():
+    async with engine.connect() as connection:
+        transaction = await connection.begin()
+        session = AsyncSession(
+            bind=connection,
+            expire_on_commit=False,
+            join_transaction_mode="create_savepoint",
+        )
+        try:
+            yield session
+        finally:
+            await session.close()
+            await transaction.rollback()
+
+
+@pytest.fixture
+async def client(db_session):
+    async def override_db_session():
+        yield db_session
+
+    app.dependency_overrides[get_db_session] = override_db_session
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
+```
+
+- [ ] **Step 6: Register metadata and generate the exact migration**
+
+`backend/app/models.py` imports all model classes so metadata registration is deterministic. Update `migrations/env.py` to:
+
+```python
 import app.models  # noqa: F401
+from app.db import Base
 
 target_metadata = Base.metadata
 ```
 
-- [ ] **Step 5: Add the explicit migration**
-
-Create `0002_auth_family_medications.py` with `down_revision = "0001_bootstrap"`. The upgrade must create tables in dependency order:
-
-```text
-users
-families
-family_memberships
-family_members
-medicine_master
-member_medications
-```
-
-Add indexes for:
-
-```text
-users(email) unique
-family_members(family_id)
-family_memberships(user_id, status)
-member_medications(family_member_id, status)
-```
-
-Downgrade drops them in reverse order.
-
-- [ ] **Step 6: Run migration and test**
+Generate:
 
 ```bash
-cd backend
+uv run alembic revision --autogenerate --rev-id 0002 -m "auth family medications"
+```
+
+Expected file: `migrations/versions/0002_auth_family_medications.py`, with `revision = "0002"` and `down_revision = "0001_bootstrap"`. Inspect it and verify it creates exactly the tables, FKs, unique constraint, and indexes listed in Step 4; no unrelated operations.
+
+- [ ] **Step 7: Verify migration + model test**
+
+```bash
 uv run alembic downgrade base
 uv run alembic upgrade head
 uv run pytest tests/test_auth.py::test_user_family_membership_models_persist -v
-```
-
-Expected: migration succeeds from empty database and the test PASSes.
-
-- [ ] **Step 7: Run backend lint**
-
-```bash
 uv run ruff check .
 ```
 
-Expected: PASS.
+Expected: all PASS.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add backend/app backend/migrations backend/tests/conftest.py backend/tests/test_auth.py
+git add backend
 git commit -m "feat: add auth family medication persistence"
 ```
 
 ---
 
-### Task 2: Backend authentication, standard errors, and session restore
+### Task 2: Backend auth, error envelope, and `/auth/me`
 
 **Files:**
-- Modify: `backend/pyproject.toml`
-- Modify generated: `backend/uv.lock`
-- Modify: `backend/app/config.py`
-- Create: `backend/app/common/__init__.py`
-- Create: `backend/app/common/errors.py`
-- Create: `backend/app/common/auth.py`
-- Create: `backend/app/auth/__init__.py`
-- Create: `backend/app/auth/security.py`
-- Create: `backend/app/auth/schemas.py`
-- Create: `backend/app/auth/service.py`
-- Create: `backend/app/auth/router.py`
-- Modify: `backend/app/main.py`
-- Modify/Test: `backend/tests/test_auth.py`
+- Modify: `backend/pyproject.toml`, `backend/uv.lock`, `backend/app/config.py`, `backend/app/main.py`
+- Create: `backend/app/common/__init__.py`, `backend/app/common/errors.py`, `backend/app/common/auth.py`
+- Create: `backend/app/auth/__init__.py`, `backend/app/auth/security.py`, `backend/app/auth/schemas.py`, `backend/app/auth/service.py`, `backend/app/auth/router.py`
+- Modify: `backend/tests/test_auth.py`
 
-**Interfaces:**
-- Consumes: `User`, `Family`, `FamilyMembership`, `get_db_session()`.
-- Produces: `hash_password()`, `verify_password()`, `create_access_token()`, `create_refresh_token()`, `decode_token()`, `get_current_user()`, and `/api/v1/auth/register|login|refresh|me`.
+**Produces:** `/api/v1/auth/register`, `/login`, `/refresh`, `/me`, `get_current_user()`.
 
-- [ ] **Step 1: Add failing authentication API tests**
+- [ ] **Step 1: Add failing auth tests**
 
-Add tests covering normalization, duplicate registration, hashing, generic invalid credentials, token typing, refresh, and `/me`:
-
-```python
-async def test_register_normalizes_email_and_creates_family(client, db_session):
-    response = await client.post(
-        "/api/v1/auth/register",
-        json={"name": " Sifat ", "email": " USER@Example.com ", "password": "password123"},
-    )
-    assert response.status_code == 201
-    body = response.json()
-    assert body["user"]["name"] == "Sifat"
-    assert body["user"]["email"] == "user@example.com"
-    assert body["access_token"]
-    assert body["refresh_token"]
-
-
-async def test_duplicate_normalized_email_returns_standard_409(client):
-    payload = {"name": "Sifat", "email": "user@example.com", "password": "password123"}
-    assert (await client.post("/api/v1/auth/register", json=payload)).status_code == 201
-    response = await client.post(
-        "/api/v1/auth/register",
-        json={**payload, "email": " USER@EXAMPLE.COM "},
-    )
-    assert response.status_code == 409
-    assert response.json()["error"]["code"] == "EMAIL_ALREADY_REGISTERED"
-```
-
-Add tests proving:
+Add tests with these exact expected outcomes:
 
 ```text
+register " USER@Example.com " -> 201 and returned email user@example.com
+second register user@example.com -> 409 EMAIL_ALREADY_REGISTERED
+DB password_hash != submitted password and begins with an Argon2 encoding
 wrong password -> 401 INVALID_CREDENTIALS
-unknown email -> same 401 INVALID_CREDENTIALS
-access token sent to /auth/refresh -> 401 INVALID_TOKEN
-refresh token sent as Bearer to /auth/me -> 401 INVALID_TOKEN
-valid refresh -> new access_token, no replacement refresh_token field required
-/auth/me -> id/name/email/preferred_language/timezone only
-password_hash never appears in any JSON
-7-char password -> 422 VALIDATION_ERROR
-129-char password -> 422 VALIDATION_ERROR
+unknown email -> identical 401 INVALID_CREDENTIALS message
+7-char or 129-char password -> 422 VALIDATION_ERROR
+access token submitted to /auth/refresh -> 401 INVALID_TOKEN
+refresh token as Bearer on /auth/me -> 401 INVALID_TOKEN
+valid refresh -> 200 with access_token + token_type only
+/auth/me -> id,name,email,preferred_language,timezone and no password_hash
+no Bearer token on /auth/me -> 401 INVALID_TOKEN
 ```
 
-- [ ] **Step 2: Run auth tests and verify RED**
+Review Focus #1 and #2 are pinned here.
+
+- [ ] **Step 2: Run RED**
 
 ```bash
-cd backend
 uv run pytest tests/test_auth.py -v
 ```
 
-Expected: API tests fail because auth routes/security do not exist.
+Expected: auth route/import failures.
 
-- [ ] **Step 3: Add security dependencies and config**
+- [ ] **Step 3: Add dependencies/config**
 
 Add runtime dependencies:
 
@@ -388,13 +424,13 @@ Add runtime dependencies:
 "email-validator>=2.2,<3",
 ```
 
-Run:
+Then:
 
 ```bash
 uv lock
 ```
 
-Extend `Settings`:
+Add settings:
 
 ```python
 jwt_algorithm: str = "HS256"
@@ -402,9 +438,7 @@ access_token_minutes: int = 15
 refresh_token_days: int = 30
 ```
 
-- [ ] **Step 4: Implement password and JWT primitives**
-
-`backend/app/auth/security.py`:
+- [ ] **Step 4: Implement `security.py` exactly around token type**
 
 ```python
 from datetime import UTC, datetime, timedelta
@@ -413,15 +447,27 @@ from uuid import UUID
 import jwt
 from pwdlib import PasswordHash
 
-password_hash = PasswordHash.recommended()
+from app.config import get_settings
+
+settings = get_settings()
+password_hasher = PasswordHash.recommended()
 
 
 def hash_password(value: str) -> str:
-    return password_hash.hash(value)
+    return password_hasher.hash(value)
 
 
 def verify_password(value: str, encoded: str) -> bool:
-    return password_hash.verify(value, encoded)
+    return password_hasher.verify(value, encoded)
+
+
+def _create_token(user_id: UUID, token_type: str, lifetime: timedelta) -> str:
+    now = datetime.now(UTC)
+    return jwt.encode(
+        {"sub": str(user_id), "type": token_type, "iat": now, "exp": now + lifetime},
+        settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+    )
 
 
 def create_access_token(user_id: UUID) -> str:
@@ -432,145 +478,124 @@ def create_refresh_token(user_id: UUID) -> str:
     return _create_token(user_id, "refresh", timedelta(days=settings.refresh_token_days))
 ```
 
-`decode_token(token, expected_type)` must reject invalid signature, expiry, malformed `sub`, and wrong `type` with the same `INVALID_TOKEN` API error.
+`decode_token(token, expected_type)` decodes using only `[settings.jwt_algorithm]`, parses `sub` as UUID, checks exact `type`, and maps `ExpiredSignatureError`, `InvalidTokenError`, bad UUID, missing claims, and wrong type to `ApiError(401, "INVALID_TOKEN", "Authentication is invalid or expired.")`.
 
-- [ ] **Step 5: Implement the common error envelope**
+- [ ] **Step 5: Implement standard errors**
 
-`ApiError` carries `status_code`, `code`, `message`, `details`. Register handlers in `main.py` for `ApiError` and FastAPI `RequestValidationError`:
-
-```python
-return JSONResponse(
-    status_code=422,
-    content={
-        "error": {
-            "code": "VALIDATION_ERROR",
-            "message": "Request validation failed.",
-            "details": {"fields": normalized_errors},
-        }
-    },
-)
-```
-
-Do not change `/health` and `/ready` semantics in this task.
-
-- [ ] **Step 6: Implement transactional register/login/refresh/me**
-
-Registration service pseudocode must be implemented as one transaction:
+`ApiError` stores status/code/message/details. Add exception handlers in `main.py` for `ApiError` and `RequestValidationError`. Validation handler returns status 422 and:
 
 ```python
-normalized_email = payload.email.strip().lower()
-existing = await session.scalar(select(User).where(User.email == normalized_email))
-if existing:
-    raise ApiError(409, "EMAIL_ALREADY_REGISTERED", "An account already uses this email.")
-
-user = User(..., password_hash=hash_password(payload.password))
-family = Family(name=f"{user.name}'s family", created_by_user_id=user.id)
-membership = FamilyMembership(..., role="owner", status="active")
-session.add_all([user, family, membership])
-await session.commit()
+{
+    "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "Request validation failed.",
+        "details": {"fields": exc.errors()},
+    }
+}
 ```
 
-Use `await session.flush()` where IDs are needed before commit.
+Do not alter existing `/health` or `/ready` HTTPException behavior.
 
-`get_current_user()` reads a Bearer access token, validates `type=access`, loads the user, and returns 401 `INVALID_TOKEN` if the user no longer exists.
+- [ ] **Step 6: Implement exact Pydantic auth schemas**
 
-- [ ] **Step 7: Wire router**
-
-In `main.py`:
+Use `EmailStr`, `StringConstraints`, and field validators:
 
 ```python
-app.include_router(auth_router, prefix="/api/v1/auth")
+Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+Password = Annotated[str, StringConstraints(min_length=8, max_length=128)]
+
+class RegisterRequest(BaseModel):
+    name: Name
+    email: EmailStr
+    password: Password
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value):
+        return str(value).strip().lower()
 ```
 
-Expected statuses:
+`LoginRequest` uses normalized `EmailStr` + password string. `RefreshRequest` has `refresh_token: str`. `UserResponse` exposes only `id,name,email,preferred_language,timezone`. `AuthResponse` and `RefreshResponse` match Locked interfaces above.
+
+- [ ] **Step 7: Implement atomic registration and login**
+
+Registration runs its lookup and inserts inside one `async with session.begin()` block, flushing after User and Family inserts to obtain IDs. Catch `IntegrityError` around the transaction and map email uniqueness races to the same 409 code.
+
+Create:
 
 ```text
-POST /auth/register -> 201
-POST /auth/login -> 200
-POST /auth/refresh -> 200
-GET  /auth/me -> 200
+User(name trimmed, email normalized, password_hash Argon2)
+Family(name="<trimmed name>'s family", created_by_user_id=user.id)
+FamilyMembership(family_id=family.id,user_id=user.id,role="owner",status="active")
 ```
 
-- [ ] **Step 8: Run auth + legacy tests**
+Login performs one email lookup, verifies Argon2, and returns the same generic `INVALID_CREDENTIALS` response for unknown email and wrong password.
+
+- [ ] **Step 8: Implement `get_current_user()` and routes**
+
+Use `HTTPBearer(auto_error=False)`. Only `type=access` succeeds. Load User by JWT `sub`; missing/deleted user maps to `INVALID_TOKEN`.
+
+Wire:
+
+```text
+POST /api/v1/auth/register -> 201 AuthResponse
+POST /api/v1/auth/login -> 200 AuthResponse
+POST /api/v1/auth/refresh -> 200 RefreshResponse
+GET  /api/v1/auth/me -> 200 UserResponse
+```
+
+- [ ] **Step 9: Verify + commit**
 
 ```bash
-cd backend
 uv run ruff check .
 uv run pytest tests/test_auth.py tests/test_config.py tests/test_health.py -v
-```
-
-Expected: PASS.
-
-- [ ] **Step 9: Commit**
-
-```bash
 git add backend
 git commit -m "feat: add email password authentication"
 ```
 
 ---
 
-### Task 3: Backend family-member API and authorization boundary
+### Task 3: Backend family-member APIs with one-query ownership checks
 
 **Files:**
-- Create: `backend/app/families/schemas.py`
-- Create: `backend/app/families/repository.py`
-- Create: `backend/app/families/service.py`
-- Create: `backend/app/families/router.py`
+- Create: `backend/app/families/schemas.py`, `repository.py`, `service.py`, `router.py`
 - Modify: `backend/app/main.py`
-- Create/Test: `backend/tests/test_family_members.py`
+- Create: `backend/tests/test_family_members.py`
 
-**Interfaces:**
-- Consumes: `get_current_user()`, `FamilyMembership`, `FamilyMember`, `AsyncSession`.
-- Produces: `require_accessible_member(session, user_id, member_id) -> FamilyMember` plus GET/POST/PATCH family-member APIs.
+**Produces:** `require_accessible_member(session,user_id,member_id)` and family-member list/create/read/update APIs.
 
-- [ ] **Step 1: Write failing family API tests**
+- [ ] **Step 1: Write failing tests**
 
-Tests must cover create/list/read/update, archived exclusion, future DOB, invalid timezone, and cross-family 404:
-
-```python
-async def test_create_family_member(client, auth_headers):
-    response = await client.post(
-        "/api/v1/family-members",
-        headers=auth_headers,
-        json={
-            "name": "Amma",
-            "relationship": "mother",
-            "preferred_language": "bn",
-            "timezone": "Asia/Dhaka",
-        },
-    )
-    assert response.status_code == 201
-    assert response.json()["name"] == "Amma"
-    assert response.json()["preferred_language"] == "bn"
-```
-
-Review-focus tests:
+Test:
 
 ```text
+create Amma/mother/bn/Asia-Dhaka -> 201
+list returns Amma for owner
+GET returns Amma
+PATCH relationship/name/language/timezone/DOB -> persists
 future DOB -> 422 VALIDATION_ERROR
-"Not/A_Real_Zone" -> 422 VALIDATION_ERROR
+invalid timezone Not/A_Real_Zone -> 422 VALIDATION_ERROR
 user A GET user B member -> 404 FAMILY_MEMBER_NOT_FOUND
 user A PATCH user B member -> 404 FAMILY_MEMBER_NOT_FOUND
+archived_at non-null row is omitted from normal list
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+Review Focus #3 and family portion of #4 are pinned here.
+
+- [ ] **Step 2: Run RED**
 
 ```bash
-cd backend
 uv run pytest tests/test_family_members.py -v
 ```
 
-Expected: 404 route-not-found or import failure.
+- [ ] **Step 3: Implement schema validation**
 
-- [ ] **Step 3: Implement schemas and validation**
-
-Use Pydantic field validators:
+Use trimmed constrained strings, `Literal["en","bn"]`, a DOB validator against `date.today()`, and:
 
 ```python
 @field_validator("timezone")
 @classmethod
-def valid_timezone(cls, value: str) -> str:
+def validate_timezone(cls, value: str) -> str:
     try:
         ZoneInfo(value)
     except ZoneInfoNotFoundError as exc:
@@ -578,271 +603,154 @@ def valid_timezone(cls, value: str) -> str:
     return value
 ```
 
-DOB validator compares to `date.today()`. `preferred_language` is `Literal["en", "bn"]`.
+Create request requires `name,relationship,preferred_language,timezone`; DOB optional. PATCH fields are all optional but use the same validators.
 
-- [ ] **Step 4: Implement membership-scoped repository helpers**
+- [ ] **Step 4: Implement repository queries**
 
-The accessible-member query must join membership to the member's family rather than loading the member first and checking later:
+Accessible member query must join before returning the row:
 
 ```python
-stmt = (
-    select(FamilyMember)
-    .join(FamilyMembership, FamilyMembership.family_id == FamilyMember.family_id)
-    .where(
-        FamilyMember.id == member_id,
-        FamilyMembership.user_id == user_id,
-        FamilyMembership.status == "active",
-        FamilyMember.archived_at.is_(None),
-    )
+select(FamilyMember).join(
+    FamilyMembership, FamilyMembership.family_id == FamilyMember.family_id
+).where(
+    FamilyMember.id == member_id,
+    FamilyMembership.user_id == user_id,
+    FamilyMembership.status == "active",
+    FamilyMember.archived_at.is_(None),
 )
 ```
 
-If no row exists, raise 404 `FAMILY_MEMBER_NOT_FOUND`.
+No row -> `ApiError(404,"FAMILY_MEMBER_NOT_FOUND","Family member was not found.")`.
 
-- [ ] **Step 5: Implement create/list/read/update service + router**
+For create, select exactly one active membership with role in `{"owner","caregiver"}`; V1 registration produces only owner. If none exists, return 409 `FAMILY_CONTEXT_MISSING`.
 
-For V1 creation, determine the current user's active owner family. If none exists, treat it as an internal consistency failure rather than silently creating another family.
-
-PATCH may update only:
+- [ ] **Step 5: Implement routes**
 
 ```text
-name
-relationship
-date_of_birth
-preferred_language
-timezone
+GET   /api/v1/family-members -> non-archived accessible members
+POST  /api/v1/family-members -> 201
+GET   /api/v1/family-members/{member_id} -> 200 or scoped 404
+PATCH /api/v1/family-members/{member_id} -> 200 or scoped 404
 ```
 
-Do not expose archive/delete actions in this slice.
+All require `get_current_user()`.
 
-- [ ] **Step 6: Wire router and run tests**
+- [ ] **Step 6: Verify + commit**
 
 ```bash
-cd backend
 uv run ruff check .
 uv run pytest tests/test_family_members.py tests/test_auth.py -v
-```
-
-Expected: PASS.
-
-- [ ] **Step 7: Commit**
-
-```bash
 git add backend/app/families backend/app/main.py backend/tests/test_family_members.py
 git commit -m "feat: add family member APIs"
 ```
 
 ---
 
-### Task 4: Backend manual-medication API with cross-family protection
+### Task 4: Backend manual-medication APIs
 
 **Files:**
-- Create: `backend/app/medications/schemas.py`
-- Create: `backend/app/medications/repository.py`
-- Create: `backend/app/medications/service.py`
-- Create: `backend/app/medications/router.py`
+- Create: `backend/app/medications/schemas.py`, `repository.py`, `service.py`, `router.py`
 - Modify: `backend/app/main.py`
-- Create/Test: `backend/tests/test_medications.py`
+- Create: `backend/tests/test_medications.py`
 
-**Interfaces:**
-- Consumes: `require_accessible_member()`, `get_current_user()`, `MemberMedication`.
-- Produces: `require_accessible_medication(session, user_id, medication_id) -> MemberMedication` and manual medication endpoints.
+**Produces:** `require_accessible_medication()` plus member medication list/create/read/update.
 
-- [ ] **Step 1: Write failing medication API tests**
+- [ ] **Step 1: Write failing tests**
 
-Core test:
-
-```python
-async def test_create_manual_medication_is_draft(client, auth_headers, amma):
-    response = await client.post(
-        f"/api/v1/family-members/{amma['id']}/medications",
-        headers=auth_headers,
-        json={
-            "display_name": " Metformin ",
-            "strength": "500 mg",
-            "dosage_form": "tablet",
-            "start_date": "2026-09-23",
-        },
-    )
-    assert response.status_code == 201
-    body = response.json()
-    assert body["display_name"] == "Metformin"
-    assert body["status"] == "draft"
-    assert body["medicine_master_id"] is None
-```
-
-Add tests for:
+Test exact behavior:
 
 ```text
+create Metformin/500 mg/tablet -> 201, status draft, medicine_master_id null
+whitespace display_name -> 422 VALIDATION_ERROR
+blank optional strength/form -> persisted as null
 end_date before start_date -> 422 VALIDATION_ERROR
-empty/whitespace display_name -> 422
-list only medications for requested member
-PATCH cannot accept status
-PATCH allowed fields persist
+list is limited to requested authorized member
+PATCH name/strength/form/start/end -> persists
+PATCH payload containing status -> ignored/rejected by schema and never changes status
 user A list/create under user B member -> 404 FAMILY_MEMBER_NOT_FOUND
 user A GET/PATCH user B medication -> 404 MEDICATION_NOT_FOUND
 ```
 
-- [ ] **Step 2: Run and verify RED**
+Review Focus #3 and medication portion of #4 are pinned here.
+
+- [ ] **Step 2: Run RED**
 
 ```bash
-cd backend
 uv run pytest tests/test_medications.py -v
 ```
 
-Expected: route/import failures.
-
 - [ ] **Step 3: Implement schemas**
-
-Creation schema fields:
 
 ```python
 class ManualMedicationCreate(BaseModel):
-    display_name: str = Field(min_length=1, max_length=180)
-    strength: str | None = Field(default=None, max_length=80)
-    dosage_form: str | None = Field(default=None, max_length=80)
+    display_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=180)]
+    strength: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=80)] = None
+    dosage_form: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=80)] = None
     start_date: date
     end_date: date | None = None
+
+    @model_validator(mode="after")
+    def validate_dates(self):
+        if self.end_date is not None and self.end_date < self.start_date:
+            raise ValueError("end date cannot be before start date")
+        if self.strength == "":
+            self.strength = None
+        if self.dosage_form == "":
+            self.dosage_form = None
+        return self
 ```
 
-Use a model validator to reject `end_date < start_date`; trim optional strings and convert blank optional strings to `None`.
+PATCH exposes only these five identity/date fields; do not define status/member/master/prescription/extraction/creator fields in client schemas.
 
-- [ ] **Step 4: Implement repository authorization query**
+- [ ] **Step 4: Implement scoped repository + server-controlled create**
 
-Medication access query joins:
+`require_accessible_medication` joins `MemberMedication -> FamilyMember -> FamilyMembership` and filters active membership/current user in one statement. Missing/inaccessible -> 404 `MEDICATION_NOT_FOUND`.
 
-```text
-member_medications
--> family_members
--> family_memberships
-```
-
-and filters active membership for the current user in one statement. Missing/inaccessible row returns 404 `MEDICATION_NOT_FOUND`.
-
-- [ ] **Step 5: Implement API**
-
-Routes:
-
-```text
-GET   /api/v1/family-members/{member_id}/medications -> 200
-POST  /api/v1/family-members/{member_id}/medications -> 201
-GET   /api/v1/member-medications/{medication_id} -> 200
-PATCH /api/v1/member-medications/{medication_id} -> 200
-```
-
-Create values are server-controlled:
+Create always sets:
 
 ```python
-MemberMedication(
-    family_member_id=member.id,
-    medicine_master_id=None,
-    prescription_id=None,
-    extraction_id=None,
-    status="draft",
-    created_by_user_id=current_user.id,
-    ...
-)
+medicine_master_id=None
+prescription_id=None
+extraction_id=None
+status="draft"
+created_by_user_id=current_user.id
 ```
 
-Never accept `status`, `family_member_id`, `medicine_master_id`, `created_by_user_id`, `prescription_id`, or `extraction_id` from the manual-create/PATCH client contract.
+- [ ] **Step 5: Implement routes**
 
-- [ ] **Step 6: Run complete backend verification**
+```text
+GET   /api/v1/family-members/{member_id}/medications
+POST  /api/v1/family-members/{member_id}/medications -> 201
+GET   /api/v1/member-medications/{medication_id}
+PATCH /api/v1/member-medications/{medication_id}
+```
+
+- [ ] **Step 6: Full backend gate + commit**
 
 ```bash
-cd backend
 uv run ruff check .
 uv run alembic upgrade head
 uv run pytest -v
-```
-
-Expected: all backend tests PASS.
-
-- [ ] **Step 7: Commit**
-
-```bash
 git add backend
 git commit -m "feat: add manual medication APIs"
 ```
 
 ---
 
-### Task 5: Flutter auth infrastructure, secure token storage, and refresh gate
+### Task 5: Flutter secure session infrastructure and concurrent refresh gate
 
 **Files:**
-- Modify: `mobile/pubspec.yaml`
-- Modify generated: `mobile/pubspec.lock`
-- Modify: `mobile/lib/main.dart`
-- Create: `mobile/lib/core/api/api_error.dart`
-- Create: `mobile/lib/core/api/api_client.dart`
-- Create: `mobile/lib/core/auth/auth_tokens.dart`
-- Create: `mobile/lib/core/auth/auth_state.dart`
-- Create: `mobile/lib/core/auth/auth_controller.dart`
-- Create: `mobile/lib/core/auth/token_store.dart`
+- Modify: `mobile/pubspec.yaml`, generated `mobile/pubspec.lock`, `mobile/lib/main.dart`
+- Create: `mobile/lib/core/api/api_config.dart`, `api_error.dart`, `api_client.dart`
+- Create: `mobile/lib/core/auth/auth_tokens.dart`, `auth_state.dart`, `auth_controller.dart`, `token_store.dart`, `session_events.dart`
 - Create: `mobile/lib/core/storage/secure_token_store.dart`
-- Create: `mobile/lib/features/auth/domain/current_user.dart`
+- Create: `mobile/lib/features/auth/domain/current_user.dart`, `auth_session.dart`
 - Create: `mobile/lib/features/auth/data/auth_repository.dart`
-- Create/Test: `mobile/test/core/api/api_client_test.dart`
-- Create/Test: `mobile/test/core/auth/auth_controller_test.dart`
+- Create: `mobile/test/core/api/api_client_test.dart`, `mobile/test/core/auth/auth_controller_test.dart`
 
-**Interfaces:**
-- Consumes backend `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/me`.
-- Produces providers for `TokenStore`, `ApiClient`, `AuthRepository`, and `AuthController`; `AuthState` exposes `loading|unauthenticated|authenticated` plus `CurrentUser`.
+**Produces:** secure session storage, shared refresh future, auth state used by router.
 
-- [ ] **Step 1: Add failing auth-state/token tests first**
-
-Define a fake token store and fake auth repository. Tests must prove:
-
-```text
-restore with no refresh token -> unauthenticated
-restore with stored session + successful /me -> authenticated
-restore requiring access refresh -> authenticated after new access token is saved
-unrecoverable restore/refresh -> tokens cleared + unauthenticated
-logout -> tokens cleared + unauthenticated
-```
-
-Representative test:
-
-```dart
-test('restore clears unrecoverable session', () async {
-  final store = FakeTokenStore(AuthTokens('expired-access', 'bad-refresh'));
-  final repository = FakeAuthRepository(meError: const AuthFailure.invalidSession());
-  final controller = AuthController(repository: repository, tokenStore: store);
-
-  await controller.restore();
-
-  expect(controller.state.status, AuthStatus.unauthenticated);
-  expect(await store.read(), isNull);
-});
-```
-
-- [ ] **Step 2: Add failing concurrent-refresh API test**
-
-Use Dio's test adapter or an injected `HttpClientAdapter`. Fire two protected requests that both receive 401, then assert exactly one `/auth/refresh` request and both original calls retry once with the new token.
-
-The production client must guard refresh with:
-
-```dart
-Future<void>? _refreshFuture;
-
-Future<void> _refreshOnce() {
-  return _refreshFuture ??= _performRefresh().whenComplete(() {
-    _refreshFuture = null;
-  });
-}
-```
-
-- [ ] **Step 3: Run tests and verify RED**
-
-```bash
-cd mobile
-flutter test test/core/auth/auth_controller_test.dart test/core/api/api_client_test.dart
-```
-
-Expected: imports/classes do not exist.
-
-- [ ] **Step 4: Add Flutter dependencies**
-
-Add:
+- [ ] **Step 1: Add dependencies**
 
 ```yaml
 flutter_riverpod: ^2.6.1
@@ -850,465 +758,350 @@ dio: ^5.9.0
 flutter_secure_storage: ^9.2.4
 ```
 
-Then:
+Dev dependency for deterministic Dio tests:
 
-```bash
-flutter pub get
+```yaml
+http_mock_adapter: ^0.6.1
 ```
 
-Do not add local-cache tables for family/medication writes in this slice.
+Run `flutter pub get`.
 
-- [ ] **Step 5: Implement token store and typed API errors**
+- [ ] **Step 2: Write RED auth-controller tests**
 
-`TokenStore`:
-
-```dart
-abstract interface class TokenStore {
-  Future<AuthTokens?> read();
-  Future<void> write(AuthTokens tokens);
-  Future<void> clear();
-}
-```
-
-Secure storage keys are stable constants such as `familymed.access_token` and `familymed.refresh_token`.
-
-`ApiError` parses the backend envelope's `code`, `message`, and `details`; network/unparseable failures map to a non-sensitive `NETWORK_ERROR`/`UNKNOWN_ERROR` client-side code.
-
-- [ ] **Step 6: Implement API client and refresh behavior**
-
-Rules:
+Use `FakeTokenStore` and `FakeAuthRepository` implementing Locked interfaces. Test:
 
 ```text
-attach access Bearer token to protected calls
-on first 401 only -> await shared refresh future
-POST refresh using refresh token without the normal auth interceptor loop
-save new access token while preserving refresh token
-retry original request once
-if refresh fails -> clear tokens; surface invalid-session signal
-never recursively refresh /auth/login, /auth/register, /auth/refresh
+no stored tokens -> unauthenticated
+stored tokens + /me succeeds -> authenticated
+/me succeeds after ApiClient refresh -> new access token remains stored
+ApiError(code: INVALID_TOKEN) during restore -> store cleared, unauthenticated
+logout -> store cleared, unauthenticated
+SessionEvents.expired event -> store cleared, unauthenticated
 ```
 
-Use `RequestOptions.extra['authRetried'] = true` to prevent retry loops.
+No undefined `AuthFailure` type is used; fake repositories throw the same `ApiError` type used by production data code.
 
-- [ ] **Step 7: Implement auth repository/controller providers**
+- [ ] **Step 3: Write RED concurrent-refresh test**
 
-`AuthRepository` exact public surface:
+With `DioAdapter`, configure two protected requests to return 401 for `old-access`, one `/auth/refresh` response returning `new-access`, and retries returning 200. Execute `Future.wait` for both calls. Assert:
 
 ```dart
-Future<AuthSession> register({required String name, required String email, required String password});
-Future<AuthSession> login({required String email, required String password});
-Future<CurrentUser> me();
-Future<void> refreshAccessToken();
+expect(refreshRequestCount, 1);
+expect((await tokenStore.read())!.accessToken, 'new-access');
+expect(result1.statusCode, 200);
+expect(result2.statusCode, 200);
 ```
 
-`AuthController` handles register/login/restore/logout and owns the app-level auth state; UI screens should not write secure storage directly.
+Review Focus #5 is pinned here.
 
-- [ ] **Step 8: Wrap app in ProviderScope**
+- [ ] **Step 4: Implement token/session primitives**
 
-Modify `main.dart`:
+`AuthTokens` holds `accessToken` + `refreshToken`. `SecureTokenStore` uses keys:
+
+```text
+familymed.access_token
+familymed.refresh_token
+```
+
+`SessionEvents` exposes a broadcast `Stream<void> get expired` and `notifyExpired()`; `AuthController` subscribes and sets unauthenticated after clearing tokens.
+
+- [ ] **Step 5: Implement API config/client**
+
+Default base URL:
+
+```dart
+const apiBaseUrl = String.fromEnvironment(
+  'FAMILYMED_API_BASE_URL',
+  defaultValue: 'http://10.0.2.2:8000/api/v1',
+);
+```
+
+`ApiClient` owns normal Dio + refresh Dio + TokenStore + SessionEvents. Protected calls attach access token. First 401 only:
+
+```dart
+Future<void>? _refreshFuture;
+Future<void> _refreshOnce() => _refreshFuture ??= _performRefresh().whenComplete(() {
+  _refreshFuture = null;
+});
+```
+
+`_performRefresh()` posts JSON `{refresh_token: stored.refreshToken}` using refresh Dio, replaces only the access token, and preserves refresh token. On failure it clears storage, emits `SessionEvents.notifyExpired()`, and throws `ApiError(code:'INVALID_TOKEN',...)`. Retried requests carry `extra['authRetried']=true`; login/register/refresh endpoints never enter the refresh loop.
+
+- [ ] **Step 6: Implement auth repository/controller**
+
+`AuthRepository` has only the three Locked methods (`register`, `login`, `me`). Login/register write tokens through `AuthController`, not repository. `AuthController.restore()` reads tokens; no token -> unauthenticated; stored token -> `repository.me()`; ApiClient performs refresh transparently if access expired.
+
+- [ ] **Step 7: Wrap app and verify**
+
+`main.dart`:
 
 ```dart
 runApp(const ProviderScope(child: FamilyMedApp()));
 ```
 
-- [ ] **Step 9: Run tests and analyze**
+Then:
 
 ```bash
 flutter test test/core/auth/auth_controller_test.dart test/core/api/api_client_test.dart
 flutter analyze
-```
-
-Expected: PASS.
-
-- [ ] **Step 10: Commit**
-
-```bash
 git add mobile
 git commit -m "feat: add mobile auth infrastructure"
 ```
 
 ---
 
-### Task 6: Flutter registration/login screens and authenticated routing
+### Task 6: Flutter registration/login and auth-aware routing
 
 **Files:**
-- Modify: `mobile/lib/app/app.dart`
-- Modify: `mobile/lib/app/router.dart`
-- Modify: `mobile/lib/features/welcome/presentation/welcome_screen.dart`
-- Create: `mobile/lib/features/auth/presentation/register_screen.dart`
-- Create: `mobile/lib/features/auth/presentation/login_screen.dart`
-- Modify: `mobile/lib/l10n/app_en.arb`
-- Modify: `mobile/lib/l10n/app_bn.arb`
-- Modify/Test: `mobile/test/app_test.dart`
-- Create/Test: `mobile/test/features/auth/auth_flow_test.dart`
+- Modify: `mobile/lib/app/app.dart`, `mobile/lib/app/router.dart`, `mobile/lib/features/welcome/presentation/welcome_screen.dart`
+- Create: `mobile/lib/features/auth/presentation/register_screen.dart`, `login_screen.dart`
+- Modify: `mobile/lib/l10n/app_en.arb`, `app_bn.arb`
+- Modify: `mobile/test/app_test.dart`
+- Create: `mobile/test/features/auth/auth_flow_test.dart`
 
-**Interfaces:**
-- Consumes: `AuthController`, `AuthState`, `AuthRepository`.
-- Produces routes `/welcome`, `/register`, `/login`, guarded authenticated route entry `/family` and onboarding entry `/care-for`.
+- [ ] **Step 1: Write RED widget/router tests**
 
-- [ ] **Step 1: Write failing routing/widget tests**
-
-Tests:
+Test:
 
 ```text
 Welcome Get started -> /register
-Welcome I already have an account -> /login
-7-character password stays client-invalid and no submit call occurs
-failed login keeps email text visible and shows backend error text
-successful register -> /care-for
-successful login with zero members -> /care-for
-successful login with one+ members -> /family
-unauthenticated direct /family navigation -> /login
+Welcome existing-account action -> /login
+7-char password blocks submit
+failed login leaves typed email/password form values intact and shows error
+register success -> /care-for
+login success + FamilyRepository returns [] -> /care-for
+login success + FamilyRepository returns member -> /family
+unauthenticated direct /family -> /login
+stored authenticated session restored while initial /welcome -> /family
 ```
 
-Use provider overrides with fake `AuthRepository` and fake family repository; do not hit real network in widget tests.
+- [ ] **Step 2: Implement router provider without auth/repository circularity**
 
-- [ ] **Step 2: Run and verify RED**
-
-```bash
-cd mobile
-flutter test test/features/auth/auth_flow_test.dart test/app_test.dart
-```
-
-Expected: routes/screens/actions missing.
-
-- [ ] **Step 3: Convert app/router to Riverpod-aware configuration**
-
-Make `FamilyMedApp` a `ConsumerWidget` and obtain `routerConfig` from `routerProvider`.
-
-The router redirect logic must distinguish `loading`, `unauthenticated`, and `authenticated`. During initial restore show a small neutral splash/loading screen, not the login screen flashing underneath.
-
-- [ ] **Step 4: Implement Welcome/Register/Login**
-
-Welcome preserves the current logo/headline/body, adds:
+`FamilyMedApp` becomes `ConsumerWidget`. `routerProvider` listens to `authControllerProvider` through a `ChangeNotifier` refresh bridge. Redirect rules:
 
 ```text
-Get started
-I already have an account
-AI assists. You always confirm.
+loading -> /splash
+unauthenticated + protected path -> /login
+authenticated + /welcome or /splash -> /family
+otherwise no redirect
 ```
 
-Registration inputs:
+Register/login screens explicitly choose `/care-for` vs `/family` after successful action by calling `FamilyRepository.listMembers()`. This keeps family count out of `AuthController`.
+
+- [ ] **Step 3: Implement screens using existing theme**
+
+Welcome keeps logo/headline/body/AI note and adds the existing-account action. Register fields: Name, Email, Password. Login fields: Email, Password. Controllers are not cleared on failed network/backend responses; submit button disables while loading.
+
+- [ ] **Step 4: Add exact auth localization keys**
+
+English/Bangla pairs:
 
 ```text
-Name
-Email
-Password
-Create account
+alreadyHaveAccount: I already have an account / আমার ইতিমধ্যে একটি অ্যাকাউন্ট আছে
+nameLabel: Name / নাম
+emailLabel: Email / ইমেইল
+passwordLabel: Password / পাসওয়ার্ড
+createAccount: Create account / অ্যাকাউন্ট তৈরি করুন
+signIn: Sign in / সাইন ইন
+passwordLengthError: Password must be 8–128 characters. / পাসওয়ার্ড ৮–১২৮ অক্ষরের হতে হবে।
+invalidEmailError: Enter a valid email address. / সঠিক ইমেইল ঠিকানা লিখুন।
+networkError: Could not connect. Try again. / সংযোগ করা যায়নি। আবার চেষ্টা করুন।
 ```
 
-Login inputs:
-
-```text
-Email
-Password
-Sign in
-```
-
-Form controllers must retain values when the backend call fails. Disable submit while a request is in flight.
-
-- [ ] **Step 5: Add English and Bangla keys together**
-
-At minimum add keys for auth labels, actions, validation, generic network/session errors, and returning-account action. Example pairs:
-
-```json
-"alreadyHaveAccount": "I already have an account",
-"emailLabel": "Email",
-"passwordLabel": "Password",
-"createAccount": "Create account",
-"signIn": "Sign in"
-```
-
-```json
-"alreadyHaveAccount": "আমার ইতিমধ্যে একটি অ্যাকাউন্ট আছে",
-"emailLabel": "ইমেইল",
-"passwordLabel": "পাসওয়ার্ড",
-"createAccount": "অ্যাকাউন্ট তৈরি করুন",
-"signIn": "সাইন ইন"
-```
-
-- [ ] **Step 6: Generate and run tests**
+- [ ] **Step 5: Verify + commit**
 
 ```bash
 flutter gen-l10n
 flutter test test/features/auth/auth_flow_test.dart test/app_test.dart
 flutter analyze
-```
-
-Expected: PASS.
-
-- [ ] **Step 7: Commit**
-
-```bash
 git add mobile
 git commit -m "feat: add registration login and auth routing"
 ```
 
 ---
 
-### Task 7: Flutter family onboarding, returning family list, and member profile
+### Task 7: Flutter family onboarding/list/profile
 
 **Files:**
 - Create: `mobile/lib/features/family/domain/family_member.dart`
 - Create: `mobile/lib/features/family/data/family_repository.dart`
-- Create: `mobile/lib/features/family/presentation/who_do_you_care_for_screen.dart`
-- Create: `mobile/lib/features/family/presentation/add_family_member_screen.dart`
-- Create: `mobile/lib/features/family/presentation/family_list_screen.dart`
-- Create: `mobile/lib/features/family/presentation/member_profile_screen.dart`
-- Modify: `mobile/lib/app/router.dart`
-- Modify: `mobile/lib/l10n/app_en.arb`
-- Modify: `mobile/lib/l10n/app_bn.arb`
-- Create/Test: `mobile/test/features/family/family_flow_test.dart`
+- Create: `mobile/lib/features/family/presentation/who_do_you_care_for_screen.dart`, `add_family_member_screen.dart`, `family_list_screen.dart`, `member_profile_screen.dart`
+- Modify: `mobile/lib/app/router.dart`, `mobile/lib/l10n/app_en.arb`, `app_bn.arb`
+- Create: `mobile/test/features/family/family_flow_test.dart`
 
-**Interfaces:**
-- Consumes backend family-member endpoints through `ApiClient`.
-- Produces `FamilyRepository.listMembers()`, `createMember()`, `getMember()`, `updateMember()`; routes `/care-for`, `/family/new`, `/family`, `/family/:memberId`.
+- [ ] **Step 1: Write RED tests**
 
-- [ ] **Step 1: Write failing repository/widget tests**
+Test parent/spouse/child/myself/someone-else choices; My parent pre-fills relationship `mother` but remains editable; adding Amma submits `bn` + `Asia/Dhaka`; future DOB blocks submit; `/family` renders cards and Add family member; card opens profile; profile renders member identity and no-medicines empty state; prescription action is visibly disabled as coming soon.
 
-Tests must cover:
+Task 7 does not add the active Add-manually navigation yet; Task 8 adds the medication repository and then activates that control, so every intermediate commit remains compilable.
 
-```text
-Who do you care for? has parent/spouse/child/myself/someone else
-select My parent -> add-member route with prefilled relationship
-Add Amma submits name=Amma, relationship=mother, preferred_language=bn, timezone=Asia/Dhaka
-future DOB rejected before network call
-family list renders returning members and Add family member action
-member card opens profile
-profile empty state shows No medicines yet
-Scan prescription — coming soon is visibly disabled
-Add manually is enabled
-```
+- [ ] **Step 2: Implement repository/domain**
 
-- [ ] **Step 2: Run and verify RED**
+Map `id,name,relationship,date_of_birth,preferred_language,timezone`. Implement exactly the four Locked FamilyRepository methods against backend endpoints.
 
-```bash
-cd mobile
-flutter test test/features/family/family_flow_test.dart
-```
+- [ ] **Step 3: Implement screens/routes**
 
-Expected: missing repository/screens/routes.
-
-- [ ] **Step 3: Implement domain model and repository**
-
-`FamilyMember.fromJson` consumes:
+Routes:
 
 ```text
-id
-name
-relationship
-date_of_birth
-preferred_language
-timezone
+/care-for
+/family/new
+/family
+/family/:memberId
 ```
 
-Repository exact public surface:
+Collect only the approved fields. No NID/address/diagnosis/hospital fields.
 
-```dart
-Future<List<FamilyMember>> listMembers();
-Future<FamilyMember> createMember(CreateFamilyMemberInput input);
-Future<FamilyMember> getMember(String id);
-Future<FamilyMember> updateMember(String id, UpdateFamilyMemberInput input);
-```
-
-- [ ] **Step 4: Implement onboarding screens from approved flow**
-
-`WhoDoYouCareForScreen` passes the selected relationship intent through route extra/query data. `AddFamilyMemberScreen` keeps relationship editable and defaults parent onboarding to:
+- [ ] **Step 4: Add exact family localization keys**
 
 ```text
-name: blank
-relationship: mother (editable)
-preferred language: bn
-Timezone: Asia/Dhaka
+familyFirst: Family first / পরিবার সবার আগে
+whoDoYouCareFor: Who do you care for? / আপনি কার যত্ন নেন?
+myParent: My parent / আমার বাবা বা মা
+mySpouse: My spouse / আমার জীবনসঙ্গী
+myChild: My child / আমার সন্তান
+myself: Myself / আমি নিজে
+someoneElse: Someone else / অন্য কেউ
+continueLabel: Continue / চালিয়ে যান
+familyProfile: Family profile / পরিবারের প্রোফাইল
+familyMemberName: Name / নাম
+relationshipLabel: Relationship / সম্পর্ক
+preferredLanguage: Preferred language / পছন্দের ভাষা
+addFamilyMember: Add family member / পরিবারের সদস্য যোগ করুন
+yourFamily: Your family / আপনার পরিবার
+noMedicinesYet: No medicines yet / এখনো কোনো ওষুধ যোগ করা হয়নি
+scanPrescriptionComingSoon: Scan prescription — coming soon / প্রেসক্রিপশন স্ক্যান — শিগগিরই আসছে
 ```
 
-Do not collect diagnosis, address, NID, hospital, or unrelated profile data.
-
-- [ ] **Step 5: Implement `/family` and profile screens**
-
-`FamilyListScreen` is intentionally minimal until the Today shell exists. `MemberProfileScreen` loads the member and medications separately, but medication rendering can remain an injected empty/list provider until Task 8 connects the real repository.
-
-Disabled prescription action must render exactly as a disabled affordance and must not navigate.
-
-- [ ] **Step 6: Add l10n keys and run tests**
+- [ ] **Step 5: Verify + commit**
 
 ```bash
 flutter gen-l10n
 flutter test test/features/family/family_flow_test.dart
 flutter analyze
-```
-
-Expected: PASS.
-
-- [ ] **Step 7: Commit**
-
-```bash
 git add mobile
 git commit -m "feat: add family onboarding and profiles"
 ```
 
 ---
 
-### Task 8: Flutter manual-medication flow and persisted vertical acceptance
+### Task 8: Flutter manual medication entry and profile refresh
 
 **Files:**
 - Create: `mobile/lib/features/medications/domain/member_medication.dart`
 - Create: `mobile/lib/features/medications/data/medication_repository.dart`
 - Create: `mobile/lib/features/medications/presentation/add_manual_medication_screen.dart`
-- Modify: `mobile/lib/features/family/presentation/member_profile_screen.dart`
-- Modify: `mobile/lib/app/router.dart`
-- Modify: `mobile/lib/l10n/app_en.arb`
-- Modify: `mobile/lib/l10n/app_bn.arb`
-- Create/Test: `mobile/test/features/medications/manual_medication_flow_test.dart`
-- Modify/Test: `mobile/test/features/family/family_flow_test.dart`
+- Modify: `mobile/lib/features/family/presentation/member_profile_screen.dart`, `mobile/lib/app/router.dart`, l10n ARBs
+- Create: `mobile/test/features/medications/manual_medication_flow_test.dart`
+- Modify: `mobile/test/features/family/family_flow_test.dart`
 
-**Interfaces:**
-- Consumes backend medication endpoints.
-- Produces `MedicationRepository.listForMember()`, `createManual()`, `getMedication()`, `updateMedication()` and route `/family/:memberId/medications/new`.
+- [ ] **Step 1: Write RED tests**
 
-- [ ] **Step 1: Write failing manual-medication tests**
-
-Widget/repository tests:
+Test:
 
 ```text
+Add manually active on member profile
 medicine name required
 start date defaults to today
-end date before start date blocks submit
-strength/dosage form optional
-failed network submit retains entered fields
-loading state prevents second submit
-successful submit returns to profile
-profile refresh shows Metformin / 500 mg / tablet / Draft
-no frequency/time/meal/reminder fields exist in this form
+end-before-start blocks submit
+strength/form optional
+network failure retains all entered values
+loading blocks duplicate submit
+successful submit pops to profile and invalidates medication list
+profile shows Metformin, 500 mg, tablet, Draft
+form contains no frequency/time/meal/reminder inputs
 ```
 
-Representative assertion:
+- [ ] **Step 2: Implement domain/repository**
 
-```dart
-expect(find.text('Metformin'), findsOneWidget);
-expect(find.text('500 mg'), findsOneWidget);
-expect(find.text('Draft'), findsOneWidget);
-expect(find.textContaining('Reminder'), findsNothing);
-```
+Map server fields `id,family_member_id,medicine_master_id,display_name,strength,dosage_form,status,start_date,end_date,created_at,updated_at`. Implement the four Locked MedicationRepository methods. Create payload contains only `display_name,strength,dosage_form,start_date,end_date`.
 
-- [ ] **Step 2: Run and verify RED**
+- [ ] **Step 3: Implement route/form/profile provider**
 
-```bash
-cd mobile
-flutter test test/features/medications/manual_medication_flow_test.dart
-```
-
-Expected: missing medication feature code.
-
-- [ ] **Step 3: Implement medication model/repository**
-
-Model consumes server-controlled fields including:
+Route:
 
 ```text
-id
-family_member_id
-medicine_master_id
-name/display_name
-strength
-dosage_form
-status
-start_date
-end_date
-created_at
-updated_at
+/family/:memberId/medications/new
 ```
 
-Repository:
+Use a `FutureProvider.family<List<MemberMedication>, String>` (or equivalent Riverpod 2 family provider) for profile medicines. On successful creation invalidate the member's medication provider before popping.
 
-```dart
-Future<List<MemberMedication>> listForMember(String memberId);
-Future<MemberMedication> createManual(String memberId, CreateManualMedicationInput input);
-Future<MemberMedication> getMedication(String id);
-Future<MemberMedication> updateMedication(String id, UpdateManualMedicationInput input);
-```
-
-Client create payload must not send `status`, `medicine_master_id`, `created_by_user_id`, `prescription_id`, or `extraction_id`.
-
-- [ ] **Step 4: Implement form and profile refresh**
-
-Form fields:
+- [ ] **Step 4: Add exact medication localization keys**
 
 ```text
-Medicine name *
-Strength
-Dosage form
-Start date * (today)
-End date
+addManually: Add manually / হাতে লিখে যোগ করুন
+addMedicationManually: Add medication manually / ওষুধ হাতে লিখে যোগ করুন
+medicineName: Medicine name / ওষুধের নাম
+strengthLabel: Strength / শক্তি
+ dosageForm: Dosage form / ওষুধের ধরন
+startDate: Start date / শুরুর তারিখ
+endDate: End date / শেষ তারিখ
+saveMedicine: Save medicine / ওষুধ সংরক্ষণ করুন
+draftStatus: Draft / খসড়া
+invalidDateRange: End date cannot be before start date. / শেষের তারিখ শুরুর তারিখের আগে হতে পারে না।
 ```
 
-On success:
+Remove the accidental leading space before the `dosageForm` key when entering ARB JSON; the key itself is `dosageForm`.
 
-```dart
-await medicationRepository.createManual(...);
-ref.invalidate(memberMedicationsProvider(memberId));
-context.pop();
-```
-
-Member profile reads the refreshed medication list and shows a draft status label. Do not present draft as an active reminder routine.
-
-- [ ] **Step 5: Add English/Bangla medication copy**
-
-Include keys for add-manually, medicine fields, no-medicines state, draft status, invalid date range, and retryable network errors.
-
-- [ ] **Step 6: Run feature tests**
+- [ ] **Step 5: Verify + commit**
 
 ```bash
 flutter gen-l10n
 flutter test test/features/medications/manual_medication_flow_test.dart test/features/family/family_flow_test.dart
 flutter analyze
-```
-
-Expected: PASS.
-
-- [ ] **Step 7: Commit**
-
-```bash
 git add mobile
 git commit -m "feat: add manual medication flow"
 ```
 
 ---
 
-### Task 9: End-to-end slice hardening, localization, and clean CI gate
+### Task 9: Real persistence acceptance tests and merge gate
 
 **Files:**
-- Modify as needed only for verified failures in previous tasks.
-- Modify: `README.md` only if local run instructions need the mobile API base URL documented.
-- Test: all backend/mobile tests.
+- Create: `backend/tests/test_vertical_slice.py`
+- Create: `mobile/test/features/vertical_slice_acceptance_test.dart`
+- Modify: `README.md` to document `--dart-define=FAMILYMED_API_BASE_URL=...` local override.
 
-**Interfaces:**
-- Consumes: all prior task interfaces.
-- Produces: one merge-ready branch satisfying the approved acceptance flow.
+- [ ] **Step 1: Write backend real-PostgreSQL acceptance test**
 
-- [ ] **Step 1: Run a spec-focused backend test selection**
+Using the normal `client` fixture, execute exactly:
+
+```text
+POST register Sifat -> capture tokens
+POST family-members Amma/mother/bn/Asia-Dhaka
+GET Amma -> persisted
+POST Amma medications Metformin/500 mg/tablet/start today -> status draft
+POST login again -> new access token
+GET /auth/me -> Sifat
+GET /family-members -> contains Amma
+GET /family-members/{amma}/medications -> contains Metformin
+```
+
+Assertions use real PostgreSQL rows inside the rollback-isolated test transaction; no repository fakes.
+
+- [ ] **Step 2: Write Flutter full-flow acceptance widget test**
+
+Override providers with in-memory fake Auth/Family/Medication repositories that implement the same Locked interfaces. Drive taps/text input through:
+
+```text
+Welcome -> Register -> care-for -> My parent -> Add Amma -> profile -> Add manually -> Metformin -> profile list -> simulated app rebuild with stored AuthState -> family list -> profile
+```
+
+This test proves routing/state/UI integration; the backend test in Step 1 separately proves real API persistence.
+
+- [ ] **Step 3: Run complete backend gate from empty schema**
 
 ```bash
 cd backend
-uv run pytest \
-  tests/test_auth.py \
-  tests/test_family_members.py \
-  tests/test_medications.py -v
-```
-
-Expected: all PASS, including all five Review Focus conditions owned by backend.
-
-- [ ] **Step 2: Run full backend verification from migrated PostgreSQL**
-
-```bash
 uv run ruff check .
 uv run alembic downgrade base
 uv run alembic upgrade head
 uv run pytest -v
 ```
 
-Expected: PASS. Restore database to `head` before leaving the task.
+Expected: all PASS.
 
-- [ ] **Step 3: Run full mobile verification**
+- [ ] **Step 4: Run complete mobile gate**
 
 ```bash
 cd ../mobile
@@ -1320,85 +1113,40 @@ flutter test
 flutter build apk --debug
 ```
 
-Expected: PASS.
+Expected: all PASS.
 
-- [ ] **Step 4: Verify the acceptance flow with integration-style fakes or a local API run**
-
-The test must cover, in order:
-
-```text
-register Sifat
--> secure tokens written
--> /care-for
--> select My parent
--> create Amma / mother / bn / Asia/Dhaka
--> Amma profile has no medicines
--> Add manually
--> create Metformin / 500 mg / tablet / today
--> return profile and see Metformin as Draft
--> simulate app relaunch using stored tokens
--> /auth/me restores account
--> family list loads Amma
--> Amma profile reloads Metformin from repository/backend data
-```
-
-Name this Flutter test so it is obvious in CI, e.g. `test/features/vertical_slice_acceptance_test.dart`.
-
-- [ ] **Step 5: Verify no scope creep**
-
-Run repository searches:
+- [ ] **Step 5: Run explicit secret/scope searches**
 
 ```bash
-git grep -nE "dose|notification|ocr|prescription upload|schedule_time" -- backend/app mobile/lib || true
+cd ..
+git grep -nE "print\(.*(token|password)|password_hash.*(json|response)|refresh_token.*log" -- backend mobile || true
+git grep -nE "class .*Schedule|class .*Dose|flutter_local_notifications|/prescriptions/.*/extract|OCR|HTR" -- backend/app mobile/lib || true
 ```
 
-Expected: only approved copy such as disabled prescription-coming-soon text or existing product description; no newly implemented schedule/dose/OCR/notification subsystems.
+Expected first command: no unsafe logging/serialization. Expected second command: no newly implemented schedule/dose/notification/OCR subsystem; existing harmless product copy/comments are reviewed manually.
 
-- [ ] **Step 6: Verify secrets and password fields are not serialized/logged**
+- [ ] **Step 6: Update README API-base run command**
+
+Document:
 
 ```bash
-git grep -nE "print\(.*token|print\(.*password|password_hash.*response|refresh_token.*log" -- backend mobile || true
+cd mobile
+flutter run --dart-define=FAMILYMED_API_BASE_URL=http://10.0.2.2:8000/api/v1
 ```
 
-Expected: no unsafe logging/serialization code.
+and note that a physical device needs the development machine's reachable LAN address rather than `10.0.2.2`.
 
-- [ ] **Step 7: Commit verification-only fixes, if any**
-
-If Steps 1-6 required code fixes, commit only those verified fixes:
+- [ ] **Step 7: Commit acceptance tests/docs**
 
 ```bash
-git add -A
-git commit -m "test: harden auth family medication slice"
+git add backend/tests/test_vertical_slice.py mobile/test/features/vertical_slice_acceptance_test.dart README.md
+git commit -m "test: verify auth family medication vertical slice"
 ```
 
-If no files changed, do not create an empty commit.
+- [ ] **Step 8: Push/open draft PR and use clean CI as authoritative cross-platform gate**
 
-- [ ] **Step 8: Open draft PR for authoritative clean CI**
+PR summary lists: auth + `/me`; atomic family owner creation; member APIs; manual draft medication APIs; secure mobile session/refresh gate; family/manual-medication UI; authorization tests. Wait for both backend and mobile jobs to pass.
 
-Push `feat/auth-family-medications`, open a draft PR against `main`, and require the repository CI to complete successfully. The PR summary must call out:
+- [ ] **Step 9: Whole-branch review before finishing workflow**
 
-```text
-email/password auth + /auth/me
-family owner creation and scoped member APIs
-manual draft-medication APIs
-secure mobile session/refresh handling
-FamilyMed onboarding + manual medication UI
-cross-family authorization tests
-```
-
-- [ ] **Step 9: Final whole-branch review before merge recommendation**
-
-Review the diff from `main...feat/auth-family-medications` with special attention to:
-
-```text
-JWT type/expiry validation
-password hashes never escaping schemas
-transactional registration
-cross-family 404 behavior
-concurrent refresh gate
-form value preservation after network failure
-draft medicine never presented as active routine
-English/Bangla parity
-```
-
-Only after the branch and PR CI are green should the finishing workflow present merge/PR/keep options.
+Review `main...feat/auth-family-medications` for: JWT type/expiry validation; password hash exposure; registration transaction/race; cross-family 404 behavior; single refresh future; form value preservation; draft medicine not presented as active routine; English/Bangla key parity. Resolve every blocking finding, rerun affected tests, then invoke the finishing-development-branch workflow.
