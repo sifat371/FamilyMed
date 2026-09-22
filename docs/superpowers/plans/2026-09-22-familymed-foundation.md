@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Establish a runnable, tested FamilyMed monorepo with a FastAPI/PostgreSQL backend foundation and a Flutter mobile shell that already uses the approved visual language, localization structure, routing, secure configuration, and local persistence boundary.
+**Goal:** Establish a runnable, tested FamilyMed monorepo with a FastAPI/PostgreSQL backend foundation and a Flutter mobile shell using the approved visual language, localization structure, routing, and local persistence boundary.
 
-**Architecture:** This plan creates the shared foundation only. The backend exposes health/readiness endpoints and a tested database/config layer; the Flutter app boots into the FamilyMed shell with theme, localization, routing, and Drift database initialization. Product features such as authentication, family members, medication schedules, dose actions, prescription upload, and OCR are intentionally deferred to follow-up plans so this increment remains independently reviewable and testable.
+**Architecture:** This plan creates the shared foundation only. The backend exposes liveness/readiness endpoints plus tested config/database boundaries; the Flutter app boots into the FamilyMed shell with theme, localization, routing, and Drift initialization. Authentication, family members, medicines, schedules, dose actions, prescriptions, and OCR are deliberately deferred to later plans so this increment is independently reviewable and testable.
 
-**Tech Stack:** Flutter/Dart, FastAPI, Python 3.13, PostgreSQL 17, SQLAlchemy 2.x, Alembic, Pydantic Settings v2, pytest, httpx, Drift/SQLite, Riverpod, go_router, flutter_secure_storage, Docker Compose, GitHub Actions.
+**Tech Stack:** Flutter/Dart, FastAPI, Python 3.13, PostgreSQL 17, SQLAlchemy 2.x, Alembic, Pydantic Settings v2, pytest, httpx, Drift/SQLite, go_router, Docker Compose, GitHub Actions.
 
 **Spec:** `docs/superpowers/specs/2026-09-22-familymed-v1-design.md`
 
@@ -14,9 +14,9 @@
 
 - Family care is the product; prescription AI is an assistant inside it.
 - Flutter is the mobile client; FastAPI is the backend; PostgreSQL is the server database.
-- Mobile local state uses Drift/SQLite; authentication secrets use secure device storage.
-- User-facing strings must be localization keys from the first Flutter commit; English and Bangla resources are required.
-- All backend entity IDs use UUIDs.
+- Mobile local state uses Drift/SQLite.
+- User-facing strings must use localization keys from the first Flutter commit; English and Bangla resources are required.
+- All backend entity IDs in later domain plans use UUIDs.
 - Database timestamps are UTC; user/member schedule display uses IANA timezones such as `Asia/Dhaka`.
 - Prescription images are not stored in PostgreSQL.
 - AI/OCR is not implemented in this plan.
@@ -25,11 +25,11 @@
 
 ## Review Focus
 
-1. **Backend starts without PostgreSQL being ready:** `/health` should still report process liveness, while `/ready` must fail cleanly rather than crashing the process.
-2. **Malformed or missing environment configuration:** production-like settings must reject an absent database URL/secret instead of silently using unsafe defaults.
-3. **Bangla localization fallback:** switching to Bangla must render known translated strings and safely fall back for framework-level locale behavior without runtime exceptions.
-4. **Fresh mobile install with no local database file:** Drift initialization must create/open the database successfully without requiring network access.
-5. **CI on a clean runner:** backend tests, formatting/static checks, and Flutter analyze/test must work without undeclared local tooling or secrets.
+1. **Backend starts while PostgreSQL is down:** `/health` stays 200; `/ready` returns 503 without crashing the app.
+2. **Unsafe production configuration:** staging/production reject both the development JWT secret and development localhost database URL.
+3. **Bangla localization:** a Bangla locale renders known translated welcome strings without runtime exceptions.
+4. **Fresh mobile install:** Drift opens a brand-new local database without network access.
+5. **Clean CI runner:** migrations, backend lint/tests, Flutter generation/analyze/tests run without undeclared secrets or local-only tools.
 
 ---
 
@@ -37,64 +37,49 @@
 
 ```text
 FamilyMed/
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-├── .gitignore
+├── .github/workflows/ci.yml
 ├── .editorconfig
+├── .env.example
+├── .gitignore
 ├── README.md
 ├── docker-compose.yml
-├── .env.example
 ├── backend/
 │   ├── pyproject.toml
 │   ├── alembic.ini
 │   ├── app/
 │   │   ├── __init__.py
-│   │   ├── main.py
+│   │   ├── api/
+│   │   │   ├── __init__.py
+│   │   │   └── health.py
 │   │   ├── config.py
 │   │   ├── db.py
-│   │   └── api/
-│   │       ├── __init__.py
-│   │       └── health.py
+│   │   └── main.py
 │   ├── migrations/
 │   │   ├── env.py
-│   │   └── versions/
+│   │   ├── script.py.mako
+│   │   └── versions/0001_bootstrap.py
 │   └── tests/
-│       ├── conftest.py
 │       ├── test_config.py
 │       └── test_health.py
 ├── mobile/
-│   ├── pubspec.yaml
 │   ├── analysis_options.yaml
 │   ├── l10n.yaml
+│   ├── pubspec.yaml
 │   ├── lib/
-│   │   ├── main.dart
-│   │   ├── app/
-│   │   │   ├── app.dart
-│   │   │   └── router.dart
-│   │   ├── core/
-│   │   │   ├── database/
-│   │   │   │   ├── app_database.dart
-│   │   │   │   └── app_database.g.dart
-│   │   │   ├── localization/
-│   │   │   └── theme/
-│   │   │       └── familymed_theme.dart
-│   │   └── features/
-│   │       └── welcome/
-│   │           └── presentation/
-│   │               └── welcome_screen.dart
-│   ├── lib/l10n/
-│   │   ├── app_en.arb
-│   │   └── app_bn.arb
+│   │   ├── app/app.dart
+│   │   ├── app/router.dart
+│   │   ├── core/database/app_database.dart
+│   │   ├── core/database/app_database.g.dart
+│   │   ├── core/theme/familymed_theme.dart
+│   │   ├── features/welcome/presentation/welcome_screen.dart
+│   │   ├── l10n/app_bn.arb
+│   │   ├── l10n/app_en.arb
+│   │   └── main.dart
 │   └── test/
 │       ├── app_test.dart
 │       └── core/database/app_database_test.dart
-├── ai/
-│   └── README.md
-├── infra/
-│   └── README.md
-└── docs/
-    └── superpowers/
+├── ai/README.md
+└── infra/README.md
 ```
 
 ---
@@ -111,20 +96,18 @@ FamilyMed/
 - Create: `infra/README.md`
 
 **Interfaces:**
-- Consumes: approved V1 architecture from the spec.
-- Produces: documented local startup contract and PostgreSQL service at `localhost:5432` with database `familymed`.
+- Consumes: approved V1 architecture.
+- Produces: local PostgreSQL at `localhost:5432`, DB/user/password `familymed`, plus documented startup commands.
 
-- [ ] **Step 1: Create the feature branch**
-
-Run:
+- [ ] **Step 1: Create feature branch**
 
 ```bash
 git checkout -b feat/foundation
 ```
 
-Expected: current branch is `feat/foundation`.
+Expected: `git branch --show-current` prints `feat/foundation`.
 
-- [ ] **Step 2: Add repository-wide ignore and editor rules**
+- [ ] **Step 2: Add editor and ignore rules**
 
 Create `.editorconfig`:
 
@@ -140,9 +123,6 @@ indent_size = 2
 
 [*.py]
 indent_size = 4
-
-[Makefile]
-indent_style = tab
 ```
 
 Create `.gitignore`:
@@ -151,34 +131,26 @@ Create `.gitignore`:
 .env
 .env.*
 !.env.example
-
-# Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
 .venv/
 backend/.coverage
-
-# Flutter/Dart
 mobile/.dart_tool/
 mobile/build/
 mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
 mobile/coverage/
-
-# IDE / OS
 .idea/
 .vscode/
 .DS_Store
-
-# Local data
 *.sqlite
 *.sqlite3
 storage/
 ```
 
-- [ ] **Step 3: Define development environment variables**
+- [ ] **Step 3: Add development environment contract**
 
 Create `.env.example`:
 
@@ -191,8 +163,6 @@ POSTGRES_DB=familymed
 POSTGRES_USER=familymed
 POSTGRES_PASSWORD=familymed
 ```
-
-- [ ] **Step 4: Add PostgreSQL Docker service**
 
 Create `docker-compose.yml`:
 
@@ -218,55 +188,47 @@ volumes:
   familymed_postgres:
 ```
 
-- [ ] **Step 5: Add root documentation**
+- [ ] **Step 4: Add root documentation**
 
-Create `README.md` with these exact development commands:
+Create `README.md`:
 
 ```markdown
 # FamilyMed
 
-FamilyMed is a family medication-care application. The mobile client is Flutter; the API is FastAPI/PostgreSQL. Prescription AI is an assistive subsystem and never activates medication without human confirmation.
+FamilyMed is a family medication-care application. Flutter is the mobile client; FastAPI/PostgreSQL is the API stack. Prescription AI is assistive and never activates medication without human confirmation.
 
-## Repository
+## Structure
 
 - `mobile/` — Flutter app
 - `backend/` — FastAPI API
-- `ai/` — prescription extraction service boundary; mocked before real OCR
-- `infra/` — deployment/infrastructure notes
-- `docs/` — architecture, design, and implementation plans
+- `ai/` — extraction-service boundary; mocked before real OCR
+- `infra/` — infrastructure notes
+- `docs/` — specs and implementation plans
 
-## Local database
+## Local PostgreSQL
 
-```bash
-cp .env.example .env
-docker compose up -d postgres
-```
+    cp .env.example .env
+    docker compose up -d postgres
 
 ## Backend
 
-```bash
-cd backend
-uv sync --all-groups
-uv run alembic upgrade head
-uv run uvicorn app.main:app --reload
-```
+    cd backend
+    uv sync --all-groups
+    uv run alembic upgrade head
+    uv run uvicorn app.main:app --reload
 
 ## Mobile
 
-```bash
-cd mobile
-flutter pub get
-dart run build_runner build --delete-conflicting-outputs
-flutter gen-l10n
-flutter run
-```
+    cd mobile
+    flutter pub get
+    flutter gen-l10n
+    dart run build_runner build --delete-conflicting-outputs
+    flutter run
 
-## Tests
+## Checks
 
-```bash
-cd backend && uv run pytest
-cd mobile && flutter analyze && flutter test
-```
+    cd backend && uv run ruff check . && uv run pytest
+    cd mobile && flutter analyze && flutter test
 ```
 
 Create `ai/README.md`:
@@ -274,7 +236,7 @@ Create `ai/README.md`:
 ```markdown
 # AI service
 
-The V1 product is developed against a mocked prescription-extraction contract first. Real OCR/HTR and pharmaceutical-lexicon retrieval are added only after the medication-care workflow is working. This service never creates active medications or schedules.
+V1 is developed against a mocked prescription-extraction contract first. Real OCR/HTR and medicine retrieval are integrated later without changing the app's human-confirmation boundary. The AI service never creates active medications or schedules.
 ```
 
 Create `infra/README.md`:
@@ -282,12 +244,10 @@ Create `infra/README.md`:
 ```markdown
 # Infrastructure
 
-Development uses Docker Compose for PostgreSQL. Production infrastructure will use private object storage for prescription images, PostgreSQL, HTTPS, and separately deployable backend/AI services.
+Development uses Docker Compose for PostgreSQL. Production will use HTTPS, PostgreSQL, private object storage for prescription images, and separately deployable backend/AI services.
 ```
 
-- [ ] **Step 6: Smoke-test PostgreSQL**
-
-Run:
+- [ ] **Step 5: Smoke-test PostgreSQL**
 
 ```bash
 cp .env.example .env
@@ -297,7 +257,7 @@ docker compose ps
 
 Expected: `postgres` reports `healthy`.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add .editorconfig .gitignore .env.example docker-compose.yml README.md ai/README.md infra/README.md
@@ -306,7 +266,7 @@ git commit -m "chore: establish FamilyMed monorepo environment"
 
 ---
 
-### Task 2: FastAPI configuration and liveness foundation
+### Task 2: FastAPI configuration and liveness
 
 **Files:**
 - Create: `backend/pyproject.toml`
@@ -322,7 +282,7 @@ git commit -m "chore: establish FamilyMed monorepo environment"
 - Consumes: `FAMILYMED_ENV`, `FAMILYMED_DATABASE_URL`, `FAMILYMED_JWT_SECRET`, `FAMILYMED_CORS_ORIGINS`.
 - Produces: `Settings`, `get_settings()`, FastAPI `app`, `GET /api/v1/health`.
 
-- [ ] **Step 1: Add backend package metadata and dependencies**
+- [ ] **Step 1: Add backend dependencies**
 
 Create `backend/pyproject.toml`:
 
@@ -337,6 +297,7 @@ dependencies = [
   "uvicorn[standard]>=0.35,<1",
   "sqlalchemy[asyncio]>=2.0,<3",
   "asyncpg>=0.30,<1",
+  "psycopg[binary]>=3.2,<4",
   "alembic>=1.16,<2",
   "pydantic-settings>=2.10,<3",
 ]
@@ -361,7 +322,7 @@ target-version = "py313"
 select = ["E", "F", "I", "B", "UP"]
 ```
 
-- [ ] **Step 2: Write failing settings tests**
+- [ ] **Step 2: Write failing configuration tests**
 
 Create `backend/tests/test_config.py`:
 
@@ -371,11 +332,13 @@ from pydantic import ValidationError
 
 from app.config import Settings
 
+DEV_DB = "postgresql+asyncpg://familymed:familymed@localhost:5432/familymed"
+
 
 def test_settings_accept_explicit_development_values():
     settings = Settings(
         env="development",
-        database_url="postgresql+asyncpg://u:p@localhost:5432/db",
+        database_url=DEV_DB,
         jwt_secret="secret",
         cors_origins="http://localhost:3000",
     )
@@ -383,19 +346,27 @@ def test_settings_accept_explicit_development_values():
     assert settings.cors_origin_list == ["http://localhost:3000"]
 
 
-def test_non_development_rejects_default_jwt_secret():
+def test_production_rejects_development_secret():
     with pytest.raises(ValidationError):
         Settings(
             env="production",
-            database_url="postgresql+asyncpg://u:p@db:5432/db",
+            database_url="postgresql+asyncpg://u:p@db:5432/familymed",
             jwt_secret="change-me-in-local-env",
+            cors_origins="https://familymed.example",
+        )
+
+
+def test_production_rejects_development_database_url():
+    with pytest.raises(ValidationError):
+        Settings(
+            env="production",
+            database_url=DEV_DB,
+            jwt_secret="production-secret",
             cors_origins="https://familymed.example",
         )
 ```
 
-- [ ] **Step 3: Run the tests and verify failure**
-
-Run:
+- [ ] **Step 3: Verify configuration tests fail**
 
 ```bash
 cd backend
@@ -416,6 +387,9 @@ from typing import Literal
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEV_DATABASE_URL = "postgresql+asyncpg://familymed:familymed@localhost:5432/familymed"
+DEV_JWT_SECRET = "change-me-in-local-env"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -425,8 +399,8 @@ class Settings(BaseSettings):
     )
 
     env: Literal["development", "test", "staging", "production"] = "development"
-    database_url: str = "postgresql+asyncpg://familymed:familymed@localhost:5432/familymed"
-    jwt_secret: str = "change-me-in-local-env"
+    database_url: str = DEV_DATABASE_URL
+    jwt_secret: str = DEV_JWT_SECRET
     cors_origins: str = "http://localhost:3000"
 
     @property
@@ -434,9 +408,12 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     @model_validator(mode="after")
-    def validate_secrets(self) -> "Settings":
-        if self.env in {"staging", "production"} and self.jwt_secret == "change-me-in-local-env":
-            raise ValueError("FAMILYMED_JWT_SECRET must be explicitly configured")
+    def reject_development_values_outside_dev(self) -> "Settings":
+        if self.env in {"staging", "production"}:
+            if self.jwt_secret == DEV_JWT_SECRET:
+                raise ValueError("FAMILYMED_JWT_SECRET must be explicitly configured")
+            if self.database_url == DEV_DATABASE_URL:
+                raise ValueError("FAMILYMED_DATABASE_URL must be explicitly configured")
         return self
 
 
@@ -445,17 +422,15 @@ def get_settings() -> Settings:
     return Settings()
 ```
 
-- [ ] **Step 5: Run config tests**
-
-Run:
+- [ ] **Step 5: Verify configuration tests pass**
 
 ```bash
 uv run pytest tests/test_config.py -v
 ```
 
-Expected: 2 PASS.
+Expected: 3 PASS.
 
-- [ ] **Step 6: Write the failing liveness test**
+- [ ] **Step 6: Write failing health test**
 
 Create `backend/tests/test_health.py`:
 
@@ -464,24 +439,26 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 
+client = TestClient(app)
+
 
 def test_health_reports_process_liveness():
-    response = TestClient(app).get("/api/v1/health")
+    response = client.get("/api/v1/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "service": "familymed-api"}
 ```
 
-- [ ] **Step 7: Run test and verify failure**
-
-Run:
+- [ ] **Step 7: Verify health test fails**
 
 ```bash
 uv run pytest tests/test_health.py -v
 ```
 
-Expected: FAIL because the route/app does not exist.
+Expected: FAIL because `app.main` does not exist.
 
-- [ ] **Step 8: Implement the FastAPI app and route**
+- [ ] **Step 8: Implement FastAPI application**
+
+Create empty `backend/app/__init__.py` and `backend/app/api/__init__.py`.
 
 Create `backend/app/api/health.py`:
 
@@ -518,44 +495,40 @@ app.add_middleware(
 app.include_router(health_router, prefix="/api/v1")
 ```
 
-Create empty package files `backend/app/__init__.py` and `backend/app/api/__init__.py`.
-
-- [ ] **Step 9: Verify tests and lint**
-
-Run:
+- [ ] **Step 9: Verify backend checks**
 
 ```bash
 uv run pytest -v
 uv run ruff check .
 ```
 
-Expected: all tests PASS; Ruff reports no errors.
+Expected: PASS.
 
 - [ ] **Step 10: Commit**
 
 ```bash
 git add backend
-git commit -m "feat: add FastAPI configuration and health endpoint"
+git commit -m "feat: add FastAPI configuration and liveness endpoint"
 ```
 
 ---
 
-### Task 3: PostgreSQL async database and readiness endpoint
+### Task 3: PostgreSQL readiness and Alembic baseline
 
 **Files:**
 - Create: `backend/app/db.py`
 - Modify: `backend/app/api/health.py`
-- Create: `backend/tests/conftest.py`
 - Modify: `backend/tests/test_health.py`
 - Create: `backend/alembic.ini`
 - Create: `backend/migrations/env.py`
+- Create: `backend/migrations/script.py.mako`
 - Create: `backend/migrations/versions/0001_bootstrap.py`
 
 **Interfaces:**
 - Consumes: `Settings.database_url`.
-- Produces: `engine`, `async_session_factory`, `get_db_session()`, `GET /api/v1/ready`, Alembic migration baseline.
+- Produces: `engine`, `async_session_factory`, `get_db_session()`, `database_is_ready()`, `/api/v1/ready`, Alembic revision `0001_bootstrap`.
 
-- [ ] **Step 1: Write readiness behavior tests**
+- [ ] **Step 1: Write failing readiness tests**
 
 Append to `backend/tests/test_health.py`:
 
@@ -567,24 +540,21 @@ from app.api import health as health_module
 
 def test_ready_returns_200_when_database_responds(monkeypatch):
     monkeypatch.setattr(health_module, "database_is_ready", AsyncMock(return_value=True))
-    response = TestClient(app).get("/api/v1/ready")
+    response = client.get("/api/v1/ready")
     assert response.status_code == 200
     assert response.json() == {"status": "ready"}
 
 
 def test_ready_returns_503_when_database_is_unavailable(monkeypatch):
     monkeypatch.setattr(health_module, "database_is_ready", AsyncMock(return_value=False))
-    response = TestClient(app).get("/api/v1/ready")
+    response = client.get("/api/v1/ready")
     assert response.status_code == 503
     assert response.json()["detail"] == "database unavailable"
 ```
 
-- [ ] **Step 2: Run and verify failure**
-
-Run:
+- [ ] **Step 2: Verify readiness tests fail**
 
 ```bash
-cd backend
 uv run pytest tests/test_health.py -v
 ```
 
@@ -621,7 +591,7 @@ async def database_is_ready() -> bool:
         return False
 ```
 
-- [ ] **Step 4: Add readiness route**
+- [ ] **Step 4: Implement readiness endpoint**
 
 Replace `backend/app/api/health.py` with:
 
@@ -648,38 +618,172 @@ async def ready() -> dict[str, str]:
     return {"status": "ready"}
 ```
 
-- [ ] **Step 5: Run readiness tests**
-
-Run:
+- [ ] **Step 5: Verify readiness tests pass**
 
 ```bash
 uv run pytest tests/test_health.py -v
 ```
 
-Expected: all PASS.
+Expected: PASS.
 
-- [ ] **Step 6: Add Alembic baseline**
+- [ ] **Step 6: Add Alembic configuration**
 
-Create `backend/alembic.ini` with `script_location = migrations` and logging defaults. Create `backend/migrations/env.py` importing `get_settings()` and configuring Alembic with `settings.database_url.replace("+asyncpg", "")` for migration connectivity. Create `backend/migrations/versions/0001_bootstrap.py` with revision `0001_bootstrap`, no domain tables yet, and reversible `upgrade()`/`downgrade()` functions that return without side effects.
+Create `backend/alembic.ini`:
 
-- [ ] **Step 7: Verify migration against PostgreSQL**
+```ini
+[alembic]
+script_location = migrations
+prepend_sys_path = .
 
-Run:
+[loggers]
+keys = root,sqlalchemy,alembic
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = WARN
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARN
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S
+```
+
+Create `backend/migrations/env.py`:
+
+```python
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+
+from app.config import get_settings
+
+config = context.config
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+settings = get_settings()
+sync_url = settings.database_url.replace("+asyncpg", "+psycopg")
+config.set_main_option("sqlalchemy.url", sync_url)
+target_metadata = None
+
+
+def run_migrations_offline() -> None:
+    context.configure(
+        url=sync_url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+    with connectable.connect() as connection:
+        context.configure(connection=connection, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
+```
+
+Create `backend/migrations/script.py.mako`:
+
+```mako
+"""${message}
+
+Revision ID: ${up_revision}
+Revises: ${down_revision | comma,n}
+Create Date: ${create_date}
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+${imports if imports else ""}
+
+revision: str = ${repr(up_revision)}
+down_revision: Union[str, None] = ${repr(down_revision)}
+branch_labels: Union[str, Sequence[str], None] = ${repr(branch_labels)}
+depends_on: Union[str, Sequence[str], None] = ${repr(depends_on)}
+
+
+def upgrade() -> None:
+    ${upgrades if upgrades else "pass"}
+
+
+def downgrade() -> None:
+    ${downgrades if downgrades else "pass"}
+```
+
+Create `backend/migrations/versions/0001_bootstrap.py`:
+
+```python
+"""bootstrap migration foundation"""
+
+revision = "0001_bootstrap"
+down_revision = None
+branch_labels = None
+depends_on = None
+
+
+def upgrade() -> None:
+    pass
+
+
+def downgrade() -> None:
+    pass
+```
+
+- [ ] **Step 7: Verify migration on PostgreSQL 17**
 
 ```bash
+cd ..
 docker compose up -d postgres
 cd backend
 uv run alembic upgrade head
 uv run alembic current
 ```
 
-Expected: current revision is `0001_bootstrap`.
+Expected: output includes `0001_bootstrap (head)`.
 
-- [ ] **Step 8: Run the complete backend check**
+- [ ] **Step 8: Verify all backend checks**
 
 ```bash
-uv run pytest -v
 uv run ruff check .
+uv run pytest -v
 ```
 
 Expected: PASS.
@@ -693,35 +797,33 @@ git commit -m "feat: add PostgreSQL readiness and migration foundation"
 
 ---
 
-### Task 4: Flutter application shell and FamilyMed theme
+### Task 4: Flutter application shell and visual theme
 
 **Files:**
-- Create via Flutter scaffold: `mobile/`
+- Create via scaffold: `mobile/`
 - Modify: `mobile/pubspec.yaml`
 - Create: `mobile/lib/main.dart`
 - Create: `mobile/lib/app/app.dart`
 - Create: `mobile/lib/app/router.dart`
 - Create: `mobile/lib/core/theme/familymed_theme.dart`
 - Create: `mobile/lib/features/welcome/presentation/welcome_screen.dart`
-- Create: `mobile/test/app_test.dart`
+- Replace: `mobile/test/widget_test.dart` with `mobile/test/app_test.dart`
 
 **Interfaces:**
 - Consumes: approved V1.1 Figma visual language.
-- Produces: `FamilyMedApp`, `appRouter`, `FamilyMedTheme.light`, route `/welcome`.
+- Produces: `FamilyMedApp`, `appRouter`, `FamilyMedTheme.light`, `/welcome`.
 
-- [ ] **Step 1: Scaffold Flutter application**
-
-Run from repository root:
+- [ ] **Step 1: Scaffold Flutter app**
 
 ```bash
 flutter create --platforms=android,ios --org com.familymed --project-name familymed mobile
 ```
 
-Expected: `mobile/` builds with the Flutter stable SDK.
+Expected: `cd mobile && flutter test` succeeds against the generated starter before replacement.
 
-- [ ] **Step 2: Add foundation packages**
+- [ ] **Step 2: Add foundation dependencies**
 
-In `mobile/pubspec.yaml`, add:
+Add to `mobile/pubspec.yaml`:
 
 ```yaml
 dependencies:
@@ -729,13 +831,11 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  flutter_riverpod: ^3.0.0
   go_router: ^16.0.0
   drift: ^2.28.0
   sqlite3_flutter_libs: ^0.5.39
   path_provider: ^2.1.5
   path: ^1.9.1
-  flutter_secure_storage: ^9.2.4
   intl: any
 
 dev_dependencies:
@@ -746,20 +846,19 @@ dev_dependencies:
   build_runner: ^2.7.0
 ```
 
-Run:
+Then run:
 
 ```bash
 cd mobile
 flutter pub get
 ```
 
-- [ ] **Step 3: Write failing app-shell test**
+- [ ] **Step 3: Write failing welcome-shell test**
 
-Replace `mobile/test/app_test.dart` with:
+Delete `mobile/test/widget_test.dart` and create `mobile/test/app_test.dart`:
 
 ```dart
 import 'package:familymed/app/app.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -769,15 +868,12 @@ void main() {
 
     expect(find.text('FamilyMed'), findsOneWidget);
     expect(find.text('Medication care for the people you love.'), findsOneWidget);
-    expect(find.byType(MaterialApp), findsNothing);
-    expect(find.byType(MaterialApp), findsNothing); // Router app is MaterialApp.router.
+    expect(find.text('Get started'), findsOneWidget);
   });
 }
 ```
 
-- [ ] **Step 4: Run test and verify failure**
-
-Run:
+- [ ] **Step 4: Verify welcome test fails**
 
 ```bash
 flutter test test/app_test.dart
@@ -785,7 +881,7 @@ flutter test test/app_test.dart
 
 Expected: FAIL because `FamilyMedApp` does not exist.
 
-- [ ] **Step 5: Implement visual tokens and theme**
+- [ ] **Step 5: Implement FamilyMed theme**
 
 Create `mobile/lib/core/theme/familymed_theme.dart`:
 
@@ -807,42 +903,34 @@ abstract final class FamilyMedColors {
 }
 
 abstract final class FamilyMedTheme {
-  static ThemeData get light {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: FamilyMedColors.primary,
-      brightness: Brightness.light,
-      surface: FamilyMedColors.surface,
-    );
-
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: scheme.copyWith(
-        primary: FamilyMedColors.primary,
-        surface: FamilyMedColors.surface,
-        error: FamilyMedColors.warning,
-      ),
-      scaffoldBackgroundColor: FamilyMedColors.appBackground,
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: FamilyMedColors.textPrimary),
-        headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: FamilyMedColors.textPrimary),
-        titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: FamilyMedColors.textPrimary),
-        bodyMedium: TextStyle(fontSize: 15, height: 1.45, color: FamilyMedColors.textPrimary),
-        labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+  static ThemeData get light => ThemeData(
+        useMaterial3: true,
+        scaffoldBackgroundColor: FamilyMedColors.appBackground,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: FamilyMedColors.primary,
+          brightness: Brightness.light,
+          surface: FamilyMedColors.surface,
+        ).copyWith(error: FamilyMedColors.warning),
+        textTheme: const TextTheme(
+          headlineLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: FamilyMedColors.textPrimary),
+          headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: FamilyMedColors.textPrimary),
+          titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: FamilyMedColors.textPrimary),
+          bodyMedium: TextStyle(fontSize: 15, height: 1.45, color: FamilyMedColors.textPrimary),
+          labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
-      ),
-    );
-  }
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(50),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+        ),
+      );
 }
 ```
 
-- [ ] **Step 6: Implement welcome route and app shell**
+- [ ] **Step 6: Implement router, welcome screen, and app shell**
 
-Create `mobile/lib/features/welcome/presentation/welcome_screen.dart` with a `Scaffold` using the approved copy:
+Create `mobile/lib/features/welcome/presentation/welcome_screen.dart`:
 
 ```dart
 import 'package:familymed/core/theme/familymed_theme.dart';
@@ -861,15 +949,17 @@ class WelcomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
-              Container(
-                width: 72,
-                height: 72,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: FamilyMedColors.primarySoft,
-                  shape: BoxShape.circle,
+              Center(
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: FamilyMedColors.primarySoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.favorite, color: FamilyMedColors.primary, size: 32),
                 ),
-                child: const Icon(Icons.favorite, color: FamilyMedColors.primary, size: 32),
               ),
               const SizedBox(height: 24),
               Text('FamilyMed', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineLarge),
@@ -946,25 +1036,16 @@ void main() {
 }
 ```
 
-- [ ] **Step 7: Correct the app test to assert router shell**
-
-Replace the duplicate MaterialApp assertions with:
-
-```dart
-expect(find.text('Get started'), findsOneWidget);
-expect(find.text('AI assists. You always confirm.'), findsOneWidget);
-```
-
-- [ ] **Step 8: Run Flutter tests and static analysis**
+- [ ] **Step 7: Verify Flutter shell**
 
 ```bash
 flutter analyze
-flutter test
+flutter test test/app_test.dart
 ```
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add mobile
@@ -985,12 +1066,12 @@ git commit -m "feat: add Flutter shell and FamilyMed theme"
 - Modify: `mobile/test/app_test.dart`
 
 **Interfaces:**
-- Consumes: Flutter `AppLocalizations` generator.
-- Produces: localization keys for all welcome-screen copy and supported locales `en`, `bn`.
+- Consumes: Flutter generated `AppLocalizations`.
+- Produces: supported locales `en`, `bn`; all welcome-screen copy uses localization keys.
 
-- [ ] **Step 1: Enable generated localization**
+- [ ] **Step 1: Configure Flutter localization generation**
 
-Under `flutter:` in `mobile/pubspec.yaml`, add:
+Under the existing `flutter:` section in `mobile/pubspec.yaml`, add:
 
 ```yaml
   generate: true
@@ -1003,8 +1084,6 @@ arb-dir: lib/l10n
 template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart
 ```
-
-- [ ] **Step 2: Add English and Bangla resource files**
 
 Create `mobile/lib/l10n/app_en.arb`:
 
@@ -1030,48 +1109,125 @@ Create `mobile/lib/l10n/app_bn.arb`:
 }
 ```
 
-- [ ] **Step 3: Write localization widget tests**
+- [ ] **Step 2: Add failing Bangla widget test**
 
-Update `mobile/test/app_test.dart` so it includes:
+Replace `mobile/test/app_test.dart` with:
 
 ```dart
+import 'package:familymed/app/app.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 
-// Existing English test remains.
+void main() {
+  testWidgets('renders English welcome copy', (tester) async {
+    await tester.pumpWidget(const FamilyMedApp(locale: Locale('en')));
+    await tester.pumpAndSettle();
+    expect(find.text('Medication care for the people you love.'), findsOneWidget);
+    expect(find.text('Get started'), findsOneWidget);
+  });
 
-testWidgets('renders Bangla welcome copy', (tester) async {
-  await tester.pumpWidget(const FamilyMedApp(locale: Locale('bn')));
-  await tester.pumpAndSettle();
-
-  expect(find.text('আপনার প্রিয়জনের ওষুধের যত্ন।'), findsOneWidget);
-  expect(find.text('শুরু করুন'), findsOneWidget);
-});
+  testWidgets('renders Bangla welcome copy', (tester) async {
+    await tester.pumpWidget(const FamilyMedApp(locale: Locale('bn')));
+    await tester.pumpAndSettle();
+    expect(find.text('আপনার প্রিয়জনের ওষুধের যত্ন।'), findsOneWidget);
+    expect(find.text('শুরু করুন'), findsOneWidget);
+  });
+}
 ```
 
-This requires `FamilyMedApp` to accept `Locale? locale`.
-
-- [ ] **Step 4: Run test and verify failure**
+- [ ] **Step 3: Generate localization and verify tests fail**
 
 ```bash
 flutter gen-l10n
 flutter test test/app_test.dart
 ```
 
-Expected: FAIL because the app/welcome screen still uses hard-coded strings and has no locale parameter.
+Expected: FAIL because `FamilyMedApp` has no `locale` parameter and the welcome screen still uses hard-coded copy.
 
-- [ ] **Step 5: Wire AppLocalizations into the app**
+- [ ] **Step 4: Wire localization into app shell**
 
-Modify `FamilyMedApp` constructor to accept `this.locale`, add `locale`, `AppLocalizations.localizationsDelegates`, and `AppLocalizations.supportedLocales` to `MaterialApp.router`.
-
-Replace every user-facing welcome string with values from:
+Replace `mobile/lib/app/app.dart` with:
 
 ```dart
-final l10n = AppLocalizations.of(context)!;
+import 'package:familymed/app/router.dart';
+import 'package:familymed/core/theme/familymed_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
+class FamilyMedApp extends StatelessWidget {
+  const FamilyMedApp({super.key, this.locale});
+
+  final Locale? locale;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
+      onGenerateTitle: (context) => AppLocalizations.of(context)!.appName,
+      theme: FamilyMedTheme.light,
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      routerConfig: appRouter,
+    );
+  }
+}
 ```
 
-Use `l10n.appName`, `l10n.welcomeHeadline`, `l10n.welcomeBody`, `l10n.getStarted`, and `l10n.aiConfirmationNote`.
+Replace `mobile/lib/features/welcome/presentation/welcome_screen.dart` with:
 
-- [ ] **Step 6: Verify localization and analysis**
+```dart
+import 'package:familymed/core/theme/familymed_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
+class WelcomeScreen extends StatelessWidget {
+  const WelcomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Spacer(),
+              Center(
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: FamilyMedColors.primarySoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.favorite, color: FamilyMedColors.primary, size: 32),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(l10n.appName, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineLarge),
+              const SizedBox(height: 18),
+              Text(l10n.welcomeHeadline, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 16),
+              Text(l10n.welcomeBody, textAlign: TextAlign.center),
+              const Spacer(flex: 2),
+              FilledButton(onPressed: () {}, child: Text(l10n.getStarted)),
+              const SizedBox(height: 16),
+              Text(l10n.aiConfirmationNote, textAlign: TextAlign.center),
+              const Spacer(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+- [ ] **Step 5: Verify localization**
 
 ```bash
 flutter gen-l10n
@@ -1079,9 +1235,9 @@ flutter analyze
 flutter test
 ```
 
-Expected: PASS including Bangla test.
+Expected: PASS including English and Bangla tests.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add mobile
@@ -1098,8 +1254,8 @@ git commit -m "feat: add English and Bangla localization foundation"
 - Create: `mobile/test/core/database/app_database_test.dart`
 
 **Interfaces:**
-- Consumes: Drift and SQLite.
-- Produces: `AppDatabase`, schema version `1`, database initialization boundary suitable for later family/medication/dose tables.
+- Consumes: Drift/SQLite.
+- Produces: `AppDatabase`, schema version `1`, production file `familymed.sqlite`, in-memory testing constructor.
 
 - [ ] **Step 1: Write failing in-memory database test**
 
@@ -1116,12 +1272,13 @@ void main() {
     addTearDown(database.close);
 
     expect(database.schemaVersion, 1);
-    expect(await database.customSelect('SELECT 1 AS value').getSingle().then((row) => row.read<int>('value')), 1);
+    final row = await database.customSelect('SELECT 1 AS value').getSingle();
+    expect(row.read<int>('value'), 1);
   });
 }
 ```
 
-- [ ] **Step 2: Run and verify failure**
+- [ ] **Step 2: Verify test fails**
 
 ```bash
 flutter test test/core/database/app_database_test.dart
@@ -1129,7 +1286,7 @@ flutter test test/core/database/app_database_test.dart
 
 Expected: FAIL because `AppDatabase` does not exist.
 
-- [ ] **Step 3: Implement the database boundary**
+- [ ] **Step 3: Implement Drift database boundary**
 
 Create `mobile/lib/core/database/app_database.dart`:
 
@@ -1147,7 +1304,7 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-  AppDatabase.forTesting(super.executor);
+  AppDatabase.forTesting(QueryExecutor executor) : super(executor);
 
   @override
   int get schemaVersion => 1;
@@ -1163,15 +1320,13 @@ LazyDatabase _openConnection() {
 
 - [ ] **Step 4: Generate Drift code**
 
-Run:
-
 ```bash
 dart run build_runner build --delete-conflicting-outputs
 ```
 
-Expected: `app_database.g.dart` is created.
+Expected: `mobile/lib/core/database/app_database.g.dart` is generated.
 
-- [ ] **Step 5: Run database test and all Flutter checks**
+- [ ] **Step 5: Verify database and all Flutter checks**
 
 ```bash
 flutter analyze
@@ -1189,17 +1344,16 @@ git commit -m "feat: add Drift local database foundation"
 
 ---
 
-### Task 7: Clean-run CI for backend and mobile
+### Task 7: Clean-run CI
 
 **Files:**
 - Create: `.github/workflows/ci.yml`
-- Modify: `README.md` only if actual CI commands differ from documented commands.
 
 **Interfaces:**
-- Consumes: backend and mobile commands defined in Tasks 1–6.
-- Produces: required clean-run validation for Python lint/tests, PostgreSQL migration, Flutter analyze/tests.
+- Consumes: Tasks 1–6 commands.
+- Produces: clean backend and mobile validation on every pull request and pushes to `main`.
 
-- [ ] **Step 1: Add GitHub Actions workflow**
+- [ ] **Step 1: Add CI workflow**
 
 Create `.github/workflows/ci.yml`:
 
@@ -1267,9 +1421,7 @@ jobs:
         working-directory: mobile
 ```
 
-- [ ] **Step 2: Reproduce CI commands locally**
-
-Run:
+- [ ] **Step 2: Reproduce CI locally**
 
 ```bash
 cd backend
@@ -1288,46 +1440,39 @@ flutter test
 
 Expected: every command exits `0`.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Commit and push**
 
 ```bash
-git add .github/workflows/ci.yml README.md
+git add .github/workflows/ci.yml
 git commit -m "ci: validate backend and Flutter foundation"
-```
-
-- [ ] **Step 4: Push the feature branch and confirm CI**
-
-```bash
 git push -u origin feat/foundation
 ```
 
-Expected: both `backend` and `mobile` GitHub Actions jobs pass.
+Expected: GitHub Actions jobs `backend` and `mobile` both pass.
 
 ---
 
 ## Foundation Completion Gate
 
-This plan is complete only when all of the following are true:
-
 ```text
-✓ `docker compose up -d postgres` reaches healthy state
-✓ FastAPI `/api/v1/health` returns 200 without requiring a live DB query
-✓ FastAPI `/api/v1/ready` returns 200 with DB available and 503 when unavailable
-✓ Alembic reaches `0001_bootstrap` against PostgreSQL 17
-✓ Flutter boots to the FamilyMed welcome screen
-✓ FamilyMed colors/copy match the approved V1.1 direction
+✓ PostgreSQL 17 reaches healthy state
+✓ /api/v1/health returns 200 without a database query
+✓ /api/v1/ready returns 200 with PostgreSQL available and 503 when unavailable
+✓ staging/production reject development secret and DB URL
+✓ Alembic reaches 0001_bootstrap
+✓ Flutter boots to approved FamilyMed welcome shell
 ✓ English and Bangla localization tests pass
 ✓ Drift opens a fresh local database without network access
-✓ backend Ruff + pytest pass
+✓ Ruff + pytest pass
 ✓ Flutter analyze + tests pass
 ✓ GitHub Actions passes on a clean runner
 ```
 
 ## Follow-up Implementation Plans
 
-After this foundation is merged, create and execute these plans in order:
+After the foundation branch is merged, create and execute these plans in order:
 
 1. `familymed-auth-family-medication.md` — email/password auth, family ownership, family-member profiles, medicine master/manual medication entry, medication schedules.
 2. `familymed-doses-today-notifications.md` — rolling dose generation, Today aggregate, taken/snooze/skip/missed transitions, local notifications, history, offline sync queue.
 3. `familymed-prescription-verification.md` — private prescription upload, mocked extraction contract, candidate selection vs explicit confirmation, prescription history.
-4. `familymed-real-ocr-integration.md` — OCR/HTR, pharmaceutical lexicon retrieval/reranking, confidence/abstention, calibration and research evaluation without changing the app contract.
+4. `familymed-real-ocr-integration.md` — OCR/HTR, pharmaceutical lexicon retrieval/reranking, confidence/abstention, calibration, and research evaluation without changing the app contract.
