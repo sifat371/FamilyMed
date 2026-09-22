@@ -48,7 +48,7 @@ The `ai/` service is not touched in this slice.
 - JWT access token issuance;
 - refresh-token issuance and refresh endpoint;
 - secure password hashing;
-- authenticated backend dependency/middleware boundary;
+- authenticated backend dependency boundary;
 - automatic family creation for a newly registered user;
 - automatic owner membership creation;
 - family-member list/create/read/update APIs;
@@ -68,6 +68,7 @@ The `ai/` service is not touched in this slice.
 - email verification;
 - social login;
 - phone OTP;
+- server-side refresh-token revocation/session management;
 - caregiver invitations;
 - multi-user family collaboration;
 - medicine-master import/search UI;
@@ -112,6 +113,12 @@ Valid credentials return user profile data, an access token, and a refresh token
 
 Invalid email/password returns HTTP 401 using the same generic message so the API does not reveal whether an account exists.
 
+### Current user
+
+`GET /api/v1/auth/me`
+
+Returns the authenticated user's non-sensitive profile fields. Flutter uses this when restoring a stored session and when it needs authoritative account data after relaunch.
+
 ### Token model
 
 Use signed JWTs with explicit token type claims.
@@ -122,15 +129,15 @@ Use signed JWTs with explicit token type claims.
 - access token contains `type=access`;
 - refresh token contains `type=refresh`.
 
-`POST /api/v1/auth/refresh` accepts a valid refresh token and returns a new access token and a rotated refresh token.
+`POST /api/v1/auth/refresh` accepts a valid refresh token and returns a new access token. The stored refresh token remains valid until its own expiry in this slice.
 
-V1 does not implement server-side refresh-token revocation/storage in this slice. Rotation limits replay exposure but does not provide full revocation. That is acceptable for this first product slice and can be hardened later without changing the public auth API.
+Server-side refresh-token storage, revocation, and true rotation are intentionally deferred. The public API can later add those protections without changing the mobile login flow.
 
 ### Password storage
 
 Use a modern adaptive password hash through a maintained password-hashing library. Passwords are never logged or stored in plaintext.
 
-The backend should prefer Argon2 when supported by the selected library.
+The backend should use Argon2 through the selected maintained library.
 
 ### Authenticated request dependency
 
@@ -139,6 +146,13 @@ Protected routes resolve the current user from the bearer access token.
 Invalid, expired, malformed, wrong-type, or unknown-user tokens return HTTP 401.
 
 Authorization is separate from authentication: resolving a user does not automatically grant access to any supplied family/member/medication UUID.
+
+### Authentication validation
+
+- name: trimmed, 1-120 characters;
+- email: syntactically valid, trimmed and lowercased before lookup/persistence;
+- password: 8-128 characters in this slice;
+- no password-complexity rule beyond minimum length; the UI may encourage a stronger password but must not invent a backend rule.
 
 ## 5. User and family data model
 
@@ -189,7 +203,7 @@ A unique constraint prevents duplicate `(family_id, user_id)` memberships.
 - `name VARCHAR(120)`
 - `relationship VARCHAR(40)`
 - `date_of_birth DATE NULL`
-- `preferred_language VARCHAR(5)` default `bn` for the onboarding UI when selected, otherwise explicit client value
+- `preferred_language VARCHAR(5)`
 - `linked_user_id UUID NULL`
 - `profile_image_key TEXT NULL`
 - `timezone VARCHAR(64)` default `Asia/Dhaka`
@@ -200,6 +214,16 @@ A unique constraint prevents duplicate `(family_id, user_id)` memberships.
 No NID, address, diagnosis, hospital, or other unnecessary health/profile fields are added.
 
 Archived members are excluded from normal list responses but their future historical data model remains preservable.
+
+Family-member validation:
+
+- name: trimmed, 1-120 characters;
+- relationship: trimmed, 1-40 characters;
+- preferred language: `en` or `bn`;
+- date of birth: optional and cannot be in the future;
+- timezone: valid IANA timezone string; Flutter defaults new members to `Asia/Dhaka` for the Bangladesh-first V1.
+
+The approved Amma onboarding preselects Bangla on the client, but the backend does not silently infer language from relationship.
 
 ## 7. Medication model for this slice
 
@@ -232,8 +256,8 @@ Fields:
 - `id UUID PK`
 - `family_member_id UUID FK family_members.id`
 - `medicine_master_id UUID NULL FK medicine_master.id`
-- `prescription_id UUID NULL` reserved for the later prescription slice
-- `extraction_id UUID NULL` reserved for the later extraction slice
+- `prescription_id UUID NULL` reserved for a later migration that will add the prescription foreign key;
+- `extraction_id UUID NULL` reserved for a later migration that will add the extraction foreign key;
 - `display_name VARCHAR(180)`
 - `strength VARCHAR(80) NULL`
 - `dosage_form VARCHAR(80) NULL`
@@ -257,6 +281,14 @@ Medication states available in the schema:
 This slice creates manually entered medicines as `draft`. Activation will happen when schedule/routine creation is implemented in the next medication-routine slice.
 
 No hard-delete endpoint is added.
+
+Medication validation:
+
+- display name: trimmed, 1-180 characters;
+- strength: optional, trimmed, max 80 characters;
+- dosage form: optional, trimmed, max 80 characters;
+- start date: required;
+- end date: optional and must be on or after start date.
 
 ## 8. Authorization rules
 
@@ -287,6 +319,7 @@ Base path: `/api/v1`.
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/refresh`
+- `GET /auth/me`
 
 ### Family members
 
@@ -337,6 +370,8 @@ Expected codes include:
 - `MEDICATION_NOT_FOUND`
 - `VALIDATION_ERROR`
 
+FastAPI/Pydantic validation errors must also be adapted to this envelope rather than leaking the framework's default error shape to the mobile client.
+
 ## 10. Backend module structure
 
 Extend the existing FastAPI project into feature domains:
@@ -377,7 +412,7 @@ Domain models should remain isolated enough that later schedule and prescription
 
 Add the following dependencies:
 
-- Riverpod for application state/dependency injection;
+- `flutter_riverpod` for application state and dependency injection;
 - Dio for HTTP calls;
 - `flutter_secure_storage` for access/refresh token storage.
 
@@ -405,18 +440,21 @@ mobile/lib/
 
 - access and refresh tokens are stored in secure storage;
 - the API client adds the bearer access token to protected requests;
-- one automatic refresh attempt is allowed after a 401 caused by an expired access token;
-- concurrent refreshes should share one refresh operation rather than triggering multiple refresh requests;
+- one automatic access-token refresh attempt is allowed after a 401 caused by an expired access token;
+- concurrent refresh attempts share one in-flight refresh operation rather than triggering multiple refresh requests;
+- successful refresh replaces the stored access token while keeping the existing refresh token;
 - refresh failure clears local auth state and routes to login.
 
 ### Auth routing
 
 App launch resolves stored auth state before choosing the initial route.
 
-- no valid stored session -> Welcome/Login/Register flow;
-- valid session -> family flow;
+- no stored refresh token -> Welcome/Login/Register flow;
+- stored session -> call `/auth/me`, refreshing the access token once if required;
+- unrecoverable session validation failure -> clear tokens and show login;
 - registration success with zero family members -> `Who do you care for?` / add-member flow;
-- authenticated user with at least one member -> member/family home entry point.
+- authenticated user with one or more members -> `/family`, a simple family-member list screen;
+- selecting a member from `/family` -> family-member profile.
 
 The exact broader Today-navigation shell remains deferred until the dashboard slice.
 
@@ -451,7 +489,7 @@ Fields:
 After success:
 
 - zero members -> add-member flow;
-- existing members -> family/member list entry.
+- existing members -> `/family` member list.
 
 ### Family onboarding
 
@@ -462,6 +500,12 @@ Preserve the approved screens:
 
 The relationship choice pre-fills the relationship field but remains editable.
 
+### Family list
+
+This slice adds a minimal authenticated `/family` screen for returning users.
+
+It shows the current user's family-member cards and an `Add family member` action. Tapping a card opens that member's profile.
+
 ### Family-member profile
 
 Show:
@@ -471,7 +515,7 @@ Show:
 - language summary;
 - current medication list;
 - empty state when no medications exist;
-- `Scan prescription` action visible but disabled or clearly marked coming later only if needed to preserve the approved visual hierarchy;
+- disabled `Scan prescription — coming soon` action to preserve the approved hierarchy without suggesting that scanning already works;
 - active `Add manually` action.
 
 The implemented behavior in this slice is manual entry only.
@@ -537,6 +581,8 @@ Create one forward migration after `0001_bootstrap` that introduces:
 - member_medications;
 - required indexes and uniqueness constraints.
 
+`prescription_id` and `extraction_id` are nullable UUID columns only in this migration because their target tables do not yet exist. Later prescription/extraction migrations will add the foreign-key constraints.
+
 Alembic metadata must include all new SQLAlchemy models so later autogeneration remains reliable.
 
 Migration CI must upgrade from an empty PostgreSQL database to head successfully.
@@ -554,8 +600,10 @@ Authentication:
 - valid login succeeds;
 - wrong password rejected;
 - unknown email rejected with generic invalid-credentials behavior;
-- valid refresh rotates tokens;
+- valid refresh returns a new access token;
 - access token cannot be used as refresh token;
+- refresh token cannot be used as bearer access token;
+- `/auth/me` returns the authenticated user's safe profile;
 - protected route without access token rejected.
 
 Authorization:
@@ -567,6 +615,7 @@ Authorization:
 Family:
 
 - create member persists expected fields;
+- future DOB rejected;
 - list returns current user's non-archived members;
 - update persists allowed changes.
 
@@ -574,6 +623,7 @@ Medication:
 
 - manual medication persists with `medicine_master_id = NULL`;
 - manual medication starts as `draft`;
+- end date before start date rejected;
 - medication list is scoped to the requested authorized member;
 - update persists allowed identity/date changes.
 
@@ -582,12 +632,13 @@ Medication:
 - unauthenticated router shows auth flow;
 - successful registration stores tokens and advances to family onboarding;
 - successful login with no members advances to add-member flow;
-- successful login with members advances to family entry;
+- successful login with members advances to `/family`;
 - failed login displays error without clearing email field;
 - add-member form validates and submits;
 - family-member profile empty medication state renders;
+- scan-prescription action is visibly disabled/coming soon;
 - manual-medication form validates and submits;
-- created medication appears on member profile after refresh/state update;
+- created medication appears on member profile after state refresh;
 - auth refresh failure clears the session;
 - localization smoke test covers English and Bangla resources for new screens.
 
@@ -633,7 +684,9 @@ Open app
 -> Return to Amma profile
 -> Metformin 500 mg appears in Amma's medication list
 -> Relaunch/login again
--> Amma and Metformin still load from persisted backend data
+-> /auth/me restores the account session
+-> /family loads Amma
+-> Amma profile loads Metformin from persisted backend data
 ```
 
 This acceptance flow does not require a schedule or reminder.
