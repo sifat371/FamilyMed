@@ -117,7 +117,16 @@ async def test_snooze_requires_pending_and_remains_pending(client, db_session):
 
 async def test_idempotency_key_cannot_be_reused_for_other_operation(client, db_session):
     auth, dose_a = await _seed_dose(client, db_session, "dose-key-a@example.com")
-    _, dose_b = await _seed_dose(client, db_session, "dose-key-b@example.com")
+    dose_b = await db_session.scalar(
+        select(ScheduledDose)
+        .where(
+            ScheduledDose.schedule_id == dose_a.schedule_id,
+            ScheduledDose.id != dose_a.id,
+        )
+        .order_by(ScheduledDose.scheduled_at)
+        .limit(1)
+    )
+    assert dose_b is not None
     key = uuid4()
     now = datetime.now(UTC)
     first = await client.post(
@@ -140,14 +149,13 @@ async def test_idempotency_key_cannot_be_reused_for_other_operation(client, db_s
         headers=_headers(auth),
         json={"client_action_id": str(key), "occurred_at": now.isoformat()},
     )
-    assert other_dose.status_code in {404, 409}
-    if other_dose.status_code == 409:
-        assert other_dose.json()["error"]["code"] == "IDEMPOTENCY_KEY_REUSED"
+    assert other_dose.status_code == 409
+    assert other_dose.json()["error"]["code"] == "IDEMPOTENCY_KEY_REUSED"
 
 
 async def test_future_action_time_rejected_and_cross_family_dose_hidden(client, db_session):
-    owner, dose = await _seed_dose(client, db_session, "dose-owner@example.com")
     outsider = await _register(client, "dose-outsider@example.com")
+    owner, dose = await _seed_dose(client, db_session, "dose-owner@example.com")
     hidden = await client.post(
         f"/api/v1/doses/{dose.id}/taken",
         headers=_headers(outsider),
