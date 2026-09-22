@@ -1,12 +1,34 @@
 from collections.abc import AsyncIterator
+from datetime import datetime
 
-from sqlalchemy import text
+from sqlalchemy import DateTime, func, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
 
 settings = get_settings()
-engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+engine_kwargs: dict[str, object] = {"pool_pre_ping": True}
+if settings.env == "test":
+    engine_kwargs["poolclass"] = NullPool
+
+engine = create_async_engine(settings.database_url, **engine_kwargs)
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
