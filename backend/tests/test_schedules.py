@@ -1,5 +1,5 @@
 from datetime import UTC, date, datetime, time
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import delete, func, select
@@ -21,6 +21,10 @@ async def _register(client, email: str) -> dict[str, object]:
 
 def _headers(auth: dict[str, object]) -> dict[str, str]:
     return {"Authorization": f"Bearer {auth['access_token']}"}
+
+
+def _uuid(value: object) -> UUID:
+    return UUID(str(value))
 
 
 async def _member(client, auth: dict[str, object]) -> dict[str, object]:
@@ -110,11 +114,14 @@ async def test_create_schedule_activates_medication_and_exposes_current_schedule
     body = response.json()
     assert body["status"] == "active"
     assert body["timezone"] == "Asia/Dhaka"
-    assert [item["local_time"] for item in body["times"]] == ["08:00:00", "20:00:00"]
+    assert [item["local_time"] for item in body["times"]] == [
+        "08:00:00",
+        "20:00:00",
+    ]
 
-    persisted_medication = await db_session.get(MemberMedication, medication["id"])
-    assert persisted_medication is not None
-    assert persisted_medication.status == "active"
+    persisted = await db_session.get(MemberMedication, _uuid(medication["id"]))
+    assert persisted is not None
+    assert persisted.status == "active"
 
     current = await client.get(
         f"/api/v1/member-medications/{medication['id']}/schedule",
@@ -124,7 +131,10 @@ async def test_create_schedule_activates_medication_and_exposes_current_schedule
     assert current.json()["id"] == body["id"]
 
 
-async def test_generation_is_idempotent_and_respects_30_day_window(client, db_session):
+async def test_generation_is_idempotent_and_respects_30_day_window(
+    client,
+    db_session,
+):
     auth, _, medication = await _setup_medication(client, "schedule-window@example.com")
     created = await client.post(
         f"/api/v1/member-medications/{medication['id']}/schedules",
@@ -132,9 +142,11 @@ async def test_generation_is_idempotent_and_respects_30_day_window(client, db_se
         json=_schedule_payload(),
     )
     assert created.status_code == 201
-    schedule_id = created.json()["id"]
+    schedule_id = _uuid(created.json()["id"])
 
-    await db_session.execute(delete(ScheduledDose).where(ScheduledDose.schedule_id == schedule_id))
+    await db_session.execute(
+        delete(ScheduledDose).where(ScheduledDose.schedule_id == schedule_id)
+    )
     await db_session.flush()
     controlled_now = datetime(2026, 9, 23, 3, 0, tzinfo=UTC)
     first = await generate_schedule_window(db_session, schedule_id, controlled_now)
@@ -142,7 +154,9 @@ async def test_generation_is_idempotent_and_respects_30_day_window(client, db_se
     await db_session.flush()
 
     count = await db_session.scalar(
-        select(func.count()).select_from(ScheduledDose).where(ScheduledDose.schedule_id == schedule_id)
+        select(func.count())
+        .select_from(ScheduledDose)
+        .where(ScheduledDose.schedule_id == schedule_id)
     )
     assert len(first) == 60
     assert second == []
@@ -152,7 +166,10 @@ async def test_generation_is_idempotent_and_respects_30_day_window(client, db_se
 @pytest.mark.parametrize(
     ("mutate", "expected_code"),
     [
-        (lambda payload: payload.update({"timezone": "Mars/Olympus"}), "INVALID_TIMEZONE"),
+        (
+            lambda payload: payload.update({"timezone": "Mars/Olympus"}),
+            "INVALID_TIMEZONE",
+        ),
         (lambda payload: payload.update({"times": []}), "VALIDATION_ERROR"),
         (
             lambda payload: payload.update(
@@ -192,13 +209,18 @@ async def test_generation_is_idempotent_and_respects_30_day_window(client, db_se
             "VALIDATION_ERROR",
         ),
         (
-            lambda payload: payload["times"][0].update({"local_time": "08:00:30"}),
+            lambda payload: payload["times"][0].update(
+                {"local_time": "08:00:30"}
+            ),
             "VALIDATION_ERROR",
         ),
     ],
 )
 async def test_schedule_validation(client, mutate, expected_code):
-    auth, _, medication = await _setup_medication(client, f"validation-{uuid4()}@example.com")
+    auth, _, medication = await _setup_medication(
+        client,
+        f"validation-{uuid4()}@example.com",
+    )
     payload = _schedule_payload()
     mutate(payload)
     response = await client.post(
@@ -211,7 +233,10 @@ async def test_schedule_validation(client, mutate, expected_code):
 
 
 async def test_second_current_schedule_is_rejected(client):
-    auth, _, medication = await _setup_medication(client, "schedule-duplicate@example.com")
+    auth, _, medication = await _setup_medication(
+        client,
+        "schedule-duplicate@example.com",
+    )
     url = f"/api/v1/member-medications/{medication['id']}/schedules"
     first = await client.post(url, headers=_headers(auth), json=_schedule_payload())
     second = await client.post(url, headers=_headers(auth), json=_schedule_payload())
@@ -222,7 +247,10 @@ async def test_second_current_schedule_is_rejected(client):
 
 async def test_cross_family_schedule_paths_return_404(client):
     owner_a = await _register(client, "schedule-a@example.com")
-    owner_b, _, medication_b = await _setup_medication(client, "schedule-b@example.com")
+    owner_b, _, medication_b = await _setup_medication(
+        client,
+        "schedule-b@example.com",
+    )
     created = await client.post(
         f"/api/v1/member-medications/{medication_b['id']}/schedules",
         headers=_headers(owner_b),
@@ -244,14 +272,17 @@ async def test_cross_family_schedule_paths_return_404(client):
         assert response.json()["error"]["code"] == "MEDICATION_NOT_FOUND"
 
 
-async def test_schedule_edit_preserves_event_bearing_future_dose(client, db_session):
+async def test_schedule_edit_preserves_event_bearing_future_dose(
+    client,
+    db_session,
+):
     auth, _, medication = await _setup_medication(client, "schedule-edit@example.com")
     created = await client.post(
         f"/api/v1/member-medications/{medication['id']}/schedules",
         headers=_headers(auth),
         json=_schedule_payload(),
     )
-    schedule_id = created.json()["id"]
+    schedule_id = _uuid(created.json()["id"])
     schedule = await db_session.get(MedicationSchedule, schedule_id)
     assert schedule is not None
 
@@ -267,7 +298,7 @@ async def test_schedule_edit_preserves_event_bearing_future_dose(client, db_sess
         DoseLog(
             scheduled_dose_id=future_dose.id,
             action="marked_taken",
-            performed_by_user_id=medication["created_by_user_id"],
+            performed_by_user_id=_uuid(auth["user"]["id"]),
             client_action_id=uuid4(),
             occurred_at=future_dose.scheduled_at,
             recorded_at=future_dose.scheduled_at,
@@ -294,25 +325,35 @@ async def test_schedule_edit_preserves_event_bearing_future_dose(client, db_sess
     assert updated.status_code == 200
     assert await db_session.get(ScheduledDose, preserved_id) is not None
     log_count = await db_session.scalar(
-        select(func.count()).select_from(DoseLog).where(DoseLog.scheduled_dose_id == preserved_id)
+        select(func.count())
+        .select_from(DoseLog)
+        .where(DoseLog.scheduled_dose_id == preserved_id)
     )
     assert log_count == 1
 
 
-async def test_editing_paused_schedule_does_not_generate_future_doses(client, db_session):
-    auth, _, medication = await _setup_medication(client, "schedule-paused@example.com")
+async def test_editing_paused_schedule_does_not_generate_future_doses(
+    client,
+    db_session,
+):
+    auth, _, medication = await _setup_medication(
+        client,
+        "schedule-paused@example.com",
+    )
     created = await client.post(
         f"/api/v1/member-medications/{medication['id']}/schedules",
         headers=_headers(auth),
         json=_schedule_payload(),
     )
-    schedule_id = created.json()["id"]
+    schedule_id = _uuid(created.json()["id"])
     schedule = await db_session.get(MedicationSchedule, schedule_id)
-    persisted_medication = await db_session.get(MemberMedication, medication["id"])
-    assert schedule is not None and persisted_medication is not None
+    persisted = await db_session.get(MemberMedication, _uuid(medication["id"]))
+    assert schedule is not None and persisted is not None
     schedule.status = "paused"
-    persisted_medication.status = "paused"
-    await db_session.execute(delete(ScheduledDose).where(ScheduledDose.schedule_id == schedule.id))
+    persisted.status = "paused"
+    await db_session.execute(
+        delete(ScheduledDose).where(ScheduledDose.schedule_id == schedule.id)
+    )
     await db_session.flush()
 
     payload = _schedule_payload()
@@ -331,6 +372,8 @@ async def test_editing_paused_schedule_does_not_generate_future_doses(client, db
     )
     assert response.status_code == 200
     count = await db_session.scalar(
-        select(func.count()).select_from(ScheduledDose).where(ScheduledDose.schedule_id == schedule.id)
+        select(func.count())
+        .select_from(ScheduledDose)
+        .where(ScheduledDose.schedule_id == schedule.id)
     )
     assert count == 0
