@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.errors import ApiError
 from app.doses.models import DoseLog, ScheduledDose
-from app.medications.models import MemberMedication
 from app.schedules.generation import generate_schedule_window
 from app.schedules.models import MedicationSchedule, ScheduleTime
 from app.schedules.repository import (
@@ -153,7 +152,7 @@ async def update_schedule(
     *,
     now_utc: datetime | None = None,
 ) -> ScheduleResponse:
-    medication, schedule = await require_accessible_schedule(
+    _, schedule = await require_accessible_schedule(
         session,
         user_id,
         schedule_id,
