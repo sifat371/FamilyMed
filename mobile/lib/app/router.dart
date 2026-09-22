@@ -2,6 +2,10 @@ import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/core/auth/auth_state.dart';
 import 'package:familymed/features/auth/presentation/login_screen.dart';
 import 'package:familymed/features/auth/presentation/register_screen.dart';
+import 'package:familymed/features/family/presentation/add_family_member_screen.dart';
+import 'package:familymed/features/family/presentation/family_list_screen.dart';
+import 'package:familymed/features/family/presentation/member_profile_screen.dart';
+import 'package:familymed/features/family/presentation/who_do_you_care_for_screen.dart';
 import 'package:familymed/features/welcome/presentation/welcome_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,11 +63,23 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/care-for',
-        builder: (context, state) => const _RoutePlaceholder(),
+        builder: (context, state) => const WhoDoYouCareForScreen(),
+      ),
+      GoRoute(
+        path: '/family/new',
+        builder: (context, state) => AddFamilyMemberScreen(
+          initialRelationship: state.uri.queryParameters['relationship'] ?? 'mother',
+        ),
       ),
       GoRoute(
         path: '/family',
-        builder: (context, state) => const _RoutePlaceholder(),
+        builder: (context, state) => const FamilyListScreen(),
+      ),
+      GoRoute(
+        path: '/family/:memberId',
+        builder: (context, state) => MemberProfileScreen(
+          memberId: state.pathParameters['memberId']!,
+        ),
       ),
     ],
   );
@@ -83,14 +99,5 @@ class _SplashScreen extends StatelessWidget {
     return const Scaffold(
       body: Center(child: CircularProgressIndicator()),
     );
-  }
-}
-
-class _RoutePlaceholder extends StatelessWidget {
-  const _RoutePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: SizedBox.shrink());
   }
 }
