@@ -58,16 +58,6 @@ jobs:
               '    - android/**\n'
               '    - ios/**\n'
           )
-
-          ci = Path('.github/workflows/ci.yml')
-          text = ci.read_text()
-          needle = '      - run: flutter test\n        working-directory: mobile\n'
-          build = '      - run: flutter build apk --debug\n        working-directory: mobile\n'
-          if build not in text:
-              if needle not in text:
-                  raise SystemExit('Could not find Flutter test step in CI')
-              text = text.replace(needle, needle + build)
-          ci.write_text(text)
           PY
       - name: Commit generated foundation files
         shell: bash
