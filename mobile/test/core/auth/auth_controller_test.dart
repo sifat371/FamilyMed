@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/core/auth/auth_state.dart';
