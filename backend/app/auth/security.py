@@ -70,5 +70,11 @@ def decode_token(token: str, expected_type: str) -> UUID:
         return UUID(payload["sub"])
     except ApiError:
         raise
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, KeyError, TypeError, ValueError) as exc:
+    except (
+        jwt.ExpiredSignatureError,
+        jwt.InvalidTokenError,
+        KeyError,
+        TypeError,
+        ValueError,
+    ) as exc:
         raise invalid_token_error() from exc
