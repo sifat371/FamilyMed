@@ -3,7 +3,14 @@ from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 SchedulePeriod = Literal["morning", "afternoon", "evening", "night", "custom"]
 MealRelation = Literal["before_food", "after_food", "with_food", "none", "unspecified"]
