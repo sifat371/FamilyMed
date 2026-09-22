@@ -35,5 +35,15 @@
   "invalidDateError": "Enter a valid date as YYYY-MM-DD.",
   "banglaLanguage": "Bangla",
   "englishLanguage": "English",
-  "noFamilyMembersYet": "No family members yet"
+  "noFamilyMembersYet": "No family members yet",
+  "addManually": "Add manually",
+  "addMedicationManually": "Add medication manually",
+  "medicineName": "Medicine name",
+  "strengthLabel": "Strength",
+  "dosageForm": "Dosage form",
+  "startDate": "Start date",
+  "endDate": "End date",
+  "saveMedicine": "Save medicine",
+  "draftStatus": "Draft",
+  "invalidDateRange": "End date cannot be before start date."
 }
