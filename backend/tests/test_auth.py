@@ -1,5 +1,6 @@
 import sqlalchemy as sa
 
+import app.auth.service as auth_service
 from app.families.models import Family, FamilyMembership
 from app.users.models import User
 
@@ -96,9 +97,44 @@ async def test_wrong_password_and_unknown_email_share_generic_error(client):
     assert wrong.json()["error"]["code"] == "INVALID_CREDENTIALS"
 
 
+async def test_unknown_email_still_runs_password_verification(client, monkeypatch):
+    verified_hashes: list[str] = []
+
+    def fake_verify_password(value: str, encoded: str) -> bool:
+        assert value == "wrongpass"
+        verified_hashes.append(encoded)
+        return False
+
+    monkeypatch.setattr(auth_service, "verify_password", fake_verify_password)
+
+    response = await client.post(
+        LOGIN_URL,
+        json={"email": "nobody@example.com", "password": "wrongpass"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "INVALID_CREDENTIALS"
+    assert len(verified_hashes) == 1
+
+
 async def test_password_length_validation_uses_standard_envelope(client):
     too_short = await register(client, email="short@example.com", password="1234567")
     too_long = await register(client, email="long@example.com", password="x" * 129)
+
+    for response in (too_short, too_long):
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+async def test_login_password_length_validation_uses_standard_envelope(client):
+    too_short = await client.post(
+        LOGIN_URL,
+        json={"email": "user@example.com", "password": "1234567"},
+    )
+    too_long = await client.post(
+        LOGIN_URL,
+        json={"email": "user@example.com", "password": "x" * 129},
+    )
 
     for response in (too_short, too_long):
         assert response.status_code == 422
