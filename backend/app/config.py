@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     env: Literal["development", "test", "staging", "production"] = "development"
     database_url: str = DEV_DATABASE_URL
     jwt_secret: str = DEV_JWT_SECRET
+    jwt_algorithm: str = "HS256"
+    access_token_minutes: int = 15
+    refresh_token_days: int = 30
     cors_origins: str = "http://localhost:3000"
 
     @property
