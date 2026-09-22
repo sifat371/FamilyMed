@@ -8,6 +8,7 @@ from app.auth.router import router as auth_router
 from app.common.errors import ApiError
 from app.config import get_settings
 from app.families.router import router as family_router
+from app.medications.router import router as medication_router
 
 settings = get_settings()
 
@@ -51,3 +52,4 @@ async def validation_error_handler(_request: Request, exc: RequestValidationErro
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(family_router, prefix="/api/v1")
+app.include_router(medication_router, prefix="/api/v1")
