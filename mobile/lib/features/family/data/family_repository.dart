@@ -102,3 +102,11 @@ class ApiFamilyRepository implements FamilyRepository {
 final familyRepositoryProvider = Provider<FamilyRepository>((ref) {
   return ApiFamilyRepository(ref.watch(apiClientProvider));
 });
+
+final familyMembersProvider = FutureProvider<List<FamilyMember>>((ref) {
+  return ref.watch(familyRepositoryProvider).listMembers();
+});
+
+final familyMemberProvider = FutureProvider.family<FamilyMember, String>((ref, id) {
+  return ref.watch(familyRepositoryProvider).getMember(id);
+});
