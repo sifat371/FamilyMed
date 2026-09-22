@@ -43,8 +43,8 @@ async def test_empty_history_has_null_marked_adherence(client):
 
 async def test_history_range_and_cross_family_scope(client):
     owner = await _register(client, "history-owner@example.com")
-    member = await _member(client, owner)
     outsider = await _register(client, "history-outsider@example.com")
+    member = await _member(client, owner)
 
     too_wide = await client.get(
         f"/api/v1/family-members/{member['id']}/history?from=2026-01-01&to=2026-05-01",
