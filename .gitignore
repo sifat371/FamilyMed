@@ -19,3 +19,6 @@ mobile/coverage/
 *.sqlite3
 storage/
 .superpowers/
+*.iml
+**/*.g.dart
+mobile/lib/l10n/app_localizations*.dart
