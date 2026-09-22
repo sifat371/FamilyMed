@@ -59,3 +59,5 @@ jobs:
         working-directory: mobile
       - run: flutter test
         working-directory: mobile
+      - run: flutter build apk --debug
+        working-directory: mobile
