@@ -8,6 +8,8 @@ import 'package:familymed/features/auth/domain/auth_session.dart';
 import 'package:familymed/features/auth/domain/current_user.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
 import 'package:familymed/features/family/domain/family_member.dart';
+import 'package:familymed/features/medications/data/medication_repository.dart';
+import 'package:familymed/features/medications/domain/member_medication.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -120,12 +122,47 @@ class RecordingFamilyRepository implements FamilyRepository {
   }
 }
 
+class EmptyMedicationRepository implements MedicationRepository {
+  @override
+  Future<MemberMedication> createMedication(
+    String memberId, {
+    required String displayName,
+    String? strength,
+    String? dosageForm,
+    required DateTime startDate,
+    DateTime? endDate,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<MemberMedication> getMedication(String id) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<MemberMedication>> listMedications(String memberId) async => const [];
+
+  @override
+  Future<MemberMedication> updateMedication(
+    String id, {
+    String? displayName,
+    String? strength,
+    String? dosageForm,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    throw UnimplementedError();
+  }
+}
+
 ProviderContainer makeContainer(RecordingFamilyRepository repository) {
   return ProviderContainer(
     overrides: [
       tokenStoreProvider.overrideWithValue(StoredTokenStore()),
       authRepositoryProvider.overrideWithValue(FamilyAuthRepository()),
       familyRepositoryProvider.overrideWithValue(repository),
+      medicationRepositoryProvider.overrideWithValue(EmptyMedicationRepository()),
     ],
   );
 }
