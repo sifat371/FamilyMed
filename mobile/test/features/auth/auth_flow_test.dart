@@ -160,6 +160,9 @@ String currentPath(ProviderContainer container) {
   return container.read(routerProvider).routerDelegate.currentConfiguration.uri.path;
 }
 
+Finder createAccountButton() => find.widgetWithText(FilledButton, 'Create account');
+Finder signInButton() => find.widgetWithText(FilledButton, 'Sign in');
+
 void main() {
   testWidgets('welcome actions navigate to register and login', (tester) async {
     final container = makeContainer();
@@ -191,7 +194,7 @@ void main() {
       'sifat@example.com',
     );
     await tester.enterText(find.byKey(const Key('registerPassword')), '1234567');
-    await tester.tap(find.text('Create account'));
+    await tester.tap(createAccountButton());
     await tester.pumpAndSettle();
 
     expect(find.text('Password must be 8–128 characters.'), findsOneWidget);
@@ -220,7 +223,7 @@ void main() {
       find.byKey(const Key('loginPassword')),
       'password123',
     );
-    await tester.tap(find.text('Sign in'));
+    await tester.tap(signInButton());
     await tester.pumpAndSettle();
 
     expect(find.text('Invalid email or password.'), findsOneWidget);
@@ -245,7 +248,7 @@ void main() {
       find.byKey(const Key('registerPassword')),
       'password123',
     );
-    await tester.tap(find.text('Create account'));
+    await tester.tap(createAccountButton());
     await tester.pumpAndSettle();
 
     expect(currentPath(container), '/care-for');
@@ -266,7 +269,7 @@ void main() {
       find.byKey(const Key('loginPassword')),
       'password123',
     );
-    await tester.tap(find.text('Sign in'));
+    await tester.tap(signInButton());
     await tester.pumpAndSettle();
 
     expect(currentPath(container), '/care-for');
@@ -287,7 +290,7 @@ void main() {
       find.byKey(const Key('loginPassword')),
       'password123',
     );
-    await tester.tap(find.text('Sign in'));
+    await tester.tap(signInButton());
     await tester.pumpAndSettle();
 
     expect(currentPath(container), '/family');
