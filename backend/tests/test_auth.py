@@ -1,4 +1,4 @@
-from sqlalchemy import func, select
+import sqlalchemy as sa
 
 from app.families.models import Family, FamilyMembership
 from app.users.models import User
@@ -32,7 +32,7 @@ async def test_user_family_membership_models_persist(db_session):
     )
     db_session.add(membership)
     await db_session.flush()
-    saved = await db_session.scalar(select(User).where(User.id == user.id))
+    saved = await db_session.scalar(sa.select(User).where(User.id == user.id))
     assert saved is not None
     assert saved.email == "sifat@example.com"
     assert membership.role == "owner"
@@ -51,15 +51,15 @@ async def test_register_normalizes_email_hashes_password_and_creates_family(clie
     assert body["token_type"] == "bearer"
     assert "password_hash" not in body["user"]
 
-    user = await db_session.scalar(select(User).where(User.email == "user@example.com"))
+    user = await db_session.scalar(sa.select(User).where(User.email == "user@example.com"))
     assert user is not None
     assert user.password_hash != "password123"
     assert user.password_hash.startswith("$argon2")
     family_count = await db_session.scalar(
-        select(func.count(Family.id)).where(Family.created_by_user_id == user.id)
+        sa.select(sa.func.count(Family.id)).where(Family.created_by_user_id == user.id)
     )
     membership_count = await db_session.scalar(
-        select(func.count(FamilyMembership.id)).where(
+        sa.select(sa.func.count(FamilyMembership.id)).where(
             FamilyMembership.user_id == user.id,
             FamilyMembership.role == "owner",
             FamilyMembership.status == "active",
@@ -82,8 +82,14 @@ async def test_duplicate_normalized_email_returns_standard_409(client):
 async def test_wrong_password_and_unknown_email_share_generic_error(client):
     await register(client)
 
-    wrong = await client.post(LOGIN_URL, json={"email": "user@example.com", "password": "wrongpass"})
-    missing = await client.post(LOGIN_URL, json={"email": "nobody@example.com", "password": "wrongpass"})
+    wrong = await client.post(
+        LOGIN_URL,
+        json={"email": "user@example.com", "password": "wrongpass"},
+    )
+    missing = await client.post(
+        LOGIN_URL,
+        json={"email": "nobody@example.com", "password": "wrongpass"},
+    )
 
     assert wrong.status_code == 401
     assert missing.status_code == 401
