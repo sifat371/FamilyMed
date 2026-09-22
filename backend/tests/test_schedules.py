@@ -148,7 +148,7 @@ async def test_generation_is_idempotent_and_respects_30_day_window(
         delete(ScheduledDose).where(ScheduledDose.schedule_id == schedule_id)
     )
     await db_session.flush()
-    controlled_now = datetime(2026, 9, 23, 3, 0, tzinfo=UTC)
+    controlled_now = datetime(2026, 9, 23, 1, 0, tzinfo=UTC)
     first = await generate_schedule_window(db_session, schedule_id, controlled_now)
     second = await generate_schedule_window(db_session, schedule_id, controlled_now)
     await db_session.flush()
