@@ -1,8 +1,11 @@
+from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy import delete, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.errors import ApiError
+from app.doses.models import DoseLog, ScheduledDose
 from app.medications.models import MemberMedication
 from app.medications.repository import (
     list_member_medications,
@@ -10,6 +13,9 @@ from app.medications.repository import (
     require_writable_member,
 )
 from app.medications.schemas import ManualMedicationCreate, ManualMedicationUpdate
+from app.schedules.generation import generate_schedule_window
+from app.schedules.models import MedicationSchedule
+from app.schedules.repository import get_current_schedule
 
 
 async def list_for_member(
@@ -81,3 +87,96 @@ async def update_medication(
     await session.commit()
     await session.refresh(medication)
     return medication
+
+
+async def pause_medication(
+    session: AsyncSession,
+    user_id: UUID,
+    medication_id: UUID,
+    *,
+    now_utc: datetime | None = None,
+) -> MemberMedication:
+    now_utc = (now_utc or datetime.now(UTC)).astimezone(UTC)
+    medication, schedule = await get_current_schedule(
+        session,
+        user_id,
+        medication_id,
+        for_write=True,
+    )
+    if schedule is None:
+        raise ApiError(404, "SCHEDULE_NOT_FOUND", "Medication schedule was not found.")
+    medication.status = "paused"
+    schedule.status = "paused"
+    await _remove_future_untouched_doses(session, schedule.id, now_utc)
+    await session.commit()
+    await session.refresh(medication)
+    return medication
+
+
+async def resume_medication(
+    session: AsyncSession,
+    user_id: UUID,
+    medication_id: UUID,
+    *,
+    now_utc: datetime | None = None,
+) -> MemberMedication:
+    now_utc = (now_utc or datetime.now(UTC)).astimezone(UTC)
+    medication, schedule = await get_current_schedule(
+        session,
+        user_id,
+        medication_id,
+        for_write=True,
+    )
+    if schedule is None:
+        raise ApiError(404, "SCHEDULE_NOT_FOUND", "Medication schedule was not found.")
+    if medication.status != "paused" or schedule.status != "paused":
+        raise ApiError(409, "MEDICATION_NOT_PAUSED", "Medication is not paused.")
+    medication.status = "active"
+    schedule.status = "active"
+    schedule.generation_not_before_at = now_utc.replace(second=0, microsecond=0)
+    await generate_schedule_window(session, schedule.id, now_utc)
+    await session.commit()
+    await session.refresh(medication)
+    return medication
+
+
+async def end_medication(
+    session: AsyncSession,
+    user_id: UUID,
+    medication_id: UUID,
+    *,
+    now_utc: datetime | None = None,
+) -> MemberMedication:
+    now_utc = (now_utc or datetime.now(UTC)).astimezone(UTC)
+    medication, schedule = await get_current_schedule(
+        session,
+        user_id,
+        medication_id,
+        for_write=True,
+    )
+    if schedule is None:
+        raise ApiError(404, "SCHEDULE_NOT_FOUND", "Medication schedule was not found.")
+    medication.status = "ended"
+    schedule.status = "ended"
+    await _remove_future_untouched_doses(session, schedule.id, now_utc)
+    await session.commit()
+    await session.refresh(medication)
+    return medication
+
+
+async def _remove_future_untouched_doses(
+    session: AsyncSession,
+    schedule_id: UUID,
+    now_utc: datetime,
+) -> None:
+    has_event = exists(
+        select(DoseLog.id).where(DoseLog.scheduled_dose_id == ScheduledDose.id)
+    )
+    await session.execute(
+        delete(ScheduledDose).where(
+            ScheduledDose.schedule_id == schedule_id,
+            ScheduledDose.status == "upcoming",
+            ScheduledDose.scheduled_at > now_utc,
+            ~has_event,
+        )
+    )
