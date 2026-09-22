@@ -1,16 +1,16 @@
-from datetime import date, datetime, time, timezone
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from uuid import uuid4
 
 import pytest
+from app.doses.models import DoseLog, ScheduledDose
+from app.notifications.models import NotificationPreference
+from app.schedules.models import MedicationSchedule, ScheduleTime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.doses.models import DoseLog, ScheduledDose
 from app.families.models import Family, FamilyMember, FamilyMembership
 from app.medications.models import MemberMedication
-from app.notifications.models import NotificationPreference
-from app.schedules.models import MedicationSchedule, ScheduleTime
 from app.users.models import User
 
 
@@ -80,7 +80,7 @@ async def _seed_schedule(
         timezone="Asia/Dhaka",
         start_date=date(2026, 9, 23),
         end_date=None,
-        generation_not_before_at=datetime(2026, 9, 23, 3, 0, tzinfo=timezone.utc),
+        generation_not_before_at=datetime(2026, 9, 23, 3, 0, tzinfo=UTC),
         status=status,
         created_by_user_id=medication.created_by_user_id,
     )
@@ -108,7 +108,7 @@ async def test_schedule_dose_log_and_notification_preference_persist(db_session)
         schedule_time_id=schedule_time.id,
         family_member_id=medication.family_member_id,
         member_medication_id=medication.id,
-        scheduled_at=datetime(2026, 9, 24, 2, 0, tzinfo=timezone.utc),
+        scheduled_at=datetime(2026, 9, 24, 2, 0, tzinfo=UTC),
         scheduled_local_date=date(2026, 9, 24),
         scheduled_local_time=time(8, 0),
         timezone="Asia/Dhaka",
@@ -158,7 +158,7 @@ async def test_schedule_status_constraint_rejects_invalid_values(db_session, bad
             timezone="Asia/Dhaka",
             start_date=date(2026, 9, 23),
             end_date=None,
-            generation_not_before_at=datetime(2026, 9, 23, 3, 0, tzinfo=timezone.utc),
+            generation_not_before_at=datetime(2026, 9, 23, 3, 0, tzinfo=UTC),
             status=bad_status,
             created_by_user_id=medication.created_by_user_id,
         )
@@ -177,7 +177,7 @@ async def test_schedule_time_constraints_reject_invalid_quantity_and_blank_unit(
         timezone="Asia/Dhaka",
         start_date=date(2026, 9, 23),
         end_date=None,
-        generation_not_before_at=datetime(2026, 9, 23, 3, 0, tzinfo=timezone.utc),
+        generation_not_before_at=datetime(2026, 9, 23, 3, 0, tzinfo=UTC),
         status="active",
         created_by_user_id=medication.created_by_user_id,
     )
@@ -196,7 +196,6 @@ async def test_schedule_time_constraints_reject_invalid_quantity_and_blank_unit(
     )
     with pytest.raises(IntegrityError):
         await db_session.flush()
-    await db_session.rollback()
 
 
 @pytest.mark.asyncio
@@ -217,14 +216,14 @@ async def test_duplicate_schedule_clock_is_rejected(db_session):
 
 
 @pytest.mark.asyncio
-async def test_duplicate_dose_occurrence_and_invalid_status_are_rejected(db_session):
+async def test_duplicate_dose_occurrence_is_rejected(db_session):
     medication, schedule, schedule_time = await _seed_schedule(db_session)
     first = ScheduledDose(
         schedule_id=schedule.id,
         schedule_time_id=schedule_time.id,
         family_member_id=medication.family_member_id,
         member_medication_id=medication.id,
-        scheduled_at=datetime(2026, 9, 24, 2, 0, tzinfo=timezone.utc),
+        scheduled_at=datetime(2026, 9, 24, 2, 0, tzinfo=UTC),
         scheduled_local_date=date(2026, 9, 24),
         scheduled_local_time=time(8, 0),
         timezone="Asia/Dhaka",
@@ -241,7 +240,7 @@ async def test_duplicate_dose_occurrence_and_invalid_status_are_rejected(db_sess
         schedule_time_id=schedule_time.id,
         family_member_id=medication.family_member_id,
         member_medication_id=medication.id,
-        scheduled_at=datetime(2026, 9, 24, 2, 5, tzinfo=timezone.utc),
+        scheduled_at=datetime(2026, 9, 24, 2, 5, tzinfo=UTC),
         scheduled_local_date=date(2026, 9, 24),
         scheduled_local_time=time(8, 0),
         timezone="Asia/Dhaka",
