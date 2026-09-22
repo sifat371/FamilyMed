@@ -3,7 +3,6 @@ import sqlalchemy as sa
 from app.families.models import Family, FamilyMembership
 from app.users.models import User
 
-
 REGISTER_URL = "/api/v1/auth/register"
 LOGIN_URL = "/api/v1/auth/login"
 REFRESH_URL = "/api/v1/auth/refresh"
