@@ -4,7 +4,7 @@
 
 **Goal:** Turn an existing FamilyMed medication into a durable reminder routine with backend-generated dose occurrences, Today, Taken/Snooze/Skip, marked history, local Android notifications, and offline dose-action sync.
 
-**Architecture:** FastAPI/PostgreSQL remains canonical for schedules, generated doses, lifecycle state, idempotent actions, and history. Flutter adds routine setup, Today, notifications, and a Drift-backed cache/action queue; offline user actions update local projections optimistically and replay to the same idempotent APIs. Time-derived transitions are centralized in backend generation/reconciliation services so later worker infrastructure can reuse them without changing semantics.
+**Architecture:** FastAPI/PostgreSQL remains canonical for schedules, generated doses, lifecycle state, idempotent actions, and history. Flutter adds routine setup, Today, a 30-day reminder feed, local notifications, and a Drift-backed cache/action queue. Time-derived transitions are centralized in backend generation/reconciliation services so later worker infrastructure can reuse them without changing domain semantics.
 
 **Tech Stack:** Python 3.13, FastAPI, SQLAlchemy 2.x async, PostgreSQL 17, Alembic, Pydantic, `zoneinfo`; Flutter/Dart, Riverpod, Dio, Drift/SQLite, go_router, `flutter_local_notifications`, `timezone`, Android local notifications.
 
@@ -30,14 +30,15 @@
 - Default snooze is 15 minutes.
 - History UI/API call the metric `marked_adherence_percentage` / “marked adherence”, never verified adherence.
 - All new user-visible strings are localized in English and Bangla.
+- V1 local notifications are maintained from a server-backed 30-day reminder feed. Setup, authenticated startup, app resume, schedule mutation, and successful sync refresh that feed. If the app is not opened for more than 30 days, V1 does not guarantee notifications beyond the last cached window; a later background-worker/mobile-background-refresh slice can remove that limitation.
 
 ## Review Focus
 
-1. **Idempotency key misuse:** Reusing one `client_action_id` for a different dose or different action must return `409 IDEMPOTENCY_KEY_REUSED`, not silently return an unrelated projection. Pinned in Task 4.
-2. **Future dose already acted on:** A schedule edit must preserve an early-marked future dose because it is final/event-bearing even though `scheduled_at > now`. Pinned in Task 2.
-3. **Duplicate reminder times:** Two times with the same local clock value but different period labels must still be rejected as one duplicate occurrence. Pinned in Task 2.
-4. **Permanent offline replay failure:** A queued action receiving permanent `422` must stop automatic retry, retain visible failed state, and avoid a retry loop. Pinned in Task 9.
-5. **Notification denial/scheduling failure:** OS permission denial or platform scheduling failure must never deactivate or roll back a successfully created routine. Pinned in Task 7.
+1. **Idempotency key misuse:** Reusing one `client_action_id` for a different dose or action returns `409 IDEMPOTENCY_KEY_REUSED`. Pinned in Task 4.
+2. **Future dose already acted on:** A schedule edit preserves an early-marked future dose because it is final/event-bearing even when `scheduled_at > now`. Pinned in Task 2.
+3. **Duplicate reminder times:** Two times with the same local clock value but different period labels are still duplicate occurrences and must be rejected. Pinned in Task 2.
+4. **Permanent offline replay failure:** A queued action receiving permanent `422` stops automatic retry, remains visibly failed, and cannot enter a retry loop. Pinned in Task 9.
+5. **Notification denial/scheduling failure:** OS permission denial or platform scheduling failure never deactivates or rolls back a successfully created routine. Pinned in Task 7.
 
 ---
 
@@ -55,88 +56,81 @@
 - Test: `backend/tests/test_schedule_models.py`
 
 **Interfaces:**
-- Consumes: existing `Base`, `TimestampMixin`, `MemberMedication`, `FamilyMember`, and `User` tables.
-- Produces: `MedicationSchedule`, `ScheduleTime`, `ScheduledDose`, `DoseLog`, `NotificationPreference` SQLAlchemy models used by all later backend tasks.
+- Consumes: existing `Base`, `TimestampMixin`, `User`, `Family`, `FamilyMembership`, `FamilyMember`, and `MemberMedication` tables.
+- Produces: `MedicationSchedule`, `ScheduleTime`, `ScheduledDose`, `DoseLog`, and `NotificationPreference` SQLAlchemy models.
 
-- [ ] **Step 1: Write failing persistence tests**
+- [ ] **Step 1: Write the failing model test with a local seed helper**
 
-Create `backend/tests/test_schedule_models.py` with PostgreSQL-backed tests that insert the complete graph and assert constraints:
+Keep the fixture self-contained in `backend/tests/test_schedule_models.py` so no new global fixture contract is introduced:
 
 ```python
-@pytest.mark.asyncio
-async def test_schedule_dose_log_and_notification_preference_persist(db_session, seeded_medication):
-    schedule = MedicationSchedule(
-        member_medication_id=seeded_medication.id,
+async def _seed_medication(session: AsyncSession) -> MemberMedication:
+    user = User(
+        name="Caregiver",
+        email=f"caregiver-{uuid4()}@example.com",
+        password_hash="test-hash",
+        preferred_language="en",
         timezone="Asia/Dhaka",
-        start_date=date(2026, 9, 23),
-        generation_not_before_at=datetime(2026, 9, 23, 3, 0, tzinfo=timezone.utc),
+    )
+    session.add(user)
+    await session.flush()
+    family = Family(name="Caregiver's family", created_by_user_id=user.id)
+    session.add(family)
+    await session.flush()
+    session.add(FamilyMembership(
+        family_id=family.id,
+        user_id=user.id,
+        role="owner",
         status="active",
-        created_by_user_id=seeded_medication.created_by_user_id,
-    )
-    db_session.add(schedule)
-    await db_session.flush()
-
-    schedule_time = ScheduleTime(
-        schedule_id=schedule.id,
-        period="morning",
-        local_time=time(8, 0),
-        quantity=Decimal("1"),
-        unit="tablet",
-        sort_order=0,
-    )
-    db_session.add(schedule_time)
-    await db_session.flush()
-
-    dose = ScheduledDose(
-        schedule_id=schedule.id,
-        schedule_time_id=schedule_time.id,
-        family_member_id=seeded_medication.family_member_id,
-        member_medication_id=seeded_medication.id,
-        scheduled_at=datetime(2026, 9, 24, 2, 0, tzinfo=timezone.utc),
-        scheduled_local_date=date(2026, 9, 24),
-        scheduled_local_time=time(8, 0),
+    ))
+    member = FamilyMember(
+        family_id=family.id,
+        name="Amma",
+        relationship="mother",
+        preferred_language="bn",
         timezone="Asia/Dhaka",
-        quantity=Decimal("1"),
-        unit="tablet",
-        status="upcoming",
     )
-    db_session.add(dose)
-    await db_session.commit()
-    assert dose.id is not None
+    session.add(member)
+    await session.flush()
+    medication = MemberMedication(
+        family_member_id=member.id,
+        display_name="Metformin",
+        strength="500 mg",
+        status="draft",
+        start_date=date(2026, 9, 23),
+        created_by_user_id=user.id,
+    )
+    session.add(medication)
+    await session.flush()
+    return medication
 ```
 
-Also assert:
+Then insert schedule → schedule time → dose → dose log → notification preference and assert all IDs persist.
 
-```python
-assert set(ScheduledDose.__table__.c.status.type.enums) == {
-    "upcoming", "pending", "taken", "skipped", "missed"
-}
-```
+Also deliberately insert invalid schedule status, invalid dose status, non-positive quantity, blank unit, duplicate schedule time, and duplicate dose occurrence and assert PostgreSQL raises `IntegrityError`.
 
-If status columns remain `String` instead of SQL enums, assert the migration CHECK constraints by attempting an invalid insert and expecting `IntegrityError`.
-
-- [ ] **Step 2: Run the tests and verify RED**
-
-Run:
+- [ ] **Step 2: Run RED**
 
 ```bash
 cd backend
 uv run pytest tests/test_schedule_models.py -v
 ```
 
-Expected: collection/import failure because the new model modules do not exist.
+Expected: import/collection failure because the new models do not exist.
 
-- [ ] **Step 3: Add the SQLAlchemy models with database constraints**
+- [ ] **Step 3: Implement SQLAlchemy models with `String` status columns plus explicit CHECK constraints**
 
-Implement focused models. The important column shapes are:
+Use `String` rather than SQLAlchemy/PostgreSQL enum types, matching the existing codebase style. Core shapes:
 
 ```python
 class MedicationSchedule(TimestampMixin, Base):
     __tablename__ = "medication_schedules"
-    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    member_medication_id: Mapped[UUID] = mapped_column(
-        Uuid, ForeignKey("member_medications.id"), nullable=False
+    __table_args__ = (
+        CheckConstraint("status IN ('active','paused','ended')", name="ck_medication_schedule_status"),
+        CheckConstraint("end_date IS NULL OR end_date >= start_date", name="ck_medication_schedule_dates"),
     )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    member_medication_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("member_medications.id"), nullable=False)
     raw_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     meal_relation: Mapped[str | None] = mapped_column(String(32), nullable=True)
     timezone: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -150,10 +144,14 @@ class MedicationSchedule(TimestampMixin, Base):
 ```python
 class ScheduleTime(TimestampMixin, Base):
     __tablename__ = "schedule_times"
-    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    schedule_id: Mapped[UUID] = mapped_column(
-        Uuid, ForeignKey("medication_schedules.id", ondelete="CASCADE"), nullable=False
+    __table_args__ = (
+        CheckConstraint("period IN ('morning','afternoon','evening','night','custom')", name="ck_schedule_time_period"),
+        CheckConstraint("quantity > 0", name="ck_schedule_time_quantity"),
+        CheckConstraint("length(trim(unit)) > 0", name="ck_schedule_time_unit"),
+        UniqueConstraint("schedule_id", "local_time", name="uq_schedule_time_clock"),
     )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    schedule_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("medication_schedules.id", ondelete="CASCADE"), nullable=False)
     period: Mapped[str] = mapped_column(String(20), nullable=False)
     local_time: Mapped[time] = mapped_column(Time, nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
@@ -161,50 +159,35 @@ class ScheduleTime(TimestampMixin, Base):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
 ```
 
+`ScheduledDose` snapshots schedule/member/medication IDs, UTC `scheduled_at`, local date/time, timezone, quantity/unit/meal relation, state timestamps, and has CHECK `status IN ('upcoming','pending','taken','skipped','missed')` plus unique `(schedule_id, scheduled_local_date, scheduled_local_time)`.
+
+`DoseLog` has CHECK action in `('became_pending','snoozed','marked_taken','skipped','missed','corrected')`, nullable user, nullable unique `client_action_id`, `occurred_at`, `recorded_at`, and PostgreSQL `JSONB metadata`.
+
+`NotificationPreference` is unique on `(user_id, family_member_id)` and defaults to `enabled=False`, `default_snooze_minutes=15`, `caregiver_escalation_enabled=False`.
+
+Add the partial unique PostgreSQL index:
+
 ```python
-class ScheduledDose(TimestampMixin, Base):
-    __tablename__ = "scheduled_doses"
-    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    schedule_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("medication_schedules.id"), nullable=False)
-    schedule_time_id: Mapped[UUID | None] = mapped_column(
-        Uuid, ForeignKey("schedule_times.id", ondelete="SET NULL"), nullable=True
-    )
-    family_member_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("family_members.id"), nullable=False)
-    member_medication_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("member_medications.id"), nullable=False)
-    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    scheduled_local_date: Mapped[date] = mapped_column(nullable=False)
-    scheduled_local_time: Mapped[time] = mapped_column(Time, nullable=False)
-    timezone: Mapped[str] = mapped_column(String(64), nullable=False)
-    quantity: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
-    unit: Mapped[str] = mapped_column(String(40), nullable=False)
-    meal_relation: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="upcoming")
-    snoozed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    taken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    skipped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    missed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+Index(
+    "uq_current_schedule_per_medication",
+    "member_medication_id",
+    unique=True,
+    postgresql_where=text("status IN ('active', 'paused')"),
+)
 ```
-
-`DoseLog` contains `action`, nullable `performed_by_user_id`, nullable unique `client_action_id`, `occurred_at`, server `recorded_at`, and PostgreSQL `JSONB metadata`. `NotificationPreference` is unique on `(user_id, family_member_id)`.
-
-Add database checks for allowed statuses/periods, positive quantity, nonblank unit, `end_date >= start_date`, and unique `(schedule_id, local_time)` plus unique `(schedule_id, scheduled_local_date, scheduled_local_time)`.
-
-Add a partial unique index on `medication_schedules(member_medication_id)` where status is `active` or `paused`.
 
 - [ ] **Step 4: Add migration and model registration**
 
-Create `0003_schedules_doses_today.py` with:
+Create `0003_schedules_doses_today.py`:
 
 ```python
 revision = "0003_schedules_doses_today"
 down_revision = "0002_auth_family_medications"
 ```
 
-Create tables in FK-safe order: `medication_schedules`, `schedule_times`, `scheduled_doses`, `dose_logs`, `notification_preferences`. Downgrade in reverse order. Import the new models from `backend/app/models.py` so Alembic metadata sees them.
+Create tables in FK-safe order and reproduce the same CHECK/unique/partial-index guarantees in Alembic. Downgrade in reverse order. Import all new model classes from `backend/app/models.py` so metadata sees them.
 
-- [ ] **Step 5: Verify GREEN including migration**
-
-Run:
+- [ ] **Step 5: Verify GREEN**
 
 ```bash
 cd backend
@@ -213,9 +196,7 @@ uv run alembic upgrade head
 uv run pytest tests/test_schedule_models.py -v
 ```
 
-Expected: all commands pass.
-
-- [ ] **Step 6: Commit Task 1**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add backend/app/schedules backend/app/doses backend/app/notifications backend/app/models.py backend/migrations/versions/0003_schedules_doses_today.py backend/tests/test_schedule_models.py
@@ -236,66 +217,50 @@ git commit -m "feat: add schedule and dose persistence"
 - Test: `backend/tests/test_schedules.py`
 
 **Interfaces:**
-- Consumes: `MedicationSchedule`, `ScheduleTime`, `ScheduledDose`; existing `require_accessible_medication(..., for_write=True)` ownership helper.
+- Consumes: Task 1 models and existing medication ownership helper.
 - Produces:
   - `local_occurrence_to_utc(local_date: date, local_time: time, timezone_name: str) -> datetime`
   - `generate_schedule_window(session: AsyncSession, schedule_id: UUID, now_utc: datetime) -> list[ScheduledDose]`
-  - `create_schedule(...) -> MedicationSchedule`
-  - `update_schedule(...) -> MedicationSchedule`
-  - schedule REST endpoints used by Flutter Task 6.
+  - schedule POST/GET/PATCH endpoints.
 
-- [ ] **Step 1: Write RED API/generation tests**
+- [ ] **Step 1: Write RED schedule/generation tests**
 
-Create tests for:
+Create schedule payload:
 
 ```python
-@pytest.mark.asyncio
-async def test_create_schedule_activates_draft_medication_and_generates_window(client, auth_headers, medication_id):
-    response = await client.post(
-        f"/api/v1/member-medications/{medication_id}/schedules",
-        headers=auth_headers,
-        json={
-            "raw_instruction": "1+0+1 PC",
-            "meal_relation": "after_food",
-            "timezone": "Asia/Dhaka",
-            "start_date": "2026-09-23",
-            "end_date": None,
-            "times": [
-                {"period": "morning", "local_time": "08:00", "quantity": "1", "unit": "tablet"},
-                {"period": "night", "local_time": "20:00", "quantity": "1", "unit": "tablet"},
-            ],
-        },
-    )
-    assert response.status_code == 201
-    assert response.json()["status"] == "active"
+payload = {
+    "raw_instruction": "1+0+1 PC",
+    "meal_relation": "after_food",
+    "timezone": "Asia/Dhaka",
+    "start_date": "2026-09-23",
+    "end_date": None,
+    "times": [
+        {"period": "morning", "local_time": "08:00", "quantity": "1", "unit": "tablet"},
+        {"period": "night", "local_time": "20:00", "quantity": "1", "unit": "tablet"},
+    ],
+}
 ```
 
-Pin time through an explicit `now_utc` parameter in service/generation tests rather than monkeypatching `datetime` globally.
+Assert draft medication becomes active and a controlled `now_utc` creates only candidate occurrences on/after the current minute through local date +29.
 
-Add tests asserting:
+Pin conversion:
 
 ```python
-assert local_occurrence_to_utc(date(2026, 9, 24), time(8, 0), "Asia/Dhaka") == datetime(
-    2026, 9, 24, 2, 0, tzinfo=timezone.utc
-)
+assert local_occurrence_to_utc(date(2026, 9, 24), time(8, 0), "Asia/Dhaka") == datetime(2026, 9, 24, 2, 0, tzinfo=timezone.utc)
 ```
 
-Also test: invalid timezone → `422 INVALID_TIMEZONE`; 0 or 9 times → 422; duplicate `08:00` with periods `morning` and `custom` → 422; second active schedule → `409 ACTIVE_SCHEDULE_EXISTS`; repeated generation creates no duplicate dose rows; another account gets 404.
+Test invalid timezone → `422 INVALID_TIMEZONE`; zero/nine times → 422; duplicate `08:00` with different period labels → 422; second active schedule → `409 ACTIVE_SCHEDULE_EXISTS`; repeated generation remains duplicate-free; cross-family schedule access → 404.
 
-For Review Focus #2, create an upcoming future dose, mark it final with a `DoseLog`, edit the schedule, and assert that dose ID still exists unchanged while untouched future rows are regenerated.
+For Review Focus #2, create a future dose, mark it `taken` with a `marked_taken` log, edit the schedule, and assert that exact dose/log survives while untouched future rows are replaced.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [ ] **Step 2: Run RED**
 
 ```bash
 cd backend
 uv run pytest tests/test_schedules.py -v
 ```
 
-Expected: imports/routes fail because schedule services do not exist.
-
-- [ ] **Step 3: Implement strict schemas and timezone validation**
-
-Use Pydantic models whose time list validation normalizes clock values and rejects duplicates regardless of `period`:
+- [ ] **Step 3: Implement Pydantic schedule schemas**
 
 ```python
 class ScheduleTimeInput(BaseModel):
@@ -313,38 +278,19 @@ class ScheduleCreate(BaseModel):
     times: Annotated[list[ScheduleTimeInput], Field(min_length=1, max_length=8)]
 ```
 
-Validate timezone with `ZoneInfo(name)` and convert `ZoneInfoNotFoundError` into `ApiError(422, "INVALID_TIMEZONE", ...)`.
+A model validator rejects duplicate `local_time` values and `end_date < start_date`. Validate IANA timezone using `ZoneInfo`; map `ZoneInfoNotFoundError` to `422 INVALID_TIMEZONE`.
 
-- [ ] **Step 4: Implement generation as one focused service**
+- [ ] **Step 4: Implement generation**
 
-`local_occurrence_to_utc()` combines wall clock and `ZoneInfo` then converts to UTC. `generate_schedule_window()`:
+`generate_schedule_window()` loads schedule/medication/member/times, derives local today from `now_utc`, loops through today +29, respects medication/schedule dates, and skips any candidate before both `generation_not_before_at` and the current server minute floor.
 
-1. loads schedule, medication, member, and times;
-2. derives member-local `today` from `now_utc` in schedule timezone;
-3. iterates today through today + 29 days;
-4. respects schedule/medication start and end dates;
-5. skips candidates `< max(schedule.generation_not_before_at, floor_to_minute(now_utc))`;
-6. inserts missing occurrences using the unique occurrence key;
-7. snapshots quantity/unit/meal relation/timezone.
+Insert missing rows by unique occurrence key and snapshot timezone/quantity/unit/meal relation. Generation does not create a `DoseLog`.
 
-Do not add a `DoseLog` during generation.
+- [ ] **Step 5: Implement create/update and routes**
 
-- [ ] **Step 5: Implement create/update behavior and router**
+Creation sets `generation_not_before_at` to current server minute and activates a draft medication in the same transaction.
 
-On create, set:
-
-```python
-now_floor = now_utc.replace(second=0, microsecond=0)
-schedule = MedicationSchedule(
-    ...,
-    generation_not_before_at=now_floor,
-    status="active",
-)
-if medication.status == "draft":
-    medication.status = "active"
-```
-
-On update, preserve all final/pending/event-bearing rows and delete only rows satisfying:
+Editing deletes only:
 
 ```python
 ScheduledDose.status == "upcoming"
@@ -352,24 +298,17 @@ ScheduledDose.scheduled_at > now_utc
 ~exists(select(DoseLog.id).where(DoseLog.scheduled_dose_id == ScheduledDose.id))
 ```
 
-Replace schedule times transactionally, then regenerate.
+Then replace schedule times and regenerate. Pending/final/event-bearing rows stay unchanged.
 
-Expose POST/GET/PATCH endpoints from the spec and include `schedule_router` under `/api/v1` in `main.py`.
+Expose the three schedule endpoints and include `schedule_router` in `backend/app/main.py`.
 
-- [ ] **Step 6: Verify GREEN**
+- [ ] **Step 6: Verify GREEN and commit**
 
 ```bash
 cd backend
 uv run ruff check .
 uv run pytest tests/test_schedules.py tests/test_medications.py -v
-```
-
-Expected: all pass.
-
-- [ ] **Step 7: Commit Task 2**
-
-```bash
-git add backend/app/schedules backend/app/main.py backend/tests/test_schedules.py
+git add app/schedules app/main.py tests/test_schedules.py
 git commit -m "feat: add medication schedule generation"
 ```
 
@@ -386,68 +325,37 @@ git commit -m "feat: add medication schedule generation"
 - Test: `backend/tests/test_medication_lifecycle.py`
 
 **Interfaces:**
-- Consumes: Task 2 generation API and schedule models.
-- Produces:
-  - `reconcile_schedule(session: AsyncSession, schedule_id: UUID, now_utc: datetime) -> None`
-  - `pause_medication(...)`, `resume_medication(...)`, `end_medication(...)`
-  - lifecycle REST endpoints from the spec.
+- Consumes: Task 2 generation.
+- Produces: `reconcile_schedule(session, schedule_id, now_utc)`, pause/resume/end services and routes.
 
-- [ ] **Step 1: Write failing reconciliation/lifecycle tests**
+- [ ] **Step 1: Write RED time/lifecycle tests**
 
-Pin these transitions:
+At `2026-09-23T02:00:00Z`, an 08:00 Asia/Dhaka occurrence becomes `pending` and gets exactly one `became_pending` log.
 
-```python
-await reconcile_schedule(session, schedule.id, datetime(2026, 9, 23, 2, 0, tzinfo=timezone.utc))
-assert morning_dose.status == "pending"
-assert [log.action for log in morning_dose.logs] == ["became_pending"]
-```
+A dose on local `2026-09-23` becomes missed no earlier than Dhaka next midnight (`2026-09-23T18:00:00Z`). If snoozed to `18:30Z`, reconciliation at `18:10Z` keeps it pending and after `18:30Z` marks it missed.
 
-For missed behavior, a Dhaka dose from `2026-09-23` becomes missed only after local midnight (`2026-09-23 18:00 UTC`). For a snoozed dose whose `snoozed_until` is `18:30 UTC`, reconciliation at `18:10` keeps pending and reconciliation after `18:30` marks missed.
+Assert pause removes only untouched future upcoming rows; resume changes `generation_not_before_at` to the resume minute and does not backfill the paused interval; manual end preserves pending/final history; natural completion waits until local end date elapsed and no non-final dose on/before it remains.
 
-Add lifecycle tests asserting pause removes only untouched future upcoming rows; resume sets `generation_not_before_at` to the resume minute and does not backfill the paused interval; manual end preserves pending/final rows; natural completion waits until end local date is fully elapsed and no non-final dose remains.
-
-- [ ] **Step 2: Run tests and verify RED**
+- [ ] **Step 2: Run RED**
 
 ```bash
 cd backend
 uv run pytest tests/test_reconciliation.py tests/test_medication_lifecycle.py -v
 ```
 
-Expected: missing reconciliation/lifecycle functions.
-
 - [ ] **Step 3: Implement reconciliation**
 
-Use one transaction and explicit `now_utc`. For each active/paused schedule dose:
-
-```python
-if dose.status == "upcoming" and dose.scheduled_at <= now_utc:
-    dose.status = "pending"
-    session.add(DoseLog(
-        scheduled_dose_id=dose.id,
-        action="became_pending",
-        performed_by_user_id=None,
-        occurred_at=dose.scheduled_at,
-        recorded_at=now_utc,
-        metadata={},
-    ))
-```
-
-Compute local-day end as next local midnight converted to UTC. For pending doses:
+For `upcoming` due rows, set pending and append one system log with `occurred_at=dose.scheduled_at`. For pending rows calculate next local midnight in the dose timezone, convert to UTC, and use:
 
 ```python
 miss_threshold = max(local_day_end_utc, dose.snoozed_until or local_day_end_utc)
-if now_utc >= miss_threshold:
-    dose.status = "missed"
-    dose.missed_at = miss_threshold
 ```
 
-Append exactly one `missed` event.
+At/after threshold set `missed`, `missed_at=miss_threshold`, and append one `missed` log.
 
-- [ ] **Step 4: Implement pause/resume/end/natural completion**
+- [ ] **Step 4: Implement lifecycle endpoints**
 
-Lifecycle functions require writable medication access. Pause/end delete only untouched future upcoming rows using the same predicate as Task 2. Resume sets schedule and medication active, updates `generation_not_before_at` to the current minute, and calls generation.
-
-Natural completion changes medication to `completed` and schedule to `ended` only when the schedule end local date has elapsed and no non-final dose on/before that date remains.
+Pause/end use the same untouched-upcoming deletion predicate as Task 2. Resume sets medication/schedule active, resets `generation_not_before_at`, and generates the next window. Natural completion changes medication to `completed` and schedule to `ended` only after the spec condition is met.
 
 Expose:
 
@@ -457,18 +365,13 @@ POST /api/v1/member-medications/{id}/resume
 POST /api/v1/member-medications/{id}/end
 ```
 
-- [ ] **Step 5: Verify GREEN**
+- [ ] **Step 5: Verify GREEN and commit**
 
 ```bash
 cd backend
 uv run ruff check .
 uv run pytest tests/test_reconciliation.py tests/test_medication_lifecycle.py -v
-```
-
-- [ ] **Step 6: Commit Task 3**
-
-```bash
-git add backend/app/doses/reconciliation.py backend/app/medications backend/app/schedules/service.py backend/tests/test_reconciliation.py backend/tests/test_medication_lifecycle.py
+git add app/doses/reconciliation.py app/medications app/schedules/service.py tests/test_reconciliation.py tests/test_medication_lifecycle.py
 git commit -m "feat: reconcile doses and medication lifecycle"
 ```
 
@@ -489,34 +392,22 @@ git commit -m "feat: reconcile doses and medication lifecycle"
 - Test: `backend/tests/test_notification_preferences.py`
 
 **Interfaces:**
-- Consumes: dose reconciliation from Task 3 and current membership ownership tables.
-- Produces:
-  - `DoseProjection` response schema.
-  - taken/snooze/skip/correct endpoints.
-  - notification preference GET/PATCH endpoints.
+- Consumes: Task 3 reconciliation and existing family memberships.
+- Produces: `DoseProjection`; Taken/Snooze/Skip/Correct APIs; notification preference GET/PATCH.
 
-- [ ] **Step 1: Write RED dose-action tests**
+- [ ] **Step 1: Write RED action tests**
 
-Use payloads such as:
+Use stable UUID payloads:
 
 ```python
-payload = {
-    "client_action_id": str(uuid4()),
-    "occurred_at": "2026-09-23T12:00:00Z",
-}
+{"client_action_id": str(action_id), "occurred_at": "2026-09-23T12:00:00Z"}
 ```
 
-Assert Taken from upcoming/pending sets `taken`, clears snooze, records `taken_at`, and adds exactly one `marked_taken` log. Skip mirrors this. Snooze requires pending and returns pending with `snoozed_until`.
+Assert Taken/Skip from upcoming or pending set final state/timestamp, clear snooze, and append one event. Snooze is pending-only and keeps `status="pending"`.
 
-Test same payload twice: second request returns success and log count remains one. Test conflicting different final action returns `409 DOSE_ALREADY_FINALIZED`.
+Repeat the exact action ID and assert success with unchanged log count. Different final action returns `409 DOSE_ALREADY_FINALIZED`. Cross-family dose ID returns 404. `occurred_at > server_now + 5 minutes` returns 422.
 
-For Review Focus #1, send one action ID to dose A then reuse it for dose B and for a different action on dose A. Both must return:
-
-```json
-{"error":{"code":"IDEMPOTENCY_KEY_REUSED"}}
-```
-
-Test cross-family dose IDs return 404. Test `occurred_at` > server now + 5 minutes returns 422.
+For Review Focus #1, reuse the same action ID on another dose and on another action for the same dose; both return `409 IDEMPOTENCY_KEY_REUSED`.
 
 - [ ] **Step 2: Write RED correction/preference tests**
 
@@ -532,53 +423,38 @@ Correction body:
 }
 ```
 
-Assert prior `missed_at` and missed log remain, `taken_at` is set from `effective_at`, and a `corrected` log contains previous/new status.
+Assert prior missed timestamp/log remain and `corrected` metadata contains previous/new status and effective time.
 
-Notification preference GET with no row returns logical defaults `enabled=false`, `default_snooze_minutes=15`; PATCH persists only `enabled` and snooze minutes and rejects escalation changes.
+Preference GET with no DB row returns `enabled=false`, `default_snooze_minutes=15`. PATCH accepts `enabled` and `default_snooze_minutes` in range 1–1440 and rejects client attempts to set escalation.
 
-- [ ] **Step 3: Run tests and verify RED**
+- [ ] **Step 3: Run RED**
 
 ```bash
 cd backend
 uv run pytest tests/test_dose_actions.py tests/test_notification_preferences.py -v
 ```
 
-- [ ] **Step 4: Implement ownership and idempotency repository helpers**
+- [ ] **Step 4: Implement ownership/idempotency**
 
-`require_accessible_dose()` joins `scheduled_doses → family_members → families → family_memberships` and returns 404 on no membership.
+`require_accessible_dose()` joins dose → family member → family membership and maps absence to existing 404 error.
 
-Before mutating, query `DoseLog.client_action_id`. If found, verify both `scheduled_dose_id` and `action` match the attempted operation. Otherwise raise:
+Lookup existing `DoseLog.client_action_id` before state validation. The same ID is idempotent only if both dose ID and mapped log action match; otherwise raise `IDEMPOTENCY_KEY_REUSED`.
 
-```python
-ApiError(409, "IDEMPOTENCY_KEY_REUSED", "This action identifier was already used for a different operation.")
-```
+- [ ] **Step 5: Implement services/routes and verify GREEN**
 
-- [ ] **Step 5: Implement action services and routers**
-
-Each action accepts an injected/default server `now_utc`, calls reconciliation first, validates the timestamp, checks idempotency, applies the state transition, appends one log, commits, and returns `DoseProjection`.
-
-Correction preserves previous timestamps/logs and changes only current projection plus the newly relevant timestamp.
-
-Include `dose_router` and `notification_router` in `main.py`.
-
-- [ ] **Step 6: Verify GREEN**
+Each action reconciles first, validates timestamps, applies transition, logs once, commits, and returns `DoseProjection`. Correction retains prior timestamps/logs and sets the new status timestamp from `effective_at`.
 
 ```bash
 cd backend
 uv run ruff check .
 uv run pytest tests/test_dose_actions.py tests/test_notification_preferences.py -v
-```
-
-- [ ] **Step 7: Commit Task 4**
-
-```bash
-git add backend/app/doses backend/app/notifications backend/app/main.py backend/tests/test_dose_actions.py backend/tests/test_notification_preferences.py
+git add app/doses app/notifications app/main.py tests/test_dose_actions.py tests/test_notification_preferences.py
 git commit -m "feat: add idempotent dose actions"
 ```
 
 ---
 
-### Task 5: Add Today and marked-history projections
+### Task 5: Add Today, history, and the 30-day reminder feed
 
 **Files:**
 - Create: `backend/app/doses/projections.py`
@@ -586,81 +462,68 @@ git commit -m "feat: add idempotent dose actions"
 - Modify: `backend/app/doses/router.py`
 - Test: `backend/tests/test_today.py`
 - Test: `backend/tests/test_history.py`
+- Test: `backend/tests/test_reminder_feed.py`
 
 **Interfaces:**
-- Consumes: reconciliation and dose action models from Tasks 3–4.
+- Consumes: generation/reconciliation/actions.
 - Produces:
-  - `build_today(session, user_id, now_utc) -> list[TodayMemberResponse]`
-  - `build_member_history(session, user_id, member_id, from_date, to_date, now_utc) -> MemberHistoryResponse`
   - `GET /api/v1/today`
-  - `GET /api/v1/family-members/{member_id}/history`.
+  - `GET /api/v1/family-members/{member_id}/history`
+  - `GET /api/v1/reminder-doses?days=30`.
 
-- [ ] **Step 1: Write RED Today tests**
+- [ ] **Step 1: Write RED Today/history tests**
 
-Seed Amma and another family member in distinct timezones/dates. Assert `/today` groups each member by that member's local current date, orders doses by effective reminder time, and returns:
+Today must group each member using that member's local date, include zero-dose members, order by effective reminder time, and return `taken_count`/`total_count`.
 
-```python
-assert group["taken_count"] == 2
-assert group["total_count"] == 3
-assert group["doses"][2]["status"] == "pending"
-```
-
-Effective reminder time is `snoozed_until` when a pending dose has a snooze later than scheduled time; otherwise it is `scheduled_at`.
-
-Members with zero doses still appear with counts zero.
-
-- [ ] **Step 2: Write RED history/adherence tests**
-
-Assert default range is most recent 30 member-local days and >90 day request returns 422. Pin:
+History default is most recent 30 member-local days, maximum 90. Pin marked adherence:
 
 ```python
-# statuses: taken, taken, skipped, missed, pending
+# taken, taken, skipped, missed, pending
 assert history.marked_adherence_percentage == Decimal("50.00")
 ```
 
-because denominator is the four final current statuses. With no final statuses assert `None`.
+No final statuses → null percentage. History includes event logs/corrections. Cross-family member → 404.
 
-History includes dose event logs and correction metadata. Cross-family member ID returns 404.
+- [ ] **Step 2: Write RED reminder-feed tests**
 
-- [ ] **Step 3: Run tests and verify RED**
+`GET /api/v1/reminder-doses?days=30` returns only the authenticated user's accessible, non-final `upcoming|pending` doses for family members whose notification preference is enabled. It reconciles/generates before querying and returns dose ID, member ID, medication display, timezone, scheduled local date/time, UTC scheduled time, status, snooze, quantity/unit/meal relation.
+
+Assert disabled preference excludes that member; `days=0` or `days=31` returns 422; cross-family rows never appear.
+
+- [ ] **Step 3: Run RED**
 
 ```bash
 cd backend
-uv run pytest tests/test_today.py tests/test_history.py -v
+uv run pytest tests/test_today.py tests/test_history.py tests/test_reminder_feed.py -v
 ```
 
-- [ ] **Step 4: Implement projection queries**
+- [ ] **Step 4: Implement projections**
 
-Before returning Today/history, reconcile schedules accessible to the user. Query dose rows with medication/member display information and construct Pydantic responses rather than leaking ORM rows.
+Before Today/history/feed reads, reconcile accessible schedules. Today includes all accessible members. Reminder feed is bounded to 1–30 days and final-state-free.
 
-Calculate marked adherence with Decimal arithmetic:
+Calculate:
 
 ```python
 final_count = taken + skipped + missed
-percentage = None if final_count == 0 else (Decimal(taken) * 100 / Decimal(final_count)).quantize(Decimal("0.01"))
+percentage = None if final_count == 0 else (
+    Decimal(taken) * 100 / Decimal(final_count)
+).quantize(Decimal("0.01"))
 ```
 
-- [ ] **Step 5: Wire routes and verify GREEN**
+- [ ] **Step 5: Verify full backend GREEN and commit**
 
 ```bash
 cd backend
 uv run ruff check .
-uv run pytest tests/test_today.py tests/test_history.py -v
+uv run pytest tests/test_today.py tests/test_history.py tests/test_reminder_feed.py -v
 uv run pytest -v
-```
-
-Expected: full backend suite passes.
-
-- [ ] **Step 6: Commit Task 5**
-
-```bash
-git add backend/app/doses backend/tests/test_today.py backend/tests/test_history.py
-git commit -m "feat: add today and marked history APIs"
+git add app/doses tests/test_today.py tests/test_history.py tests/test_reminder_feed.py
+git commit -m "feat: add today history and reminder feed"
 ```
 
 ---
 
-### Task 6: Add Flutter schedule/Today domain contracts and Drift offline storage
+### Task 6: Add Flutter schedule/Today/reminder data contracts and Drift storage
 
 **Files:**
 - Modify: `mobile/lib/core/database/app_database.dart`
@@ -672,67 +535,62 @@ git commit -m "feat: add today and marked history APIs"
 - Create: `mobile/lib/features/today/domain/dose_projection.dart`
 - Create: `mobile/lib/features/today/domain/today_member_group.dart`
 - Create: `mobile/lib/features/today/data/today_repository.dart`
+- Create: `mobile/lib/features/doses/data/reminder_dose_repository.dart`
 - Test: `mobile/test/core/database/today_cache_test.dart`
 - Test: `mobile/test/features/schedules/schedule_repository_test.dart`
 - Test: `mobile/test/features/today/today_repository_test.dart`
+- Test: `mobile/test/features/doses/reminder_dose_repository_test.dart`
 
 **Interfaces:**
-- Consumes: existing `ApiClient`, Riverpod provider pattern, Drift database.
-- Produces: local cache tables, `ScheduleRepository`, `TodayRepository`, `DoseProjection`, `TodayMemberGroup` used by Tasks 7–10.
+- Consumes: existing `ApiClient` and Riverpod/Drift patterns.
+- Produces: `ScheduleRepository`, `TodayRepository`, `ReminderDoseRepository`, `DoseProjection`, `TodayMemberGroup`, and persisted future dose rows.
 
-- [ ] **Step 1: Add RED Drift migration/cache tests**
+- [ ] **Step 1: Write RED Drift migration tests**
 
-Test a fresh schema version 2 database and migration from version 1:
+Fresh and upgraded DBs must reach schema version 2 and support three new tables.
 
-```dart
-expect(db.schemaVersion, 2);
-await db.into(db.cachedTodayMembers).insert(...);
-await db.into(db.cachedDoses).insert(...);
-expect(await db.select(db.cachedDoses).get(), hasLength(1));
-```
+`CachedTodayMembers`: member ID/name/relationship/local date/timezone/updatedAt.
 
-Use text for decimal quantity snapshots (`quantityText`) so SQLite does not introduce floating-point display drift.
+`CachedDoses`: dose ID, member ID, medication ID/name/strength, `scheduledLocalDate`, `scheduledLocalTime`, `timezone`, `scheduledAt`, quantity as text, unit, meal relation, status, snooze, updatedAt.
 
-- [ ] **Step 2: Run database test and verify RED**
+`SyncOperations`: operation ID PK, dose ID, action, JSON payload, createdAt, attempt count, last error, `terminalFailure`.
+
+Use `quantityText` to avoid floating-point display drift.
+
+- [ ] **Step 2: Run RED**
 
 ```bash
 cd mobile
 flutter test test/core/database/today_cache_test.dart
 ```
 
-Expected: tables/schema version do not exist.
-
-- [ ] **Step 3: Add Drift tables and v1→v2 migration**
-
-`CachedTodayMembers`: `memberId`, `name`, `relationship`, `localDate`, `timezone`, `updatedAt`.
-
-`CachedDoses`: `doseId`, `memberId`, `medicationId`, `medicationName`, nullable `strength`, `quantityText`, `unit`, nullable `mealRelation`, `scheduledAt`, `scheduledLocalTime`, `status`, nullable `snoozedUntil`, `updatedAt`.
-
-`SyncOperations`: `operationId` PK, `doseId`, `action`, `payloadJson`, `createdAt`, `attemptCount`, nullable `lastError`, `terminalFailure` boolean default false.
-
-Set `schemaVersion => 2` and migration strategy:
+- [ ] **Step 3: Implement v1→v2 Drift migration**
 
 ```dart
-onUpgrade: (m, from, to) async {
-  if (from < 2) {
-    await m.createTable(cachedTodayMembers);
-    await m.createTable(cachedDoses);
-    await m.createTable(syncOperations);
-  }
+@DriftDatabase(tables: [CachedTodayMembers, CachedDoses, SyncOperations])
+class AppDatabase extends _$AppDatabase {
+  @override
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(cachedTodayMembers);
+        await m.createTable(cachedDoses);
+        await m.createTable(syncOperations);
+      }
+    },
+  );
 }
 ```
 
-- [ ] **Step 4: Add RED repository parsing/cache tests**
+- [ ] **Step 4: Write RED repository tests**
 
-Mock `/today` and schedule endpoints. Assert API Today response is parsed, atomically replaces that day's cached member/dose projection, and network failure returns cached data with `isOffline=true` from repository result:
+`TodayRepository.loadToday()` parses `/today`, atomically upserts current-day member/dose rows, and on network failure returns cached result with `isOffline=true`.
 
-```dart
-final result = await repository.loadToday();
-expect(result.groups.single.name, 'Amma');
-expect(result.isOffline, isTrue);
-```
-
-Schedule repository exposes:
+`ScheduleRepository` exposes:
 
 ```dart
 Future<MedicationSchedule> createSchedule(String medicationId, ScheduleDraft draft);
@@ -740,11 +598,9 @@ Future<MedicationSchedule?> getCurrentSchedule(String medicationId);
 Future<MedicationSchedule> updateSchedule(String scheduleId, ScheduleDraft draft);
 ```
 
-- [ ] **Step 5: Implement domain/repository contracts**
+`ReminderDoseRepository.refreshWindow()` calls `/reminder-doses?days=30`, upserts future/current non-final rows, deletes stale future cached rows that have no queued sync operation, and returns the 30-day `List<DoseProjection>`.
 
-Keep JSON parsing in domain factories and DB mapping inside `TodayRepository`. Do not put widget logic in repositories.
-
-- [ ] **Step 6: Generate code and verify GREEN**
+- [ ] **Step 5: Implement parsers/repositories and verify GREEN**
 
 ```bash
 cd mobile
@@ -752,25 +608,21 @@ flutter pub get
 flutter gen-l10n
 dart run build_runner build --delete-conflicting-outputs
 flutter analyze
-flutter test test/core/database/today_cache_test.dart test/features/schedules/schedule_repository_test.dart test/features/today/today_repository_test.dart
-```
-
-- [ ] **Step 7: Commit Task 6**
-
-```bash
-git add mobile/lib/core/database mobile/lib/features/schedules mobile/lib/features/today mobile/test/core/database/today_cache_test.dart mobile/test/features/schedules/schedule_repository_test.dart mobile/test/features/today/today_repository_test.dart
-git commit -m "feat: add mobile schedule and today data layer"
+flutter test test/core/database/today_cache_test.dart test/features/schedules/schedule_repository_test.dart test/features/today/today_repository_test.dart test/features/doses/reminder_dose_repository_test.dart
+git add lib/core/database lib/features/schedules lib/features/today lib/features/doses/data/reminder_dose_repository.dart test/core/database/today_cache_test.dart test/features/schedules test/features/today test/features/doses/reminder_dose_repository_test.dart
+git commit -m "feat: add mobile routine and dose cache"
 ```
 
 ---
 
-### Task 7: Build routine setup, reminder preference, and local notification abstraction
+### Task 7: Build routine setup and local notification coordination
 
 **Files:**
 - Modify: `mobile/pubspec.yaml`
 - Modify: `mobile/android/app/src/main/AndroidManifest.xml`
 - Create: `mobile/lib/core/notifications/notification_scheduler.dart`
 - Create: `mobile/lib/core/notifications/flutter_notification_scheduler.dart`
+- Create: `mobile/lib/core/notifications/reminder_coordinator.dart`
 - Create: `mobile/lib/features/schedules/presentation/set_routine_screen.dart`
 - Create: `mobile/lib/features/schedules/presentation/enable_reminders_screen.dart`
 - Create: `mobile/lib/features/schedules/data/notification_preference_repository.dart`
@@ -779,82 +631,74 @@ git commit -m "feat: add mobile schedule and today data layer"
 - Modify: `mobile/lib/l10n/app_en.arb`
 - Modify: `mobile/lib/l10n/app_bn.arb`
 - Test: `mobile/test/features/schedules/set_routine_flow_test.dart`
-- Test: `mobile/test/core/notifications/notification_scheduler_test.dart`
+- Test: `mobile/test/core/notifications/reminder_coordinator_test.dart`
 
 **Interfaces:**
-- Consumes: `ScheduleRepository`, Today dose projection model.
-- Produces: routine creation UI; `NotificationScheduler` interface used by Task 9 sync/action logic.
+- Consumes: schedule repository, reminder dose feed, cached doses.
+- Produces: `NotificationScheduler` and `ReminderCoordinator.refresh()`.
 
-- [ ] **Step 1: Add notification dependencies**
-
-Run:
+- [ ] **Step 1: Add verified Flutter dependencies**
 
 ```bash
 cd mobile
 flutter pub add flutter_local_notifications timezone
 ```
 
-Commit the resulting compatible resolved versions in `pubspec.yaml`/`pubspec.lock`; do not hand-edit an unverified package version.
-
-Add Android 13+ notification manifest permission:
+Commit resolver-selected compatible versions. Add only:
 
 ```xml
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
 
-Do not add `SCHEDULE_EXACT_ALARM` or `USE_EXACT_ALARM`.
+Do not add exact-alarm permissions.
 
-- [ ] **Step 2: Write RED routine-flow tests**
+- [ ] **Step 2: Write RED routine/notification tests**
 
-Pin validation and copy:
+Assert exact disclaimer:
 
 ```dart
 expect(find.text('Reminder times are not part of the prescription.'), findsOneWidget);
 ```
 
-Test required 1–8 rows, unique local times, positive quantity, retained values after API failure, successful create navigates to `/family/:memberId/medications/:medicationId/reminders`.
+Test 1–8 schedule rows, unique local time, positive quantity, retained form after API failure, create/edit routes.
 
-For Review Focus #5, fake the scheduler permission request as denied and separately fake `scheduleDose()` throwing a platform error. In both cases assert the schedule repository's successful routine remains active and the UI offers “Continue to Today” rather than deleting/pausing the routine.
+For Review Focus #5, fake permission denial and separately make the scheduler throw. The routine remains server-active; UI offers “Continue to Today”.
 
-- [ ] **Step 3: Define the notification abstraction and fake-friendly API**
+- [ ] **Step 3: Implement notification abstraction**
 
 ```dart
 abstract interface class NotificationScheduler {
   Future<bool> requestPermission();
   Future<void> reconcile(List<DoseProjection> doses);
-  Future<void> scheduleDose(DoseProjection dose);
   Future<void> cancelDose(String doseId);
   Future<void> snoozeDose(DoseProjection dose);
 }
 ```
 
-Production scheduler derives a deterministic 31-bit Android notification ID from the UUID bytes/string hash and uses `AndroidScheduleMode.inexactAllowWhileIdle`. Initialize timezone data once and schedule using the dose timezone/scheduled instant. Tapping payload `dose:<uuid>` is routed to `/doses/<uuid>`.
+Production uses deterministic 31-bit IDs derived from dose UUID/string, payload `dose:<uuid>`, `AndroidScheduleMode.inexactAllowWhileIdle`, and timezone package initialization. `reconcile()` schedules non-final future/effective reminders and cancels cached IDs absent from the refreshed feed.
 
-- [ ] **Step 4: Implement routine and reminder screens**
+- [ ] **Step 4: Implement `ReminderCoordinator`**
 
-Member medication cards gain **Set routine** for draft medications and **Edit routine** when current schedule exists. Routine submission is online-only.
+`refresh()` performs:
 
-Enable flow:
+```text
+ReminderDoseRepository.refreshWindow()
+→ NotificationScheduler.reconcile(feed)
+```
 
-1. “Enable reminders” requests OS permission.
-2. If granted, PATCH preference `enabled=true`, then reconcile cached dose notifications.
-3. If denied or platform scheduling fails, keep the schedule active and show a non-destructive explanation.
-4. “Not now” leaves preference disabled and routes to `/today`.
+It is single-flight to avoid overlapping platform scheduling work.
 
-- [ ] **Step 5: Verify GREEN**
+After successful create/edit routine, refresh the coordinator. Enable flow requests permission; if granted PATCH preference enabled then refresh; if denied leave preference/routine safe and continue. “Not now” keeps preference disabled and routes to `/today`.
+
+- [ ] **Step 5: Verify GREEN and commit**
 
 ```bash
 cd mobile
 flutter gen-l10n
 dart run build_runner build --delete-conflicting-outputs
 flutter analyze
-flutter test test/features/schedules/set_routine_flow_test.dart test/core/notifications/notification_scheduler_test.dart
-```
-
-- [ ] **Step 6: Commit Task 7**
-
-```bash
-git add mobile/pubspec.yaml mobile/pubspec.lock mobile/android/app/src/main/AndroidManifest.xml mobile/lib/core/notifications mobile/lib/features/schedules mobile/lib/features/family/presentation/member_profile_screen.dart mobile/lib/app/router.dart mobile/lib/l10n mobile/test/features/schedules/set_routine_flow_test.dart mobile/test/core/notifications/notification_scheduler_test.dart
+flutter test test/features/schedules/set_routine_flow_test.dart test/core/notifications/reminder_coordinator_test.dart
+git add pubspec.yaml pubspec.lock android/app/src/main/AndroidManifest.xml lib/core/notifications lib/features/schedules lib/features/family/presentation/member_profile_screen.dart lib/app/router.dart lib/l10n test/features/schedules/set_routine_flow_test.dart test/core/notifications/reminder_coordinator_test.dart
 git commit -m "feat: add routine setup and local reminders"
 ```
 
@@ -867,21 +711,20 @@ git commit -m "feat: add routine setup and local reminders"
 - Create: `mobile/lib/features/today/presentation/dose_card.dart`
 - Modify: `mobile/lib/app/router.dart`
 - Modify: `mobile/lib/features/auth/presentation/login_screen.dart`
-- Modify: `mobile/lib/core/auth/auth_controller.dart` only if route-target metadata is currently hard-coded there
 - Modify: `mobile/lib/l10n/app_en.arb`
 - Modify: `mobile/lib/l10n/app_bn.arb`
 - Test: `mobile/test/features/today/today_screen_test.dart`
 - Modify/Test: `mobile/test/features/auth/auth_flow_test.dart`
 
 **Interfaces:**
-- Consumes: `TodayRepository` from Task 6.
-- Produces: `/today` protected route and Today UI; dose cards navigate to `/doses/:doseId` in Task 9.
+- Consumes: `TodayRepository`.
+- Produces: protected `/today` route; dose cards target `/doses/:doseId`.
 
-- [ ] **Step 1: Write RED routing/Today tests**
+- [ ] **Step 1: Write RED routing/rendering tests**
 
-Assert authenticated returning users and restored sessions route to `/today`; registration/login with zero family members still routes to `/care-for`.
+Assert returning login/restored session defaults to `/today`; registration/login with zero members still uses `/care-for`.
 
-Render a group:
+Render:
 
 ```dart
 expect(find.text('Amma'), findsOneWidget);
@@ -889,107 +732,67 @@ expect(find.text('2 / 3 marked taken'), findsOneWidget);
 expect(find.text('Metformin 500 mg'), findsWidgets);
 ```
 
-Assert status semantics include text/icon labels so tests can find “Taken”, “Pending”, “Skipped”, or “Missed” independent of color.
+Status has text/icon semantics, never color alone. Cached repository result with `isOffline=true` renders an offline indicator and doses.
 
-When repository returns cached data with `isOffline=true`, assert an offline indicator is visible and dose cards still render.
+- [ ] **Step 2: Implement Today and router**
 
-- [ ] **Step 2: Run tests and verify RED**
+Add `/today` to protected paths. Authenticated welcome/splash redirect defaults to Today while explicit zero-member login/register behavior still navigates to care-for.
 
-```bash
-cd mobile
-flutter test test/features/today/today_screen_test.dart test/features/auth/auth_flow_test.dart
-```
+Use Riverpod `AsyncValue`, pull-to-refresh, grouped member cards, ordered dose cards, and the offline banner.
 
-- [ ] **Step 3: Implement Today screen and route**
-
-Add protected `/today`. Router redirect becomes:
-
-```dart
-if (auth.status == AuthStatus.authenticated &&
-    (path == '/welcome' || path == '/splash')) {
-  return '/today';
-}
-```
-
-Do not force `/today` when the explicit post-login family count is zero; preserve existing care-for decision in login/register flow.
-
-Today screen uses `AsyncValue`, pull-to-refresh, member cards, ordered dose cards, and the offline banner. Summary copy is marked status, not clinical adherence.
-
-- [ ] **Step 4: Verify GREEN**
+- [ ] **Step 3: Verify GREEN and commit**
 
 ```bash
 cd mobile
 flutter gen-l10n
 flutter analyze
 flutter test test/features/today/today_screen_test.dart test/features/auth/auth_flow_test.dart
-```
-
-- [ ] **Step 5: Commit Task 8**
-
-```bash
-git add mobile/lib/features/today mobile/lib/app/router.dart mobile/lib/features/auth mobile/lib/core/auth mobile/lib/l10n mobile/test/features/today/today_screen_test.dart mobile/test/features/auth/auth_flow_test.dart
+git add lib/features/today lib/app/router.dart lib/features/auth/presentation/login_screen.dart lib/l10n test/features/today/today_screen_test.dart test/features/auth/auth_flow_test.dart
 git commit -m "feat: add today dashboard"
 ```
 
 ---
 
-### Task 9: Add optimistic dose actions and durable offline sync queue
+### Task 9: Add optimistic dose actions and durable offline sync
 
 **Files:**
 - Create: `mobile/lib/features/doses/data/dose_repository.dart`
 - Create: `mobile/lib/features/doses/presentation/dose_action_screen.dart`
 - Create: `mobile/lib/core/sync/sync_coordinator.dart`
 - Create: `mobile/lib/core/sync/api_activity_events.dart`
+- Create: `mobile/lib/core/sync/sync_events.dart`
 - Modify: `mobile/lib/core/api/api_client.dart`
+- Modify: `mobile/lib/core/auth/auth_controller.dart`
 - Modify: `mobile/lib/app/app.dart`
 - Modify: `mobile/lib/app/router.dart`
 - Modify: `mobile/lib/features/today/data/today_repository.dart`
-- Modify: `mobile/lib/core/notifications/notification_scheduler.dart`
+- Modify: `mobile/lib/core/notifications/reminder_coordinator.dart`
 - Modify: `mobile/lib/l10n/app_en.arb`
 - Modify: `mobile/lib/l10n/app_bn.arb`
 - Test: `mobile/test/core/sync/sync_coordinator_test.dart`
 - Test: `mobile/test/features/doses/dose_action_screen_test.dart`
 
 **Interfaces:**
-- Consumes: Drift `sync_operations`, `cached_doses`, ApiClient refresh behavior, `NotificationScheduler`.
-- Produces:
-  - `DoseRepository.markTaken/snooze/skip/correct`
-  - `SyncCoordinator.enqueueAndTry(...)`, `drain()`
-  - `/doses/:doseId` screen.
+- Consumes: Drift cached doses/sync operations, ApiClient refresh behavior, reminder coordinator.
+- Produces: offline-capable `DoseRepository.markTaken/snooze/skip/correct`, `SyncCoordinator.drain()`, `/doses/:doseId`.
 
-- [ ] **Step 1: Write RED queue/action tests**
+- [ ] **Step 1: Write RED optimistic/offline tests**
 
-Test Taken offline:
+Taken offline immediately changes cached state and creates one operation. The generated operation UUID is also the serialized `client_action_id` and remains stable across retries.
 
-```dart
-await repository.markTaken(doseId, occurredAt: now);
-final cached = await db.findDose(doseId);
-expect(cached.status, 'taken');
-expect(await db.pendingOperations(), hasLength(1));
-```
+Snooze keeps status pending and changes `snoozedUntil`. Skip updates final state. Fake reminder coordinator confirms notification state is refreshed after successful/optimistic changes.
 
-Assert one UUID is generated when action is first created and the same `operationId/client_action_id` remains in serialized payload on every retry.
+- [ ] **Step 2: Pin replay failure semantics**
 
-Test Snooze keeps cached status `pending`, changes `snoozedUntil`, and calls fake scheduler reschedule. Skip cancels notification.
+409 final conflict: adopt server projection, delete op, emit `recordChanged` sync event.
 
-- [ ] **Step 2: Pin conflict/permanent failure semantics**
+404: remove stale cached dose and operation.
 
-For 409 final-state conflict, fake server response with current projection; drain must replace local dose, delete operation, and emit a non-destructive “record changed” sync event.
+Network/5xx: retain op and increment attempts.
 
-For Review Focus #4, fake `422 VALIDATION_ERROR`; after drain assert:
+For Review Focus #4, 422 marks `terminalFailure=true`; a second `drain()` leaves attempt count unchanged.
 
-```dart
-expect(op.terminalFailure, isTrue);
-expect(op.attemptCount, 1);
-await coordinator.drain();
-expect((await db.operation(op.id)).attemptCount, 1); // no retry loop
-```
-
-For 404 remove stale operation/cache. For network/5xx retain operation and increment attempt count.
-
-- [ ] **Step 3: Implement API activity event without a circular dependency**
-
-Create:
+- [ ] **Step 3: Implement API activity events without circular dependency**
 
 ```dart
 class ApiActivityEvents {
@@ -1000,38 +803,34 @@ class ApiActivityEvents {
 }
 ```
 
-Inject it into `ApiClient`. After each successful public `get/post/patch` wrapper returns, call `notifySuccess()`. Do not emit from the low-level retry callback itself.
+Add `apiActivityEventsProvider` alongside existing API/auth providers in `auth_controller.dart`, inject it into `ApiClient`, and emit only after a public `get/post/patch` wrapper successfully returns.
 
-`SyncCoordinator` subscribes to this stream and uses a single-flight `_drainFuture` guard so API calls made by queue draining cannot recursively start another drain.
+`SyncCoordinator` subscribes and uses one `_drainFuture` single-flight guard so replay API calls cannot cause recursive drain work.
 
-- [ ] **Step 4: Implement optimistic queue transaction**
+- [ ] **Step 4: Implement optimistic transaction and queue**
 
-Within one Drift transaction:
+Within one Drift transaction: save previous projection in operation JSON metadata, apply optimistic dose state, insert `SyncOperation`. Then attempt `drain()`.
 
-1. save previous local projection in operation payload metadata;
-2. apply optimistic cache state;
-3. insert `SyncOperation` with UUID used as `client_action_id`.
+On successful replay replace cache from server response, delete op, and call `ReminderCoordinator.refresh()` so final/snoozed notifications match canonical state.
 
-Then call `drain()` immediately. Network errors leave the optimistic state plus operation.
-
-`drain()` ignores rows with `terminalFailure=true`, posts the stored payload to the action-specific endpoint, replaces cache from server response on success, and deletes the operation.
-
-- [ ] **Step 5: Trigger drain on required lifecycle points**
+- [ ] **Step 5: Trigger queue/reminder refresh at required lifecycle points**
 
 Convert `FamilyMedApp` to `ConsumerStatefulWidget` + `WidgetsBindingObserver`.
 
-- when auth changes to authenticated: `ref.read(syncCoordinatorProvider).drain()`;
-- on `AppLifecycleState.resumed`: drain;
-- after queue insertion: drain;
-- on `ApiActivityEvents.successes`: guarded drain.
+On authenticated state and app resume:
+
+```dart
+await ref.read(syncCoordinatorProvider).drain();
+await ref.read(reminderCoordinatorProvider).refresh();
+```
+
+Also drain immediately after queue insertion; guarded API-success events trigger another drain. Schedule create/edit already refreshes reminders in Task 7.
 
 - [ ] **Step 6: Implement dose action screen**
 
-Show medication, quantity/unit, meal relation, scheduled time, confirmation disclaimer, Taken, Snooze 15 min, Skip. Disable duplicate taps while local transaction is in progress; network replay may continue asynchronously afterward.
+Show medication, quantity/unit, meal relation, scheduled time, Taken/Snooze 15 min/Skip and exact safety copy: **“Taken status is based on family/user confirmation.”** Disable duplicate local submissions while the Drift transaction runs.
 
-Route `/doses/:doseId` reads cached dose first and refreshes Today after successful server sync.
-
-- [ ] **Step 7: Verify GREEN**
+- [ ] **Step 7: Verify GREEN and commit**
 
 ```bash
 cd mobile
@@ -1039,12 +838,7 @@ flutter gen-l10n
 dart run build_runner build --delete-conflicting-outputs
 flutter analyze
 flutter test test/core/sync/sync_coordinator_test.dart test/features/doses/dose_action_screen_test.dart test/features/today/today_screen_test.dart
-```
-
-- [ ] **Step 8: Commit Task 9**
-
-```bash
-git add mobile/lib/core/api mobile/lib/core/sync mobile/lib/core/notifications mobile/lib/app mobile/lib/features/doses mobile/lib/features/today mobile/lib/l10n mobile/test/core/sync/sync_coordinator_test.dart mobile/test/features/doses/dose_action_screen_test.dart mobile/test/features/today/today_screen_test.dart
+git add lib/core/api lib/core/auth/auth_controller.dart lib/core/sync lib/core/notifications/reminder_coordinator.dart lib/app lib/features/doses lib/features/today/data/today_repository.dart lib/l10n test/core/sync/sync_coordinator_test.dart test/features/doses/dose_action_screen_test.dart test/features/today/today_screen_test.dart
 git commit -m "feat: add offline dose action sync"
 ```
 
@@ -1064,93 +858,78 @@ git commit -m "feat: add offline dose action sync"
 - Test: `mobile/test/features/history/history_flow_test.dart`
 
 **Interfaces:**
-- Consumes: backend history endpoint and Task 9 `DoseRepository.correct` queue path.
-- Produces: member History access and correction flow.
+- Consumes: backend history and Task 9 offline-capable correction path.
+- Produces: member History access and explicit correction UI.
 
 - [ ] **Step 1: Write RED history/correction tests**
 
-Mock history containing a missed event followed by correction to taken. Assert both are represented and summary says “Marked adherence”.
+Mock missed then corrected-to-taken history. Assert both events remain visible and summary label is “Marked adherence”.
 
-Open a final dose and correct to taken with effective time. Assert correction calls the same offline-capable queue machinery with action `correct` and leaves prior event display intact.
+Correct a final dose with target status/effective time/reason and assert it queues action `correct` with one stable client ID.
 
-- [ ] **Step 2: Run tests and verify RED**
+- [ ] **Step 2: Implement history/repository/screens**
 
-```bash
-cd mobile
-flutter test test/features/history/history_flow_test.dart
-```
+`HistoryRepository.load(memberId, from, to)` is online-only; transient failure shows an error because only Today is required offline.
 
-- [ ] **Step 3: Implement repository and screens**
+Member profile gains History. History groups by local date, shows current projection plus event timeline, and exposes **Correct record** only for final doses.
 
-`HistoryRepository.load(memberId, from, to)` calls the API online; temporary API failure may show an error because the spec only requires Today cache, not full offline history browsing.
-
-Member profile adds **History**. History groups by local date, displays current status and event timeline, and shows **Correct record** only for final statuses.
-
-Correction form requires target final status, effective time, and optional reason; it generates one stable client action through `DoseRepository.correct`.
-
-- [ ] **Step 4: Verify GREEN**
+- [ ] **Step 3: Verify GREEN and commit**
 
 ```bash
 cd mobile
 flutter gen-l10n
 flutter analyze
 flutter test test/features/history/history_flow_test.dart
-```
-
-- [ ] **Step 5: Commit Task 10**
-
-```bash
-git add mobile/lib/features/history mobile/lib/features/family/presentation/member_profile_screen.dart mobile/lib/app/router.dart mobile/lib/l10n mobile/test/features/history/history_flow_test.dart
+git add lib/features/history lib/features/family/presentation/member_profile_screen.dart lib/app/router.dart lib/l10n test/features/history/history_flow_test.dart
 git commit -m "feat: add marked medication history"
 ```
 
 ---
 
-### Task 11: Add full vertical-slice acceptance coverage and final verification
+### Task 11: Add vertical-slice acceptance coverage and run the final gate
 
 **Files:**
 - Create: `backend/tests/test_schedules_today_vertical_slice.py`
 - Create: `mobile/test/features/schedules_today_acceptance_test.dart`
-- Modify: `README.md` for local reminder/offline behavior only if commands or developer setup changed.
+- Modify: `README.md` only if the new local-notification dependency or developer commands require documentation.
 
 **Interfaces:**
-- Consumes: all prior tasks.
-- Produces: executable acceptance proof and final branch verification evidence.
+- Consumes: Tasks 1–10.
+- Produces: final acceptance proof and verification evidence.
 
-- [ ] **Step 1: Write backend acceptance test through HTTP**
+- [ ] **Step 1: Write backend HTTP acceptance test**
 
-Exercise a single real PostgreSQL test flow:
+Exercise real PostgreSQL-backed HTTP flow:
 
 ```text
 register
 → add Amma
 → add Metformin
-→ create 08:00 + 20:00 Asia/Dhaka schedule
-→ assert medication active
-→ reconcile at controlled now
-→ GET /today
-→ Taken with client_action_id
-→ Snooze pending dose
-→ Skip another eligible dose
-→ GET history
-→ Correct one final dose
-→ edit schedule
-→ verify old event-bearing dose IDs/logs remain
-→ second account receives 404 for dose
+→ create 08:00 + 20:00 Asia/Dhaka routine
+→ medication active
+→ reconcile controlled now
+→ Today
+→ Taken
+→ duplicate Taken retry has one log
+→ Snooze pending dose and remain pending
+→ Skip eligible dose
+→ History
+→ Correct final record and retain prior log
+→ reminder feed contains only enabled-member non-final doses
+→ edit schedule and preserve event-bearing history
+→ second account gets 404 for dose
 ```
-
-The test must assert exact log counts after duplicate retries.
 
 - [ ] **Step 2: Write Flutter acceptance test**
 
-Use fake repositories/scheduler plus in-memory Drift to drive widgets through:
+Use fake APIs/scheduler plus in-memory Drift:
 
 ```text
 member profile
 → Set routine
-→ Enable reminders or Not now
+→ Enable reminders / Not now
 → Today
-→ dose screen
+→ dose action
 → Taken
 → offline Snooze queued
 → reconnect/drain
@@ -1158,7 +937,7 @@ member profile
 → Correct record
 ```
 
-Assert the routine disclaimer and family-confirmation disclaimer appear in the appropriate screens.
+Assert both safety/disclaimer strings appear and a 30-day reminder feed refresh drives the fake scheduler.
 
 - [ ] **Step 3: Run focused acceptance tests**
 
@@ -1169,9 +948,7 @@ cd ../mobile
 flutter test test/features/schedules_today_acceptance_test.dart
 ```
 
-Expected: both pass.
-
-- [ ] **Step 4: Run the entire backend gate**
+- [ ] **Step 4: Run complete backend gate**
 
 ```bash
 cd backend
@@ -1181,9 +958,9 @@ uv run alembic upgrade head
 uv run pytest -v
 ```
 
-Expected: all steps pass on PostgreSQL 17.
+Expected: all pass against PostgreSQL 17.
 
-- [ ] **Step 5: Run the entire mobile gate**
+- [ ] **Step 5: Run complete mobile gate**
 
 ```bash
 cd mobile
@@ -1195,9 +972,9 @@ flutter test
 flutter build apk --debug
 ```
 
-Expected: analyzer clean, all tests pass, debug APK builds.
+Expected: analyzer clean, all tests pass, Android debug APK builds.
 
-- [ ] **Step 6: Check scope and repository state**
+- [ ] **Step 6: Check branch cleanliness/scope**
 
 ```bash
 git status --short
@@ -1205,13 +982,13 @@ git diff --check main...HEAD
 git log --oneline --decorate main..HEAD
 ```
 
-Expected: no unintended generated/untracked files; no whitespace errors; commits correspond to Tasks 1–11.
+Expected: no unintended generated/untracked files; no whitespace errors; task commits only.
 
-- [ ] **Step 7: Commit acceptance/docs if changed**
+- [ ] **Step 7: Commit acceptance/docs**
 
 ```bash
-git add backend/tests/test_schedules_today_vertical_slice.py mobile/test/features/schedules_today_acceptance_test.dart README.md
+git add backend/tests/test_schedules_today_vertical_slice.py mobile/test/features/schedules_today_acceptance_test.dart
+git add README.md  # only when README was actually changed
+
 git commit -m "test: verify schedules today dose flow"
 ```
-
-If `README.md` did not require a change, omit it from `git add` rather than creating documentation churn.
