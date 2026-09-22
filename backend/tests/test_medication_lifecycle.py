@@ -4,7 +4,6 @@ from uuid import UUID
 from sqlalchemy import func, select
 
 from app.doses.models import ScheduledDose
-from app.medications.models import MemberMedication
 from app.schedules.models import MedicationSchedule
 
 
