@@ -69,8 +69,6 @@ async def _seed_schedule(
     session: AsyncSession,
     *,
     status: str = "active",
-    quantity: Decimal = Decimal("1"),
-    unit: str = "tablet",
 ) -> tuple[MemberMedication, MedicationSchedule, ScheduleTime]:
     medication = await _seed_medication(session)
     schedule = MedicationSchedule(
@@ -90,8 +88,8 @@ async def _seed_schedule(
         schedule_id=schedule.id,
         period="morning",
         local_time=time(8, 0),
-        quantity=quantity,
-        unit=unit,
+        quantity=Decimal("1"),
+        unit="tablet",
         sort_order=0,
     )
     session.add(schedule_time)
@@ -127,7 +125,7 @@ async def test_schedule_dose_log_and_notification_preference_persist(db_session)
         client_action_id=None,
         occurred_at=dose.scheduled_at,
         recorded_at=dose.scheduled_at,
-        metadata={},
+        event_metadata={},
     )
     preference = NotificationPreference(
         family_member_id=medication.family_member_id,
@@ -168,7 +166,15 @@ async def test_schedule_status_constraint_rejects_invalid_values(db_session, bad
 
 
 @pytest.mark.asyncio
-async def test_schedule_time_constraints_reject_invalid_quantity_and_blank_unit(db_session):
+@pytest.mark.parametrize(
+    ("quantity", "unit"),
+    [(Decimal("0"), "tablet"), (Decimal("1"), "   ")],
+)
+async def test_schedule_time_constraints_reject_invalid_quantity_or_unit(
+    db_session,
+    quantity,
+    unit,
+):
     medication = await _seed_medication(db_session)
     schedule = MedicationSchedule(
         member_medication_id=medication.id,
@@ -189,8 +195,8 @@ async def test_schedule_time_constraints_reject_invalid_quantity_and_blank_unit(
             schedule_id=schedule.id,
             period="morning",
             local_time=time(8, 0),
-            quantity=Decimal("0"),
-            unit="tablet",
+            quantity=quantity,
+            unit=unit,
             sort_order=0,
         )
     )
@@ -209,6 +215,29 @@ async def test_duplicate_schedule_clock_is_rejected(db_session):
             quantity=Decimal("1"),
             unit="tablet",
             sort_order=1,
+        )
+    )
+    with pytest.raises(IntegrityError):
+        await db_session.flush()
+
+
+@pytest.mark.asyncio
+async def test_invalid_dose_status_is_rejected(db_session):
+    medication, schedule, schedule_time = await _seed_schedule(db_session)
+    db_session.add(
+        ScheduledDose(
+            schedule_id=schedule.id,
+            schedule_time_id=schedule_time.id,
+            family_member_id=medication.family_member_id,
+            member_medication_id=medication.id,
+            scheduled_at=datetime(2026, 9, 24, 2, 0, tzinfo=UTC),
+            scheduled_local_date=date(2026, 9, 24),
+            scheduled_local_time=time(8, 0),
+            timezone="Asia/Dhaka",
+            quantity=Decimal("1"),
+            unit="tablet",
+            meal_relation=None,
+            status="done",
         )
     )
     with pytest.raises(IntegrityError):
