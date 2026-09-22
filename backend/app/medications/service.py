@@ -14,7 +14,6 @@ from app.medications.repository import (
 )
 from app.medications.schemas import ManualMedicationCreate, ManualMedicationUpdate
 from app.schedules.generation import generate_schedule_window
-from app.schedules.models import MedicationSchedule
 from app.schedules.repository import get_current_schedule
 
 
