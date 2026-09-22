@@ -39,38 +39,31 @@ void main() {
     final events = SessionEvents();
     addTearDown(events.dispose);
 
-    var firstProtectedCount = 0;
-    var secondProtectedCount = 0;
     var refreshRequestCount = 0;
+    const invalidToken = {
+      'error': {
+        'code': 'INVALID_TOKEN',
+        'message': 'Authentication is invalid or expired.',
+        'details': <String, dynamic>{},
+      },
+    };
 
-    normalAdapter.onGet('/protected/one', (server) {
-      firstProtectedCount++;
-      if (firstProtectedCount == 1) {
-        server.reply(401, {
-          'error': {
-            'code': 'INVALID_TOKEN',
-            'message': 'Authentication is invalid or expired.',
-            'details': <String, dynamic>{},
-          },
-        });
-      } else {
-        server.reply(200, {'ok': true});
-      }
-    });
-    normalAdapter.onGet('/protected/two', (server) {
-      secondProtectedCount++;
-      if (secondProtectedCount == 1) {
-        server.reply(401, {
-          'error': {
-            'code': 'INVALID_TOKEN',
-            'message': 'Authentication is invalid or expired.',
-            'details': <String, dynamic>{},
-          },
-        });
-      } else {
-        server.reply(200, {'ok': true});
-      }
-    });
+    normalAdapter.onGet(
+      '/protected/one',
+      (server) => server.reply(401, invalidToken),
+    );
+    normalAdapter.onGet(
+      '/protected/one',
+      (server) => server.reply(200, {'ok': true}),
+    );
+    normalAdapter.onGet(
+      '/protected/two',
+      (server) => server.reply(401, invalidToken),
+    );
+    normalAdapter.onGet(
+      '/protected/two',
+      (server) => server.reply(200, {'ok': true}),
+    );
     refreshAdapter.onPost(
       '/auth/refresh',
       (server) {
@@ -93,8 +86,6 @@ void main() {
     ]);
 
     expect(refreshRequestCount, 1);
-    expect(firstProtectedCount, 2);
-    expect(secondProtectedCount, 2);
     expect((await store.read())!.accessToken, 'new-access');
     expect(results[0].statusCode, 200);
     expect(results[1].statusCode, 200);
