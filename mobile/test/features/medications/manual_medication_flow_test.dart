@@ -195,7 +195,8 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Add manually'));
     await tester.pumpAndSettle();
 
-    expect(currentPath(container), '/family/member-id/medications/new');
+    expect(find.text('Add medication manually'), findsOneWidget);
+    expect(find.byKey(const Key('medicationName')), findsOneWidget);
   });
 
   testWidgets('manual form requires name and defaults start date to today', (tester) async {
