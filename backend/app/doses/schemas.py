@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -41,8 +41,8 @@ class DoseProjection(BaseModel):
     family_member_id: UUID
     member_medication_id: UUID
     scheduled_at: datetime
-    scheduled_local_date: object
-    scheduled_local_time: object
+    scheduled_local_date: date
+    scheduled_local_time: time
     timezone: str
     quantity: Decimal
     unit: str
@@ -52,3 +52,46 @@ class DoseProjection(BaseModel):
     taken_at: datetime | None
     skipped_at: datetime | None
     missed_at: datetime | None
+
+
+class TodayDoseResponse(DoseProjection):
+    medication_name: str
+    strength: str | None
+    effective_reminder_at: datetime
+
+
+class TodayMemberResponse(BaseModel):
+    member_id: UUID
+    member_name: str
+    relationship: str
+    local_date: date
+    timezone: str
+    taken_count: int
+    total_count: int
+    doses: list[TodayDoseResponse]
+
+
+class DoseEventResponse(BaseModel):
+    action: str
+    occurred_at: datetime
+    recorded_at: datetime
+    metadata: dict[str, object]
+
+
+class HistoryDoseResponse(TodayDoseResponse):
+    events: list[DoseEventResponse]
+
+
+class HistoryDayResponse(BaseModel):
+    local_date: date
+    doses: list[HistoryDoseResponse]
+
+
+class MemberHistoryResponse(BaseModel):
+    member_id: UUID
+    member_name: str
+    timezone: str
+    from_date: date
+    to_date: date
+    marked_adherence_percentage: Decimal | None
+    days: list[HistoryDayResponse]
