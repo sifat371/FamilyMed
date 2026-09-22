@@ -1,7 +1,6 @@
-from sqlalchemy import select
-
 from app.families.models import Family, FamilyMembership
 from app.users.models import User
+from sqlalchemy import select
 
 
 async def test_user_family_membership_models_persist(db_session):
