@@ -65,10 +65,19 @@ void main() {
       refreshDio: refreshDio,
     );
 
-    final results = await Future.wait([
-      client.get<dynamic>('/protected'),
-      client.get<dynamic>('/protected'),
-    ]);
+    late final List<Response<dynamic>> results;
+    try {
+      results = await Future.wait([
+        client.get<dynamic>('/protected'),
+        client.get<dynamic>('/protected'),
+      ]);
+    } catch (error) {
+      final token = (await store.read())?.accessToken;
+      fail(
+        'request failed: $error; refresh=$refreshRequestCount; '
+        'protected=$protectedRequestCount; token=$token',
+      );
+    }
 
     expect(refreshRequestCount, 1);
     expect(protectedRequestCount, 4);
