@@ -3,5 +3,15 @@
   "welcomeHeadline": "Medication care for the people you love.",
   "welcomeBody": "Scan prescriptions, build routines, and stay connected with your family's medication care.",
   "getStarted": "Get started",
-  "aiConfirmationNote": "AI assists. You always confirm."
+  "aiConfirmationNote": "AI assists. You always confirm.",
+  "alreadyHaveAccount": "I already have an account",
+  "nameLabel": "Name",
+  "emailLabel": "Email",
+  "passwordLabel": "Password",
+  "createAccount": "Create account",
+  "signIn": "Sign in",
+  "passwordLengthError": "Password must be 8–128 characters.",
+  "invalidEmailError": "Enter a valid email address.",
+  "networkError": "Could not connect. Try again.",
+  "requiredFieldError": "This field is required."
 }

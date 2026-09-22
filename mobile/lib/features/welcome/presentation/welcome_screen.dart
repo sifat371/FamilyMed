@@ -1,6 +1,7 @@
 import 'package:familymed/core/theme/familymed_theme.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -47,8 +48,16 @@ class WelcomeScreen extends StatelessWidget {
               const SizedBox(height: 16),
               Text(l10n.welcomeBody, textAlign: TextAlign.center),
               const Spacer(flex: 2),
-              FilledButton(onPressed: () {}, child: Text(l10n.getStarted)),
-              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => context.go('/register'),
+                child: Text(l10n.getStarted),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => context.go('/login'),
+                child: Text(l10n.alreadyHaveAccount),
+              ),
+              const SizedBox(height: 12),
               Text(l10n.aiConfirmationNote, textAlign: TextAlign.center),
               const Spacer(),
             ],
