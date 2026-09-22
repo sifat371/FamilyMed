@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, func, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
 
@@ -23,7 +24,11 @@ class TimestampMixin:
     )
 
 
-engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+engine_kwargs: dict[str, object] = {"pool_pre_ping": True}
+if settings.env == "test":
+    engine_kwargs["poolclass"] = NullPool
+
+engine = create_async_engine(settings.database_url, **engine_kwargs)
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
