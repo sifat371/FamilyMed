@@ -25,8 +25,14 @@ void main() {
   test('concurrent 401 responses share one refresh and retry with new access token', () async {
     final normalDio = Dio(BaseOptions(baseUrl: 'http://test/api/v1'));
     final refreshDio = Dio(BaseOptions(baseUrl: 'http://test/api/v1'));
-    final normalAdapter = DioAdapter(dio: normalDio);
-    final refreshAdapter = DioAdapter(dio: refreshDio);
+    final normalAdapter = DioAdapter(
+      dio: normalDio,
+      matcher: const UrlRequestMatcher(matchMethod: true),
+    );
+    final refreshAdapter = DioAdapter(
+      dio: refreshDio,
+      matcher: const UrlRequestMatcher(matchMethod: true),
+    );
     final store = MemoryTokenStore(
       const AuthTokens(accessToken: 'old-access', refreshToken: 'refresh-token'),
     );
@@ -65,19 +71,10 @@ void main() {
       refreshDio: refreshDio,
     );
 
-    late final List<Response<dynamic>> results;
-    try {
-      results = await Future.wait([
-        client.get<dynamic>('/protected'),
-        client.get<dynamic>('/protected'),
-      ]);
-    } catch (error) {
-      final token = (await store.read())?.accessToken;
-      fail(
-        'request failed: $error; refresh=$refreshRequestCount; '
-        'protected=$protectedRequestCount; token=$token',
-      );
-    }
+    final results = await Future.wait([
+      client.get<dynamic>('/protected'),
+      client.get<dynamic>('/protected'),
+    ]);
 
     expect(refreshRequestCount, 1);
     expect(protectedRequestCount, 4);
