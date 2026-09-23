@@ -39,6 +39,13 @@ class AppDatabase extends _$AppDatabase {
             await migrator.addColumn(cachedTodayMembers, cachedTodayMembers.userId);
             await migrator.addColumn(cachedDoses, cachedDoses.userId);
             await migrator.addColumn(syncOperations, syncOperations.userId);
+
+            // V2 rows have no trustworthy account owner. Discarding them is
+            // safer than retaining medication data that could surface after
+            // an account switch.
+            await customStatement('DELETE FROM sync_operations');
+            await customStatement('DELETE FROM cached_doses');
+            await customStatement('DELETE FROM cached_today_members');
           }
         },
       );
