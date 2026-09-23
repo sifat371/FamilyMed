@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:familymed/app/app.dart';
+import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/core/auth/auth_tokens.dart';
 import 'package:familymed/core/auth/token_store.dart';
