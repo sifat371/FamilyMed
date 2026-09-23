@@ -127,5 +127,12 @@
   "editMedicine": "Edit medicine",
   "saveChanges": "Save changes",
   "showPassword": "Show password",
-  "hidePassword": "Hide password"
+  "hidePassword": "Hide password",
+  "motherRelationship": "Mother",
+  "fatherRelationship": "Father",
+  "parentRelationship": "Parent",
+  "spouseRelationship": "Spouse",
+  "childRelationship": "Child",
+  "selfRelationship": "Self",
+  "otherRelationship": "Other"
 }
