@@ -340,4 +340,33 @@ void main() {
     expect(find.text('Reminder time'), findsNothing);
     expect(find.text('Meal relation'), findsNothing);
   });
+
+  testWidgets('profile localizes active medication lifecycle status',
+      (tester) async {
+    final repository = RecordingMedicationRepository();
+    repository.medications.add(
+      MemberMedication(
+        id: 'med-active',
+        familyMemberId: 'member-id',
+        medicineMasterId: null,
+        displayName: 'Metformin',
+        strength: '500 mg',
+        dosageForm: 'tablet',
+        status: 'active',
+        startDate: DateTime(2026, 9, 23),
+        endDate: null,
+      ),
+    );
+    final container = makeContainer(repository);
+    addTearDown(container.dispose);
+    await pumpApp(tester, container);
+
+    container.read(routerProvider).go('/family/member-id');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Active'), findsOneWidget);
+    expect(find.text('active'), findsNothing);
+  });
+
+
 }
