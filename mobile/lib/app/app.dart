@@ -6,6 +6,7 @@ import 'package:familymed/core/auth/auth_state.dart';
 import 'package:familymed/core/notifications/notification_providers.dart';
 import 'package:familymed/core/sync/sync_coordinator.dart';
 import 'package:familymed/core/theme/familymed_theme.dart';
+import 'package:familymed/features/schedules/data/notification_preference_repository.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -48,7 +49,16 @@ class _FamilyMedAppState extends ConsumerState<FamilyMedApp>
     try {
       final doses =
           await ref.read(todayRepositoryProvider).loadReminderDoses(days: 30);
-      await ref.read(notificationSchedulerProvider).reconcile(doses);
+      final preferences = ref.read(notificationPreferenceRepositoryProvider);
+      final enabledMembers = <String>{};
+      for (final memberId in doses.map((dose) => dose.familyMemberId).toSet()) {
+        final preference = await preferences.getPreference(memberId);
+        if (preference.enabled) enabledMembers.add(memberId);
+      }
+      final enabledDoses = doses
+          .where((dose) => enabledMembers.contains(dose.familyMemberId))
+          .toList(growable: false);
+      await ref.read(notificationSchedulerProvider).reconcile(enabledDoses);
     } on Object {
       // Reminder refresh is best-effort. The canonical routine remains active.
     }
