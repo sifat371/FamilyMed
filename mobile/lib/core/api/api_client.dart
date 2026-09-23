@@ -3,11 +3,13 @@ import 'package:familymed/core/api/api_config.dart';
 import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/core/auth/session_events.dart';
 import 'package:familymed/core/auth/token_store.dart';
+import 'package:familymed/core/sync/api_activity_events.dart';
 
 class ApiClient {
   ApiClient({
     required this.tokenStore,
     required this.sessionEvents,
+    this.activityEvents,
     Dio? dio,
     Dio? refreshDio,
   })  : _dio = dio ?? Dio(BaseOptions(baseUrl: apiBaseUrl)),
@@ -22,6 +24,7 @@ class ApiClient {
 
   final TokenStore tokenStore;
   final SessionEvents sessionEvents;
+  final ApiActivityEvents? activityEvents;
   final Dio _dio;
   final Dio _refreshDio;
   Future<void>? _refreshFuture;
@@ -32,11 +35,13 @@ class ApiClient {
     bool skipAuth = false,
   }) async {
     try {
-      return await _dio.get<T>(
+      final response = await _dio.get<T>(
         path,
         queryParameters: queryParameters,
         options: Options(extra: {'skipAuth': skipAuth}),
       );
+      activityEvents?.notifySuccess();
+      return response;
     } on DioException catch (error) {
       throw ApiError.fromDio(error);
     }
@@ -48,11 +53,13 @@ class ApiClient {
     bool skipAuth = false,
   }) async {
     try {
-      return await _dio.post<T>(
+      final response = await _dio.post<T>(
         path,
         data: data,
         options: Options(extra: {'skipAuth': skipAuth}),
       );
+      activityEvents?.notifySuccess();
+      return response;
     } on DioException catch (error) {
       throw ApiError.fromDio(error);
     }
@@ -64,11 +71,13 @@ class ApiClient {
     bool skipAuth = false,
   }) async {
     try {
-      return await _dio.patch<T>(
+      final response = await _dio.patch<T>(
         path,
         data: data,
         options: Options(extra: {'skipAuth': skipAuth}),
       );
+      activityEvents?.notifySuccess();
+      return response;
     } on DioException catch (error) {
       throw ApiError.fromDio(error);
     }
