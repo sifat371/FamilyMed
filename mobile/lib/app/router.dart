@@ -9,6 +9,7 @@ import 'package:familymed/features/family/presentation/who_do_you_care_for_scree
 import 'package:familymed/features/medications/presentation/add_manual_medication_screen.dart';
 import 'package:familymed/features/schedules/presentation/enable_reminders_screen.dart';
 import 'package:familymed/features/schedules/presentation/set_routine_screen.dart';
+import 'package:familymed/features/today/presentation/today_screen.dart';
 import 'package:familymed/features/welcome/presentation/welcome_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,7 +44,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (path == '/welcome' || path == '/splash') {
-        return '/family';
+        return '/today';
       }
       return null;
     },
@@ -74,10 +75,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           initialRelationship: state.uri.queryParameters['relationship'] ?? 'mother',
         ),
       ),
-      GoRoute(
-        path: '/family',
-        builder: (context, state) => const FamilyListScreen(),
-      ),
+      GoRoute(\n        path: '/today',\n        builder: (context, state) => const TodayScreen(),\n      ),\n      GoRoute(\n        path: '/family',\n        builder: (context, state) => const FamilyListScreen(),\n      ),
       GoRoute(
         path: '/family/:memberId/medications/new',
         builder: (context, state) => AddManualMedicationScreen(
@@ -110,7 +108,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 bool _isProtected(String path) {
-  return path == '/care-for' || path == '/family' || path.startsWith('/family/');
+  return path == '/care-for' ||\n      path == '/today' ||\n      path == '/family' ||\n      path.startsWith('/family/');
 }
 
 class _SplashScreen extends StatelessWidget {
