@@ -114,5 +114,7 @@
   "completedStatus": "সম্পন্ন",
   "endedStatus": "শেষ হয়েছে",
   "duplicateReminderTimes": "রিমাইন্ডারের সময়গুলো আলাদা হতে হবে।",
-  "noMealRelation": "খাবারের সাথে সম্পর্ক নেই"
+  "noMealRelation": "খাবারের সাথে সম্পর্ক নেই",
+  "familyTab": "পরিবার",
+  "signOut": "সাইন আউট"
 }
