@@ -236,11 +236,23 @@ class SyncCoordinator {
     );
   }
 
-  Future<void> _replaceCachedDose(DoseProjection dose) {
-    return _database.into(_database.cachedDoses).insertOnConflictUpdate(
+  Future<void> _replaceCachedDose(DoseProjection dose) async {
+    final existing = await (_database.select(_database.cachedDoses)
+          ..where(
+            (row) =>
+                row.doseId.equals(dose.id) &
+                row.userId.equals(_userId),
+          ))
+        .getSingleOrNull();
+    final reminderEligible = _isFinal(dose.status)
+        ? false
+        : existing?.reminderEligible ?? false;
+
+    await _database.into(_database.cachedDoses).insertOnConflictUpdate(
           CachedDosesCompanion.insert(
             doseId: dose.id,
             userId: Value<String>(_userId),
+            reminderEligible: Value<bool>(reminderEligible),
             scheduleId: dose.scheduleId,
             memberId: dose.familyMemberId,
             medicationId: dose.memberMedicationId,
@@ -263,6 +275,9 @@ class SyncCoordinator {
           ),
         );
   }
+
+  bool _isFinal(String status) =>
+      status == 'taken' || status == 'skipped' || status == 'missed';
 
   Future<void> dispose() async {
     await _activitySubscription?.cancel();
