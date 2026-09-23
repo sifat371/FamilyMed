@@ -151,13 +151,14 @@ void main() {
     final coordinator = SyncCoordinator(database: db, transport: transport);
 
     await _seedOperation(db, operationId: 'action-conflict');
+    final eventFuture = coordinator.events.first;
     await coordinator.drain();
 
     final pending = await db.customSelect(
       'SELECT COUNT(*) AS count FROM sync_operations',
     ).getSingle();
     expect(pending.read<int>('count'), 0);
-    final event = await coordinator.events.first;
+    final event = await eventFuture;
     expect(event.kind, SyncEventKind.recordChanged);
   });
 }
