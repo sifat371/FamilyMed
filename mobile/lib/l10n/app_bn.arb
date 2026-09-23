@@ -83,5 +83,19 @@
   "pendingStatus": "বাকি আছে",
   "upcomingStatus": "আসন্ন",
   "skippedStatus": "বাদ দেওয়া হয়েছে",
-  "missedStatus": "মিস হয়েছে"
+  "missedStatus": "মিস হয়েছে",
+  "doseDetails": "ওষুধের ডোজের বিস্তারিত",
+  "doseNotAvailable": "এই ডোজটি পাওয়া যাচ্ছে না।",
+  "markAsTaken": "খাওয়া হয়েছে হিসেবে চিহ্নিত করুন",
+  "snooze15Minutes": "১৫ মিনিট পরে মনে করান",
+  "skipThisDose": "এই ডোজটি বাদ দিন",
+  "takenConfirmationDisclaimer": "খাওয়া হয়েছে অবস্থা পরিবার/ব্যবহারকারীর নিশ্চিতকরণের ভিত্তিতে দেখানো হয়।",
+  "scheduledTime": "নির্ধারিত সময় {time}",
+  "@scheduledTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  }
 }
