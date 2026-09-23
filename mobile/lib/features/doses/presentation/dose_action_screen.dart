@@ -6,6 +6,7 @@ import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class DoseActionScreen extends ConsumerStatefulWidget {
   const DoseActionScreen({
@@ -63,6 +64,9 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
     }
   }
 
+  bool _isFinal(String status) =>
+      status == 'taken' || status == 'skipped' || status == 'missed';
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -104,7 +108,7 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
               const SizedBox(height: 12),
             ],
             FilledButton(
-              onPressed: _acting
+              onPressed: _acting || _isFinal(dose.status)
                   ? null
                   : () => _act(
                         () => widget.repository.markTaken(
@@ -132,7 +136,7 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: _acting
+              onPressed: _acting || _isFinal(dose.status)
                   ? null
                   : () => _act(
                         () => widget.repository.skip(
@@ -142,6 +146,18 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
                       ),
               child: Text(l10n.skipThisDose),
             ),
+            if (_isFinal(dose.status)) ...[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _acting
+                    ? null
+                    : () => context.push(
+                          '/doses/${dose.id}/correct?status=${dose.status}',
+                        ),
+                icon: const Icon(Icons.edit_outlined),
+                label: Text(l10n.correctRecord),
+              ),
+            ],
             const SizedBox(height: 24),
             Text(
               l10n.takenConfirmationDisclaimer,
