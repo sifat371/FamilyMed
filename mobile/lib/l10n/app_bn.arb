@@ -135,5 +135,6 @@
   "childRelationship": "সন্তান",
   "selfRelationship": "নিজে",
   "otherRelationship": "অন্যান্য",
-  "editFamilyMember": "পরিবারের সদস্য সম্পাদনা করুন"
+  "editFamilyMember": "পরিবারের সদস্য সম্পাদনা করুন",
+  "retry": "আবার চেষ্টা করুন"
 }
