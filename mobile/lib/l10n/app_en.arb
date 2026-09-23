@@ -107,5 +107,6 @@
   "correctionEffectiveAt": "Effective time",
   "correctionReason": "Reason (optional)",
   "invalidCorrectionTime": "Enter a valid date and time.",
-  "saveCorrection": "Save correction"
+  "saveCorrection": "Save correction",
+  "syncDoseChangeFailed": "Could not sync this dose change. Review it and try again."
 }
