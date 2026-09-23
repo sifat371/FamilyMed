@@ -81,7 +81,9 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
     if (!_formKey.currentState!.validate() || _loading) return;
     final clocks = _rows.map((row) => row.time.text.trim()).toList();
     if (clocks.toSet().length != clocks.length) {
-      setState(() => _error = 'Reminder times must be unique.');
+      setState(
+        () => _error = AppLocalizations.of(context).duplicateReminderTimes,
+      );
       return;
     }
     setState(() {
@@ -162,8 +164,20 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
               DropdownButtonFormField<String>(
                 initialValue: _mealRelation,
                 decoration: InputDecoration(labelText: l10n.mealRelation),
-                items: <String>['unspecified', 'before_food', 'after_food', 'with_food']
-                    .map((value) => DropdownMenuItem(value: value, child: Text(value)))
+                items: <String, String>{
+                  'unspecified': l10n.unspecified,
+                  'before_food': l10n.beforeFood,
+                  'after_food': l10n.afterFood,
+                  'with_food': l10n.withFood,
+                  'none': l10n.noMealRelation,
+                }
+                    .entries
+                    .map(
+                      (entry) => DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(entry.value),
+                      ),
+                    )
                     .toList(growable: false),
                 onChanged: (value) {
                   if (value != null) setState(() => _mealRelation = value);
