@@ -135,5 +135,6 @@
   "childRelationship": "Child",
   "selfRelationship": "Self",
   "otherRelationship": "Other",
-  "editFamilyMember": "Edit family member"
+  "editFamilyMember": "Edit family member",
+  "retry": "Retry"
 }
