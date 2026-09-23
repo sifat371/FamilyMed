@@ -19,9 +19,9 @@ class CorrectRecordScreen extends StatefulWidget {
 }
 
 class _CorrectRecordScreenState extends State<CorrectRecordScreen> {
-  final _effectiveAtController = TextEditingController();
   final _reasonController = TextEditingController();
   late String _status;
+  DateTime? _effectiveAt;
   bool _saving = false;
   String? _error;
 
@@ -29,19 +29,61 @@ class _CorrectRecordScreenState extends State<CorrectRecordScreen> {
   void initState() {
     super.initState();
     _status = widget.initialStatus;
+    _effectiveAt = DateTime.now();
   }
 
   @override
   void dispose() {
-    _effectiveAtController.dispose();
     _reasonController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickEffectiveAt() async {
+    final current = _effectiveAt ?? DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime(current.year, current.month, current.day),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(current),
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    );
+    if (time == null) return;
+    setState(() {
+      _effectiveAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
+  String _effectiveAtLabel(BuildContext context) {
+    final value = _effectiveAt;
+    if (value == null) return '';
+    final date = MaterialLocalizations.of(context).formatMediumDate(value);
+    final time = MaterialLocalizations.of(context).formatTimeOfDay(
+      TimeOfDay.fromDateTime(value),
+      alwaysUse24HourFormat: false,
+    );
+    return '$date, $time';
   }
 
   Future<void> _save() async {
     if (_saving) return;
     final l10n = AppLocalizations.of(context);
-    final effectiveAt = DateTime.tryParse(_effectiveAtController.text.trim());
+    final effectiveAt = _effectiveAt;
     if (effectiveAt == null) {
       setState(() => _error = l10n.invalidCorrectionTime);
       return;
@@ -101,13 +143,15 @@ class _CorrectRecordScreenState extends State<CorrectRecordScreen> {
               ],
             ),
             const SizedBox(height: 20),
-            TextField(
+            InkWell(
               key: const Key('effectiveAtField'),
-              controller: _effectiveAtController,
-              enabled: !_saving,
-              decoration: InputDecoration(
-                labelText: l10n.correctionEffectiveAt,
-                hintText: '2026-09-23T12:12:00Z',
+              onTap: _saving ? null : _pickEffectiveAt,
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: l10n.correctionEffectiveAt,
+                  suffixIcon: const Icon(Icons.event_outlined),
+                ),
+                child: Text(_effectiveAtLabel(context)),
               ),
             ),
             const SizedBox(height: 12),
