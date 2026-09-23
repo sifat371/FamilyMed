@@ -1,3 +1,4 @@
+import 'package:familymed/core/time/local_time_format.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -25,7 +26,7 @@ class DoseCard extends StatelessWidget {
         onTap: () => context.push('/doses/${dose.id}'),
         leading: Icon(icon, semanticLabel: status),
         title: Text(name),
-        subtitle: Text('${dose.scheduledLocalTime} • $status'),
+        subtitle: Text('${formatLocalTime12h(context, dose.scheduledLocalTime)} • $status'),
         trailing: Text(status),
       ),
     );
