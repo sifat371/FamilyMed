@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/core/database/app_database.dart';
