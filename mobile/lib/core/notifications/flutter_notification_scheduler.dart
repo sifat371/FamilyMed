@@ -26,6 +26,9 @@ class FlutterNotificationScheduler implements NotificationScheduler {
         handleNotificationPayload(response.payload);
       },
     );
+    handleNotificationAppLaunchDetails(
+      await _plugin.getNotificationAppLaunchDetails(),
+    );
     _initialized = true;
   }
 
@@ -34,6 +37,13 @@ class FlutterNotificationScheduler implements NotificationScheduler {
     final doseId = payload.substring('dose:'.length);
     if (doseId.isEmpty) return;
     _onDoseTapped?.call(doseId);
+  }
+
+  void handleNotificationAppLaunchDetails(
+    NotificationAppLaunchDetails? details,
+  ) {
+    if (details?.didNotificationLaunchApp != true) return;
+    handleNotificationPayload(details?.notificationResponse?.payload);
   }
 
   @override
