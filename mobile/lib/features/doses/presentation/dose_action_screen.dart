@@ -113,9 +113,9 @@ class _DoseActionScreenState extends State<DoseActionScreen> {
             OutlinedButton(
               onPressed: _acting || dose.status != 'pending'
                   ? null
-                  : () {
+                  : () async {
                       final now = DateTime.now().toUtc();
-                      return _act(
+                      await _act(
                         () => widget.repository.snooze(
                           dose.id,
                           occurredAt: now,
