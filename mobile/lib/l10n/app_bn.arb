@@ -134,5 +134,6 @@
   "spouseRelationship": "জীবনসঙ্গী",
   "childRelationship": "সন্তান",
   "selfRelationship": "নিজে",
-  "otherRelationship": "অন্যান্য"
+  "otherRelationship": "অন্যান্য",
+  "editFamilyMember": "পরিবারের সদস্য সম্পাদনা করুন"
 }
