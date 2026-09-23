@@ -1,3 +1,4 @@
+import 'package:familymed/core/time/local_time_format.dart';
 import 'package:familymed/features/history/data/history_repository.dart';
 import 'package:familymed/features/history/domain/member_history.dart';
 import 'package:familymed/l10n/app_localizations.dart';
@@ -106,7 +107,10 @@ class _HistoryDoseCard extends StatelessWidget {
           children: [
             Text(title, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
-            Text(_statusLabel(l10n, dose.status)),
+            Text(
+              '${formatLocalTime12h(context, dose.scheduledLocalTime)} • '
+              '${_statusLabel(l10n, dose.status)}',
+            ),
             if (item.events.isNotEmpty) ...[
               const SizedBox(height: 12),
               for (final event in item.events)
