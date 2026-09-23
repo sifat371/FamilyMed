@@ -64,8 +64,10 @@ class SyncCoordinator {
     required AppDatabase database,
     required SyncTransport transport,
     ApiActivityEvents? activityEvents,
+    String userId = '',
   })  : _database = database,
-        _transport = transport {
+        _transport = transport,
+        _userId = userId {
     _activitySubscription = activityEvents?.successes.listen((_) {
       unawaited(drain());
     });
@@ -73,6 +75,7 @@ class SyncCoordinator {
 
   final AppDatabase _database;
   final SyncTransport _transport;
+  final String _userId;
   final StreamController<SyncEvent> _events =
       StreamController<SyncEvent>.broadcast();
   Future<void>? _drainFuture;
@@ -88,7 +91,11 @@ class SyncCoordinator {
 
   Future<void> _drain() async {
     final rows = await (_database.select(_database.syncOperations)
-          ..where((row) => row.terminalFailure.equals(false))
+          ..where(
+            (row) =>
+                row.terminalFailure.equals(false) &
+                row.userId.equals(_userId),
+          ))
           ..orderBy([(row) => OrderingTerm.asc(row.createdAt)]))
         .get();
 
@@ -106,7 +113,11 @@ class SyncCoordinator {
         final serverDose = await _transport.submit(envelope);
         await _replaceCachedDose(serverDose);
         await (_database.delete(_database.syncOperations)
-              ..where((item) => item.operationId.equals(row.operationId)))
+              ..where(
+                (item) =>
+                    item.operationId.equals(row.operationId) &
+                    item.userId.equals(_userId),
+              ))
             .go();
       } on ApiError catch (error) {
         if (error.statusCode == 409) {
@@ -148,7 +159,11 @@ class SyncCoordinator {
         if (error.statusCode == 404) {
           await _database.transaction(() async {
             await (_database.delete(_database.cachedDoses)
-                  ..where((dose) => dose.doseId.equals(row.doseId)))
+                  ..where(
+                    (dose) =>
+                        dose.doseId.equals(row.doseId) &
+                        dose.userId.equals(_userId),
+                  ))
                 .go();
             await (_database.delete(_database.syncOperations)
                   ..where((item) => item.operationId.equals(row.operationId)))
@@ -192,7 +207,11 @@ class SyncCoordinator {
     String message,
   ) {
     return (_database.update(_database.syncOperations)
-          ..where((item) => item.operationId.equals(operationId)))
+          ..where(
+            (item) =>
+                item.operationId.equals(operationId) &
+                item.userId.equals(_userId),
+          ))
         .write(
       SyncOperationsCompanion(
         attemptCount: Value<int>(attempts + 1),
@@ -205,6 +224,7 @@ class SyncCoordinator {
     return _database.into(_database.cachedDoses).insertOnConflictUpdate(
           CachedDosesCompanion.insert(
             doseId: dose.id,
+            userId: Value<String>(_userId),
             scheduleId: dose.scheduleId,
             memberId: dose.familyMemberId,
             medicationId: dose.memberMedicationId,
@@ -235,10 +255,12 @@ class SyncCoordinator {
 }
 
 final syncCoordinatorProvider = Provider<SyncCoordinator>((ref) {
+  final userId = ref.watch(authControllerProvider).user?.id ?? '';
   final coordinator = SyncCoordinator(
     database: ref.watch(appDatabaseProvider),
     transport: ApiSyncTransport(ref.watch(apiClientProvider)),
     activityEvents: ref.watch(apiActivityEventsProvider),
+    userId: userId,
   );
   ref.onDispose(() => unawaited(coordinator.dispose()));
   return coordinator;
