@@ -8,6 +8,9 @@ import 'package:familymed/features/family/presentation/add_family_member_screen.
 import 'package:familymed/features/family/presentation/family_list_screen.dart';
 import 'package:familymed/features/family/presentation/member_profile_screen.dart';
 import 'package:familymed/features/family/presentation/who_do_you_care_for_screen.dart';
+import 'package:familymed/features/history/data/history_repository.dart';
+import 'package:familymed/features/history/presentation/correct_record_screen.dart';
+import 'package:familymed/features/history/presentation/member_history_screen.dart';
 import 'package:familymed/features/medications/presentation/add_manual_medication_screen.dart';
 import 'package:familymed/features/schedules/presentation/enable_reminders_screen.dart';
 import 'package:familymed/features/schedules/presentation/set_routine_screen.dart';
@@ -82,6 +85,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const TodayScreen(),
       ),
       GoRoute(
+        path: '/doses/:doseId/correct',
+        builder: (context, state) => CorrectRecordScreen(
+          doseId: state.pathParameters['doseId']!,
+          repository: ref.read(doseRepositoryProvider),
+          initialStatus: state.uri.queryParameters['status'] ?? 'missed',
+        ),
+      ),
+      GoRoute(
         path: '/doses/:doseId',
         builder: (context, state) => DoseActionScreen(
           doseId: state.pathParameters['doseId']!,
@@ -91,6 +102,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/family',
         builder: (context, state) => const FamilyListScreen(),
+      ),
+      GoRoute(
+        path: '/family/:memberId/history',
+        builder: (context, state) => MemberHistoryScreen(
+          memberId: state.pathParameters['memberId']!,
+          repository: ref.read(historyRepositoryProvider),
+        ),
       ),
       GoRoute(
         path: '/family/:memberId/medications/new',
