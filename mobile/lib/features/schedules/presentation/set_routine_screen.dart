@@ -59,7 +59,6 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
         ..addAll(
           schedule.times.map(
             (item) => _RoutineRow(
-              period: item.period,
               time: item.localTime,
               quantity: compactQuantity(item.quantityText),
               unit: item.unit,
@@ -247,14 +246,12 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
 
 class _RoutineRow {
   _RoutineRow({
-    this.period = 'morning',
     this.time = '08:00',
     String quantity = '1',
     String unit = 'tablet',
   })  : quantity = TextEditingController(text: quantity),
         unit = TextEditingController(text: unit);
 
-  String period;
   String time;
   final TextEditingController quantity;
   final TextEditingController unit;
