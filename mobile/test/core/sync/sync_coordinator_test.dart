@@ -22,6 +22,41 @@ class FakeSyncTransport implements SyncTransport {
     if (error != null) throw error!;
     return response ?? _dose(status: 'taken');
   }
+
+  test('only replays queued actions belonging to the authenticated account', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final transport = FakeSyncTransport()..response = _dose(status: 'taken');
+    final coordinator = SyncCoordinator(
+      database: db,
+      transport: transport,
+      userId: 'user-a',
+    );
+    addTearDown(coordinator.dispose);
+
+    await _seedOperation(
+      db,
+      operationId: 'action-a',
+      userId: 'user-a',
+    );
+    await _seedOperation(
+      db,
+      operationId: 'action-b',
+      userId: 'user-b',
+    );
+
+    await coordinator.drain();
+
+    expect(transport.clientActionIds, <String>['action-a']);
+    final remaining = await db.customSelect(
+      'SELECT operation_id FROM sync_operations ORDER BY operation_id',
+    ).get();
+    expect(
+      remaining.map((row) => row.read<String>('operation_id')).toList(),
+      <String>['action-b'],
+    );
+  });
+
 }
 
 DoseProjection _dose({required String status}) {
@@ -49,13 +84,15 @@ Future<void> _seedOperation(
   AppDatabase db, {
   required String operationId,
   String action = 'taken',
+  String userId = '',
 }) async {
   await db.customInsert(
     'INSERT INTO sync_operations '
-    '(operation_id, dose_id, action, payload_json, created_at, '
-    'attempt_count, terminal_failure) VALUES (?, ?, ?, ?, ?, 0, 0)',
+    '(operation_id, user_id, dose_id, action, payload_json, created_at, '
+    'attempt_count, terminal_failure) VALUES (?, ?, ?, ?, ?, ?, 0, 0)',
     variables: [
       Variable<String>(operationId),
+      Variable<String>(userId),
       const Variable<String>('dose-1'),
       Variable<String>(action),
       Variable<String>(jsonEncode(<String, dynamic>{
