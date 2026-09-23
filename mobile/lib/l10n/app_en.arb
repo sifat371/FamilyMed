@@ -125,5 +125,7 @@
   "remindersOff": "Medication reminders are off for this family member.",
   "disableReminders": "Turn off reminders",
   "editMedicine": "Edit medicine",
-  "saveChanges": "Save changes"
+  "saveChanges": "Save changes",
+  "showPassword": "Show password",
+  "hidePassword": "Hide password"
 }
