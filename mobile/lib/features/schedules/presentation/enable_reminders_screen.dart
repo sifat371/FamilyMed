@@ -1,4 +1,4 @@
-import 'package:familymed/core/notifications/notification_scheduler.dart';
+import 'package:familymed/core/notifications/notification_providers.dart';
 import 'package:familymed/features/schedules/data/notification_preference_repository.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/l10n/app_localizations.dart';
