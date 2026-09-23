@@ -119,5 +119,9 @@
   "signOut": "Sign out",
   "removeReminderTime": "Remove reminder time",
   "enableRemindersBody": "Allow notifications and, if Android asks, Alarms & reminders so medication alerts can arrive close to the scheduled time.",
-  "reminderPermissionNote": "FamilyMed will keep the routine even if notification permission is unavailable."
+  "reminderPermissionNote": "FamilyMed will keep the routine even if notification permission is unavailable.",
+  "reminderSettings": "Reminder settings",
+  "remindersOn": "Medication reminders are on for this family member.",
+  "remindersOff": "Medication reminders are off for this family member.",
+  "disableReminders": "Turn off reminders"
 }
