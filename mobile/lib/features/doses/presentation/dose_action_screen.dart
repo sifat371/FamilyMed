@@ -1,3 +1,4 @@
+import 'package:familymed/core/time/local_time_format.dart';
 import 'package:familymed/features/doses/data/dose_repository.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
@@ -95,7 +96,7 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
             const SizedBox(height: 8),
             Text('${dose.quantityText} ${dose.unit} • $meal'),
             const SizedBox(height: 4),
-            Text(l10n.scheduledTime(dose.scheduledLocalTime)),
+            Text(l10n.scheduledTime(formatLocalTime12h(context, dose.scheduledLocalTime))),
             const SizedBox(height: 24),
             if (_error != null) ...[
               Text(_error!),
