@@ -7,6 +7,7 @@ import 'package:familymed/core/api/api_client.dart';
 import 'package:familymed/core/auth/auth_tokens.dart';
 import 'package:familymed/core/auth/session_events.dart';
 import 'package:familymed/core/auth/token_store.dart';
+import 'package:familymed/core/sync/api_activity_events.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class MemoryTokenStore implements TokenStore {
@@ -22,6 +23,34 @@ class MemoryTokenStore implements TokenStore {
 
   @override
   Future<void> write(AuthTokens value) async => tokens = value;
+
+  test('successful public request emits one API activity event', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'http://test/api/v1'));
+    dio.httpClientAdapter = SuccessAdapter();
+    final store = MemoryTokenStore(
+      const AuthTokens(accessToken: 'access', refreshToken: 'refresh-token'),
+    );
+    final sessionEvents = SessionEvents();
+    final activityEvents = ApiActivityEvents();
+    addTearDown(sessionEvents.dispose);
+    addTearDown(activityEvents.dispose);
+    addTearDown(dio.close);
+
+    final client = ApiClient(
+      tokenStore: store,
+      sessionEvents: sessionEvents,
+      activityEvents: activityEvents,
+      dio: dio,
+      refreshDio: Dio(BaseOptions(baseUrl: 'http://test/api/v1')),
+    );
+
+    final event = activityEvents.successes.first;
+    final response = await client.get<dynamic>('/today');
+    await event;
+
+    expect(response.statusCode, 200);
+  });
+
 }
 
 class ProtectedAdapter implements HttpClientAdapter {
@@ -91,6 +120,22 @@ class RefreshAdapter implements HttpClientAdapter {
       200,
       {'access_token': 'new-access', 'token_type': 'bearer'},
     );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+
+
+class SuccessAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    return _jsonResponse(200, {'ok': true});
   }
 
   @override
