@@ -224,10 +224,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(currentPath(container), '/family/new');
-    final relationship = tester.widget<TextFormField>(
-      find.byKey(const Key('familyRelationship')),
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('familyRelationship')),
+        matching: find.text('Parent'),
+      ),
+      findsOneWidget,
     );
-    expect(relationship.controller?.text, 'parent');
   });
 
   testWidgets('adding Amma submits Bangla and Asia Dhaka defaults', (tester) async {
