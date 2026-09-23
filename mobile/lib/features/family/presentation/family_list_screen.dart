@@ -50,7 +50,7 @@ class FamilyListScreen extends ConsumerWidget {
                             title: Text(member.name),
                             subtitle: Text(member.relationship),
                             trailing: const Icon(Icons.chevron_right),
-                            onTap: () => context.push('/family/${member.id}'),
+                            onTap: () => context.go('/family/${member.id}'),
                           ),
                         );
                       },
