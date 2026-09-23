@@ -3,11 +3,11 @@ import 'package:familymed/core/database/app_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('schema version 3 scopes cached medication data to an account', () async {
+  test('schema version 4 scopes cached medication data to an account', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
 
-    expect(database.schemaVersion, 3);
+    expect(database.schemaVersion, 4);
     for (final table in <String>[
       'cached_today_members',
       'cached_doses',
