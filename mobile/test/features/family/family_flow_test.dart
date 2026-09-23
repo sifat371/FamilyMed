@@ -295,11 +295,11 @@ void main() {
     expect(currentPath(container), '/today');
     expect(find.byType(NavigationBar), findsOneWidget);
 
-    await tester.tap(find.text('Family'));
+    await tester.tap(find.byKey(const Key('familyTab')));
     await tester.pumpAndSettle();
     expect(currentPath(container), '/family');
 
-    await tester.tap(find.text('Today'));
+    await tester.tap(find.byKey(const Key('todayTab')));
     await tester.pumpAndSettle();
     expect(currentPath(container), '/today');
   });
