@@ -48,9 +48,13 @@ class DoseProjection {
       scheduleId: json['schedule_id'].toString(),
       familyMemberId: json['family_member_id'].toString(),
       memberMedicationId: json['member_medication_id'].toString(),
-      medicationName:
-          json['medication_name']?.toString() ?? 'Medication',
-      strength: json['strength'] as String?,
+      medicationName: _medicationName(json),
+      strength: _optionalText(
+        json['strength'] ??
+            (json['medication'] is Map
+                ? (json['medication'] as Map)['strength']
+                : null),
+      ),
       scheduledAt: scheduledAt,
       scheduledLocalDate: json['scheduled_local_date'].toString(),
       scheduledLocalTime: _minuteTime(json['scheduled_local_time'].toString()),
@@ -100,6 +104,27 @@ class DoseProjection {
       effectiveReminderAt: effectiveReminderAt ?? this.effectiveReminderAt,
     );
   }
+}
+
+
+String _medicationName(Map<String, dynamic> json) {
+  final direct = json['medication_name'] ?? json['display_name'];
+  if (direct != null && direct.toString().trim().isNotEmpty) {
+    return direct.toString();
+  }
+  final medication = json['medication'];
+  if (medication is Map) {
+    final nested = medication['display_name'] ?? medication['name'];
+    if (nested != null && nested.toString().trim().isNotEmpty) {
+      return nested.toString();
+    }
+  }
+  return 'Medication';
+}
+
+String? _optionalText(Object? value) {
+  final text = value?.toString().trim();
+  return text == null || text.isEmpty ? null : text;
 }
 
 DateTime? _optionalUtc(Object? value) {
