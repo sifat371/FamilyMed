@@ -2,25 +2,9 @@ import 'package:familymed/core/notifications/notification_providers.dart';
 import 'package:familymed/core/notifications/flutter_notification_scheduler.dart';
 import 'package:familymed/core/notifications/notification_scheduler.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-
-class _CapturingNotificationsPlugin extends FlutterLocalNotificationsPlugin {
-  bool callbackRegistered = false;
-
-  @override
-  Future<bool?> initialize(
-    InitializationSettings initializationSettings, {
-    DidReceiveNotificationResponseCallback? onDidReceiveNotificationResponse,
-    DidReceiveBackgroundNotificationResponseCallback?
-        onDidReceiveBackgroundNotificationResponse,
-  }) async {
-    callbackRegistered = onDidReceiveNotificationResponse != null;
-    return true;
-  }
-}
 
 class FakeNotificationScheduler implements NotificationScheduler {
   bool permission = false;
@@ -72,13 +56,15 @@ void main() {
     expect(scheduler.scheduled, isEmpty);
   });
 
-  test('production scheduler registers notification tap callback', () async {
-    final plugin = _CapturingNotificationsPlugin();
-    final scheduler = FlutterNotificationScheduler(plugin: plugin);
+  test('production scheduler forwards dose notification payload', () {
+    String? tappedDoseId;
+    final scheduler = FlutterNotificationScheduler(
+      onDoseTapped: (doseId) => tappedDoseId = doseId,
+    );
 
-    await scheduler.requestPermission();
+    scheduler.handleNotificationPayload('dose:dose-123');
 
-    expect(plugin.callbackRegistered, isTrue);
+    expect(tappedDoseId, 'dose-123');
   });
 
 }
