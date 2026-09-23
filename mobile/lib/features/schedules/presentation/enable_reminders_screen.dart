@@ -68,6 +68,16 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text(
+                l10n.enableRemindersBody,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.reminderPermissionNote,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 20),
               if (_message != null) ...[
                 Text(_message!),
                 const SizedBox(height: 16),
