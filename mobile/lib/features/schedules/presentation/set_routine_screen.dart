@@ -1,4 +1,5 @@
 import 'package:familymed/core/api/api_error.dart';
+import 'package:familymed/core/notifications/reminder_coordinator.dart';
 import 'package:familymed/features/schedules/data/schedule_repository.dart';
 import 'package:familymed/features/schedules/domain/medication_schedule.dart';
 import 'package:familymed/l10n/app_localizations.dart';
@@ -106,7 +107,8 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
             )
             .toList(growable: false),
       );
-      if (_scheduleId == null) {
+      final isNewRoutine = _scheduleId == null;
+      if (isNewRoutine) {
         await ref
             .read(scheduleRepositoryProvider)
             .createSchedule(widget.medicationId, draft);
@@ -115,10 +117,19 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
             .read(scheduleRepositoryProvider)
             .updateSchedule(_scheduleId!, draft);
       }
+      try {
+        await ref.read(reminderCoordinatorProvider).refresh();
+      } on Object {
+        // The routine is already saved; reminder refresh is best-effort.
+      }
       if (!mounted) return;
-      context.go(
-        '/family/${widget.memberId}/medications/${widget.medicationId}/reminders',
-      );
+      if (isNewRoutine) {
+        context.go(
+          '/family/${widget.memberId}/medications/${widget.medicationId}/reminders',
+        );
+      } else {
+        context.go('/today');
+      }
     } on ApiError catch (error) {
       if (mounted) setState(() => _error = error.message);
     } finally {
