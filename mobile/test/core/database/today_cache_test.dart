@@ -16,6 +16,13 @@ void main() {
       final columns = await database.customSelect('PRAGMA table_info($table)').get();
       final names = columns.map((row) => row.read<String>('name')).toSet();
       expect(names, contains('user_id'), reason: '$table must be account-scoped');
+      if (table == 'cached_doses') {
+        expect(
+          names,
+          contains('reminder_eligible'),
+          reason: 'cached reminder eligibility must survive offline refresh',
+        );
+      }
     }
   });
 }
