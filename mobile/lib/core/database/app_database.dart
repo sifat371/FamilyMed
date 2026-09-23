@@ -35,7 +35,7 @@ class AppDatabase extends _$AppDatabase {
             await migrator.createTable(cachedDoses);
             await migrator.createTable(syncOperations);
           }
-          if (from < 3) {
+          if (from == 2) {
             await migrator.addColumn(cachedTodayMembers, cachedTodayMembers.userId);
             await migrator.addColumn(cachedDoses, cachedDoses.userId);
             await migrator.addColumn(syncOperations, syncOperations.userId);
