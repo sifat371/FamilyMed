@@ -36,7 +36,10 @@ class ApiTodayRepository implements TodayRepository {
           )
           .toList(growable: false);
       await _replaceTodayCache(groups);
-      return TodayLoadResult(groups: groups, isOffline: false);
+      return TodayLoadResult(
+        groups: await _readTodayCache(),
+        isOffline: false,
+      );
     } on ApiError catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) rethrow;
       final cached = await _readTodayCache();
@@ -52,22 +55,40 @@ class ApiTodayRepository implements TodayRepository {
         '/reminder-doses',
         queryParameters: <String, dynamic>{'days': days},
       );
-      final doses = response.data!
+      final serverDoses = response.data!
           .map(
             (item) => DoseProjection.fromJson(
               Map<String, dynamic>.from(item as Map),
             ),
           )
           .toList(growable: false);
+
+      final effectiveDoses = <DoseProjection>[];
       await _database.transaction(() async {
+        await (_database.update(_database.cachedDoses)
+              ..where((row) => row.userId.equals(_userId)))
+            .write(
+          const CachedDosesCompanion(
+            reminderEligible: Value<bool>(false),
+          ),
+        );
+
         final queuedDoseIds = await _queuedDoseIds();
-        for (final dose in doses) {
-          if (!queuedDoseIds.contains(dose.id)) {
-            await _upsertDose(dose);
+        for (final serverDose in serverDoses) {
+          if (queuedDoseIds.contains(serverDose.id)) {
+            final localDose = await _cachedDose(serverDose.id);
+            if (localDose != null && !_isFinal(localDose.status)) {
+              await _setReminderEligible(serverDose.id, true);
+              effectiveDoses.add(localDose);
+            }
+            continue;
           }
+
+          await _upsertDose(serverDose, reminderEligible: true);
+          effectiveDoses.add(serverDose);
         }
       });
-      return doses;
+      return effectiveDoses;
     } on ApiError catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) rethrow;
       return cachedReminderDoses();
@@ -80,6 +101,7 @@ class ApiTodayRepository implements TodayRepository {
           ..where(
             (row) =>
                 row.userId.equals(_userId) &
+                row.reminderEligible.equals(true) &
                 row.status.isNotIn(<String>['taken', 'skipped', 'missed']),
           )
           ..orderBy([
@@ -117,9 +139,11 @@ class ApiTodayRepository implements TodayRepository {
                     row.scheduledLocalDate.equals(group.localDate),
               ))
             .get();
+        final serverDoseIds = group.doses.map((dose) => dose.id).toSet();
 
         for (final row in existing) {
           if (queuedDoseIds.contains(row.doseId)) continue;
+          if (serverDoseIds.contains(row.doseId)) continue;
           await (_database.delete(_database.cachedDoses)
                 ..where(
                   (dose) =>
@@ -145,11 +169,49 @@ class ApiTodayRepository implements TodayRepository {
     return rows.map((row) => row.doseId).toSet();
   }
 
-  Future<void> _upsertDose(DoseProjection dose) {
-    return _database.into(_database.cachedDoses).insertOnConflictUpdate(
+  Future<DoseProjection?> _cachedDose(String doseId) async {
+    final row = await (_database.select(_database.cachedDoses)
+          ..where(
+            (dose) =>
+                dose.doseId.equals(doseId) &
+                dose.userId.equals(_userId),
+          ))
+        .getSingleOrNull();
+    return row == null ? null : _doseFromRow(row);
+  }
+
+  Future<void> _setReminderEligible(String doseId, bool eligible) {
+    return (_database.update(_database.cachedDoses)
+          ..where(
+            (dose) =>
+                dose.doseId.equals(doseId) &
+                dose.userId.equals(_userId),
+          ))
+        .write(
+      CachedDosesCompanion(
+        reminderEligible: Value<bool>(eligible),
+      ),
+    );
+  }
+
+  Future<void> _upsertDose(
+    DoseProjection dose, {
+    bool? reminderEligible,
+  }) async {
+    final existing = await (_database.select(_database.cachedDoses)
+          ..where(
+            (row) =>
+                row.doseId.equals(dose.id) &
+                row.userId.equals(_userId),
+          ))
+        .getSingleOrNull();
+    final eligible = reminderEligible ?? existing?.reminderEligible ?? false;
+
+    await _database.into(_database.cachedDoses).insertOnConflictUpdate(
           CachedDosesCompanion.insert(
             doseId: dose.id,
             userId: Value<String>(_userId),
+            reminderEligible: Value<bool>(eligible),
             scheduleId: dose.scheduleId,
             memberId: dose.familyMemberId,
             medicationId: dose.memberMedicationId,
@@ -206,6 +268,9 @@ class ApiTodayRepository implements TodayRepository {
     }
     return groups;
   }
+
+  bool _isFinal(String status) =>
+      status == 'taken' || status == 'skipped' || status == 'missed';
 
   DoseProjection _doseFromRow(CachedDose row) {
     return DoseProjection(
