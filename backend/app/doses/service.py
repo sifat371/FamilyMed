@@ -7,7 +7,7 @@ from app.common.errors import ApiError
 from app.doses.models import DoseLog, ScheduledDose
 from app.doses.reconciliation import reconcile_schedule
 from app.doses.repository import get_log_by_client_action_id, require_accessible_dose
-from app.doses.schemas import CorrectionRequest, DoseActionRequest, SnoozeRequest
+from app.doses.schemas import CorrectionRequest, DoseActionRequest, DoseProjection, SnoozeRequest
 
 _FINAL_STATUSES = {"taken", "skipped", "missed"}
 
@@ -196,7 +196,9 @@ async def _apply_ordinary_action(
             409,
             "DOSE_ALREADY_FINALIZED",
             "Dose is already finalized.",
-            {"current_status": dose.status},
+            {
+                "current": DoseProjection.model_validate(dose).model_dump(mode="json"),
+            },
         )
     if dose.status not in {"upcoming", "pending"}:
         raise ApiError(409, "INVALID_DOSE_STATE", "Dose cannot be updated from its current state.")
