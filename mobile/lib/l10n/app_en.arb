@@ -97,5 +97,15 @@
         "type": "String"
       }
     }
-  }
+  },
+  "historyTitle": "History",
+  "markedAdherence": "Marked adherence",
+  "notAvailable": "Not available",
+  "correctRecord": "Correct record",
+  "correctedEvent": "Corrected",
+  "snoozedEvent": "Snoozed",
+  "correctionEffectiveAt": "Effective time",
+  "correctionReason": "Reason (optional)",
+  "invalidCorrectionTime": "Enter a valid date and time.",
+  "saveCorrection": "Save correction"
 }
