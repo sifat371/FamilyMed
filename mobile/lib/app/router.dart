@@ -7,6 +7,8 @@ import 'package:familymed/features/family/presentation/family_list_screen.dart';
 import 'package:familymed/features/family/presentation/member_profile_screen.dart';
 import 'package:familymed/features/family/presentation/who_do_you_care_for_screen.dart';
 import 'package:familymed/features/medications/presentation/add_manual_medication_screen.dart';
+import 'package:familymed/features/schedules/presentation/enable_reminders_screen.dart';
+import 'package:familymed/features/schedules/presentation/set_routine_screen.dart';
 import 'package:familymed/features/welcome/presentation/welcome_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -79,6 +81,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/family/:memberId/medications/new',
         builder: (context, state) => AddManualMedicationScreen(
+          memberId: state.pathParameters['memberId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/family/:memberId/medications/:medicationId/routine',
+        builder: (context, state) => SetRoutineScreen(
+          memberId: state.pathParameters['memberId']!,
+          medicationId: state.pathParameters['medicationId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/family/:memberId/medications/:medicationId/reminders',
+        builder: (context, state) => EnableRemindersScreen(
           memberId: state.pathParameters['memberId']!,
         ),
       ),

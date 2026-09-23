@@ -125,6 +125,14 @@ class _MedicationCard extends StatelessWidget {
           children: [
             if (details.isNotEmpty) Text(details),
             Text(medication.status == 'draft' ? l10n.draftStatus : medication.status),
+            TextButton(
+              onPressed: () => context.push(
+                '/family/${medication.familyMemberId}/medications/${medication.id}/routine',
+              ),
+              child: Text(
+                medication.status == 'draft' ? l10n.setRoutine : l10n.editRoutine,
+              ),
+            ),
           ],
         ),
       ),
