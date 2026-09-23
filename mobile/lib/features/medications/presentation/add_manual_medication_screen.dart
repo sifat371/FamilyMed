@@ -174,14 +174,20 @@ class _AddManualMedicationScreenState
                   key: const Key('medicationStrength'),
                   controller: _strengthController,
                   textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(labelText: l10n.strengthLabel),
+                  decoration: InputDecoration(
+                    labelText: l10n.strengthLabel,
+                    hintText: l10n.strengthHint,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   key: const Key('medicationDosageForm'),
                   controller: _dosageFormController,
                   textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(labelText: l10n.dosageForm),
+                  decoration: InputDecoration(
+                    labelText: l10n.dosageForm,
+                    hintText: l10n.dosageFormHint,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
