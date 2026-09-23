@@ -136,7 +136,7 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: <Override>[
+        overrides: [
           scheduleRepositoryProvider.overrideWithValue(_ScheduleRepository()),
           todayRepositoryProvider.overrideWithValue(todayRepository),
           notificationSchedulerProvider.overrideWithValue(scheduler),
