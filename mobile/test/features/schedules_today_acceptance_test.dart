@@ -14,6 +14,7 @@ import 'package:familymed/features/history/presentation/correct_record_screen.da
 import 'package:familymed/features/history/presentation/member_history_screen.dart';
 import 'package:familymed/features/medications/data/medication_repository.dart';
 import 'package:familymed/features/medications/domain/member_medication.dart';
+import 'package:familymed/features/schedules/data/notification_preference_repository.dart';
 import 'package:familymed/features/schedules/data/schedule_repository.dart';
 import 'package:familymed/features/schedules/domain/medication_schedule.dart';
 import 'package:familymed/features/schedules/presentation/enable_reminders_screen.dart';
@@ -139,6 +140,34 @@ class _MedicationRepository implements MedicationRepository {
     DateTime? endDate,
   }) {
     throw UnimplementedError();
+  }
+}
+
+class _NotificationPreferenceRepository
+    implements NotificationPreferenceRepository {
+  bool enabled = false;
+
+  @override
+  Future<NotificationPreference> getPreference(String memberId) async {
+    return NotificationPreference(
+      memberId: memberId,
+      enabled: enabled,
+      defaultSnoozeMinutes: 15,
+    );
+  }
+
+  @override
+  Future<NotificationPreference> updatePreference(
+    String memberId, {
+    bool? enabled,
+    int? defaultSnoozeMinutes,
+  }) async {
+    this.enabled = enabled ?? this.enabled;
+    return NotificationPreference(
+      memberId: memberId,
+      enabled: this.enabled,
+      defaultSnoozeMinutes: defaultSnoozeMinutes ?? 15,
+    );
   }
 }
 
@@ -413,6 +442,9 @@ void main() {
             _MedicationRepository(),
           ),
           scheduleRepositoryProvider.overrideWithValue(scheduleRepository),
+          notificationPreferenceRepositoryProvider.overrideWithValue(
+            _NotificationPreferenceRepository(),
+          ),
           todayRepositoryProvider.overrideWithValue(_TodayRepository()),
         ],
         child: MaterialApp.router(
@@ -444,16 +476,21 @@ void main() {
     );
     await tester.tap(find.text('Add reminder time'));
     await tester.pump();
-    await tester.enterText(find.byKey(const Key('routineTime1')), '20:00');
+    await tester.tap(find.byKey(const Key('routineTime1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('PM'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Save routine'));
     await tester.pumpAndSettle();
 
     expect(find.text('Enable reminders'), findsWidgets);
-    await tester.tap(find.text('Not now'));
+    await tester.tap(find.text('Continue to Today'));
     await tester.pumpAndSettle();
 
     expect(find.text('Today'), findsOneWidget);
-    await tester.tap(find.text('08:00 • Pending'));
+    await tester.tap(find.text('8:00 AM • Pending'));
     await tester.pumpAndSettle();
     expect(
       find.text('Taken status is based on family/user confirmation.'),
@@ -469,7 +506,7 @@ void main() {
 
     router.go('/today');
     await tester.pumpAndSettle();
-    await tester.tap(find.text('20:00 • Pending'));
+    await tester.tap(find.text('8:00 PM • Pending'));
     await tester.pumpAndSettle();
 
     transport.online = false;
@@ -492,10 +529,6 @@ void main() {
 
     await tester.tap(find.text('Correct record'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('effectiveAtField')),
-      '2026-09-23T08:00:00Z',
-    );
     await tester.tap(find.text('Save correction'));
     await tester.pumpAndSettle();
 

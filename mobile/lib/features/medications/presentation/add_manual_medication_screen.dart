@@ -95,6 +95,38 @@ class _AddManualMedicationScreenState
     return '$year-$month-$day';
   }
 
+  Future<void> _pickStartDate() async {
+    final current = _parseDate(_startDateController.text) ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (picked == null) return;
+    setState(() {
+      _startDateController.text = _dateOnly(picked);
+      final end = _parseDate(_endDateController.text);
+      if (end != null && end.isBefore(picked)) {
+        _endDateController.clear();
+      }
+    });
+  }
+
+  Future<void> _pickEndDate() async {
+    final start = _parseDate(_startDateController.text) ?? DateTime.now();
+    final current = _parseDate(_endDateController.text) ?? start;
+    final initial = current.isBefore(start) ? start : current;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: start,
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (picked == null) return;
+    setState(() => _endDateController.text = _dateOnly(picked));
+  }
+
   String? _validateStartDate(String? value) {
     final l10n = AppLocalizations.of(context);
     if (value == null || value.trim().isEmpty) return l10n.requiredFieldError;
@@ -142,29 +174,50 @@ class _AddManualMedicationScreenState
                   key: const Key('medicationStrength'),
                   controller: _strengthController,
                   textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(labelText: l10n.strengthLabel),
+                  decoration: InputDecoration(
+                    labelText: l10n.strengthLabel,
+                    hintText: l10n.strengthHint,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   key: const Key('medicationDosageForm'),
                   controller: _dosageFormController,
                   textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(labelText: l10n.dosageForm),
+                  decoration: InputDecoration(
+                    labelText: l10n.dosageForm,
+                    hintText: l10n.dosageFormHint,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   key: const Key('medicationStartDate'),
                   controller: _startDateController,
-                  keyboardType: TextInputType.datetime,
-                  decoration: InputDecoration(labelText: l10n.startDate),
+                  readOnly: true,
+                  onTap: _submitting ? null : _pickStartDate,
+                  decoration: InputDecoration(
+                    labelText: l10n.startDate,
+                    suffixIcon: const Icon(Icons.calendar_today_outlined),
+                  ),
                   validator: _validateStartDate,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   key: const Key('medicationEndDate'),
                   controller: _endDateController,
-                  keyboardType: TextInputType.datetime,
-                  decoration: InputDecoration(labelText: l10n.endDate),
+                  readOnly: true,
+                  onTap: _submitting ? null : _pickEndDate,
+                  decoration: InputDecoration(
+                    labelText: l10n.endDate,
+                    suffixIcon: _endDateController.text.isEmpty
+                        ? const Icon(Icons.calendar_today_outlined)
+                        : IconButton(
+                            onPressed: _submitting
+                                ? null
+                                : () => setState(_endDateController.clear),
+                            icon: const Icon(Icons.clear),
+                          ),
+                  ),
                   validator: _validateEndDate,
                 ),
                 if (_errorMessage != null) ...[

@@ -204,7 +204,7 @@ String currentPath(ProviderContainer container) {
 }
 
 void main() {
-  testWidgets('care-for screen shows choices and parent pre-fills mother', (tester) async {
+  testWidgets('care-for screen shows choices and parent pre-fills parent', (tester) async {
     final repository = RecordingFamilyRepository();
     final container = makeContainer(repository);
     addTearDown(container.dispose);
@@ -224,10 +224,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(currentPath(container), '/family/new');
-    final relationship = tester.widget<TextFormField>(
-      find.byKey(const Key('familyRelationship')),
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('familyRelationship')),
+        matching: find.text('Parent'),
+      ),
+      findsOneWidget,
     );
-    expect(relationship.controller?.text, 'mother');
   });
 
   testWidgets('adding Amma submits Bangla and Asia Dhaka defaults', (tester) async {
@@ -249,7 +252,7 @@ void main() {
     expect(currentPath(container), '/family/created-member');
   });
 
-  testWidgets('future date of birth blocks family member creation', (tester) async {
+  testWidgets('date of birth picker does not allow future dates', (tester) async {
     final repository = RecordingFamilyRepository();
     final container = makeContainer(repository);
     addTearDown(container.dispose);
@@ -257,12 +260,14 @@ void main() {
 
     container.read(routerProvider).go('/family/new?relationship=mother');
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('familyName')), 'Amma');
-    await tester.enterText(find.byKey(const Key('familyDob')), '2100-01-01');
-    await tester.tap(find.widgetWithText(FilledButton, 'Add family member'));
+
+    await tester.tap(find.byKey(const Key('familyDob')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Date of birth cannot be in the future.'), findsOneWidget);
+    final dialog = tester.widget<DatePickerDialog>(find.byType(DatePickerDialog));
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    expect(dialog.lastDate, today);
     expect(repository.createdName, isNull);
   });
 
@@ -314,7 +319,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Amma'), findsOneWidget);
-    expect(find.text('mother'), findsOneWidget);
+    expect(find.text('Mother'), findsOneWidget);
     expect(find.text('No medicines yet'), findsOneWidget);
     expect(find.text('Scan prescription — coming soon'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);

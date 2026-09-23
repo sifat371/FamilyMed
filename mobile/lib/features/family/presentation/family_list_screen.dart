@@ -1,5 +1,6 @@
 import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
+import 'package:familymed/features/family/presentation/family_relationship_label.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,7 +36,20 @@ class FamilyListScreen extends ConsumerWidget {
               Expanded(
                 child: members.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (_, _) => Center(child: Text(l10n.networkError)),
+                  error: (_, _) => Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(l10n.networkError),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => ref.invalidate(familyMembersProvider),
+                          icon: const Icon(Icons.refresh),
+                          label: Text(l10n.retry),
+                        ),
+                      ],
+                    ),
+                  ),
                   data: (items) {
                     if (items.isEmpty) {
                       return Center(child: Text(l10n.noFamilyMembersYet));
@@ -48,7 +62,7 @@ class FamilyListScreen extends ConsumerWidget {
                         return Card(
                           child: ListTile(
                             title: Text(member.name),
-                            subtitle: Text(member.relationship),
+                            subtitle: Text(familyRelationshipLabel(l10n, member.relationship)),
                             trailing: const Icon(Icons.chevron_right),
                             onTap: () => context.go('/family/${member.id}'),
                           ),

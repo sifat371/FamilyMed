@@ -1,3 +1,5 @@
+import 'package:familymed/core/formatters/quantity_format.dart';
+import 'package:familymed/core/time/local_time_format.dart';
 import 'package:familymed/features/history/data/history_repository.dart';
 import 'package:familymed/features/history/domain/member_history.dart';
 import 'package:familymed/l10n/app_localizations.dart';
@@ -66,12 +68,14 @@ class _MemberHistoryScreenState extends State<MemberHistoryScreen> {
                       Text(
                         history.markedAdherencePercentage == null
                             ? l10n.notAvailable
-                            : '${history.markedAdherencePercentage}%',
+                            : '${compactQuantity(history.markedAdherencePercentage!)}%',
                       ),
                       const SizedBox(height: 24),
                       for (final day in history.days) ...[
                         Text(
-                          day.localDate,
+                          MaterialLocalizations.of(context).formatMediumDate(
+                            DateTime.parse(day.localDate),
+                          ),
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 8),
@@ -106,7 +110,10 @@ class _HistoryDoseCard extends StatelessWidget {
           children: [
             Text(title, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
-            Text(_statusLabel(l10n, dose.status)),
+            Text(
+              '${formatLocalTime12h(context, dose.scheduledLocalTime)} • '
+              '${_statusLabel(l10n, dose.status)}',
+            ),
             if (item.events.isNotEmpty) ...[
               const SizedBox(height: 12),
               for (final event in item.events)

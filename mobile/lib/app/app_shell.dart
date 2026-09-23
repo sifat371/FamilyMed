@@ -14,13 +14,25 @@ class AppShell extends StatelessWidget {
 
   int get _selectedIndex => location.startsWith('/family') ? 1 : 0;
 
+  bool get _showBottomNavigation {
+    if (location.endsWith('/edit') ||
+        location.endsWith('/routine') ||
+        location.endsWith('/reminders') ||
+        location.endsWith('/correct') ||
+        location.contains('/medications/new')) {
+      return false;
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       body: child,
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _showBottomNavigation
+          ? NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           final target = index == 0 ? '/today' : '/family';
@@ -42,7 +54,8 @@ class AppShell extends StatelessWidget {
             label: l10n.familyTab,
           ),
         ],
-      ),
+      )
+          : null,
     );
   }
 }

@@ -9,6 +9,7 @@ import 'package:familymed/features/doses/data/dose_repository.dart';
 import 'package:familymed/features/doses/presentation/dose_action_screen.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
 import 'package:familymed/features/family/presentation/add_family_member_screen.dart';
+import 'package:familymed/features/family/presentation/edit_family_member_screen.dart';
 import 'package:familymed/features/family/presentation/family_list_screen.dart';
 import 'package:familymed/features/family/presentation/member_profile_screen.dart';
 import 'package:familymed/features/family/presentation/who_do_you_care_for_screen.dart';
@@ -16,6 +17,7 @@ import 'package:familymed/features/history/data/history_repository.dart';
 import 'package:familymed/features/history/presentation/correct_record_screen.dart';
 import 'package:familymed/features/history/presentation/member_history_screen.dart';
 import 'package:familymed/features/medications/presentation/add_manual_medication_screen.dart';
+import 'package:familymed/features/medications/presentation/edit_medication_screen.dart';
 import 'package:familymed/features/schedules/presentation/enable_reminders_screen.dart';
 import 'package:familymed/features/schedules/presentation/set_routine_screen.dart';
 import 'package:familymed/features/today/presentation/today_screen.dart';
@@ -119,6 +121,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const FamilyListScreen(),
           ),
           GoRoute(
+            path: '/family/:memberId/edit',
+            builder: (context, state) => EditFamilyMemberScreen(
+              memberId: state.pathParameters['memberId']!,
+            ),
+          ),
+          GoRoute(
             path: '/family/:memberId/history',
             builder: (context, state) => MemberHistoryScreen(
               memberId: state.pathParameters['memberId']!,
@@ -132,6 +140,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/family/:memberId/medications/:medicationId/edit',
+            builder: (context, state) => EditMedicationScreen(
+              memberId: state.pathParameters['memberId']!,
+              medicationId: state.pathParameters['medicationId']!,
+            ),
+          ),
+          GoRoute(
             path: '/family/:memberId/medications/:medicationId/routine',
             builder: (context, state) => SetRoutineScreen(
               memberId: state.pathParameters['memberId']!,
@@ -140,6 +155,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/family/:memberId/medications/:medicationId/reminders',
+            builder: (context, state) => EnableRemindersScreen(
+              memberId: state.pathParameters['memberId']!,
+            ),
+          ),
+          GoRoute(
+            path: '/family/:memberId/reminders',
             builder: (context, state) => EnableRemindersScreen(
               memberId: state.pathParameters['memberId']!,
             ),

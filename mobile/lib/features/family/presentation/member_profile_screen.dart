@@ -1,4 +1,5 @@
 import 'package:familymed/features/family/data/family_repository.dart';
+import 'package:familymed/features/family/presentation/family_relationship_label.dart';
 import 'package:familymed/features/medications/data/medication_repository.dart';
 import 'package:familymed/features/medications/domain/member_medication.dart';
 import 'package:familymed/l10n/app_localizations.dart';
@@ -20,11 +21,33 @@ class MemberProfileScreen extends ConsumerWidget {
     final member = ref.watch(familyMemberProvider(memberId));
     final medications = ref.watch(memberMedicationsProvider(memberId));
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.familyProfile)),
+      appBar: AppBar(
+        title: Text(l10n.familyProfile),
+        actions: [
+          IconButton(
+            tooltip: l10n.editFamilyMember,
+            onPressed: () => context.push('/family/$memberId/edit'),
+            icon: const Icon(Icons.edit_outlined),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: member.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, _) => Center(child: Text(l10n.networkError)),
+          error: (_, _) => Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(l10n.networkError),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => ref.invalidate(familyMemberProvider(memberId)),
+                  icon: const Icon(Icons.refresh),
+                  label: Text(l10n.retry),
+                ),
+              ],
+            ),
+          ),
           data: (value) => ListView(
             padding: const EdgeInsets.all(20),
             children: [
@@ -33,7 +56,7 @@ class MemberProfileScreen extends ConsumerWidget {
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 4),
-              Text(value.relationship),
+              Text(familyRelationshipLabel(l10n, value.relationship)),
               const SizedBox(height: 4),
               Text(
                 value.preferredLanguage == 'bn'
@@ -43,7 +66,18 @@ class MemberProfileScreen extends ConsumerWidget {
               const SizedBox(height: 28),
               medications.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, _) => Text(l10n.networkError),
+                error: (_, _) => Column(
+                  children: [
+                    Text(l10n.networkError),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          ref.invalidate(memberMedicationsProvider(memberId)),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(l10n.retry),
+                    ),
+                  ],
+                ),
                 data: (items) => items.isEmpty
                     ? _EmptyMedicationCard(label: l10n.noMedicinesYet)
                     : Column(
@@ -62,6 +96,12 @@ class MemberProfileScreen extends ConsumerWidget {
                 onPressed: () => context.push('/family/$memberId/history'),
                 icon: const Icon(Icons.history),
                 label: Text(l10n.historyTitle),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/family/$memberId/reminders'),
+                icon: const Icon(Icons.notifications_outlined),
+                label: Text(l10n.reminderSettings),
               ),
               const SizedBox(height: 10),
               FilledButton.icon(
@@ -131,13 +171,27 @@ class _MedicationCard extends StatelessWidget {
           children: [
             if (details.isNotEmpty) Text(details),
             Text(_medicationStatusLabel(l10n, medication.status)),
-            TextButton(
-              onPressed: () => context.push(
-                '/family/${medication.familyMemberId}/medications/${medication.id}/routine',
-              ),
-              child: Text(
-                medication.status == 'draft' ? l10n.setRoutine : l10n.editRoutine,
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                TextButton(
+                  onPressed: () => context.push(
+                    '/family/${medication.familyMemberId}/medications/${medication.id}/edit',
+                  ),
+                  child: Text(l10n.editMedicine),
+                ),
+                TextButton(
+                  onPressed: () => context.push(
+                    '/family/${medication.familyMemberId}/medications/${medication.id}/routine',
+                  ),
+                  child: Text(
+                    medication.status == 'draft'
+                        ? l10n.setRoutine
+                        : l10n.editRoutine,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

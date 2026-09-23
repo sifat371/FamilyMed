@@ -1,9 +1,12 @@
+import 'package:familymed/core/formatters/quantity_format.dart';
+import 'package:familymed/core/time/local_time_format.dart';
 import 'package:familymed/features/doses/data/dose_repository.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class DoseActionScreen extends ConsumerStatefulWidget {
   const DoseActionScreen({
@@ -61,6 +64,19 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
     }
   }
 
+  bool _isFinal(String status) =>
+      status == 'taken' || status == 'skipped' || status == 'missed';
+
+  String _statusLabel(AppLocalizations l10n, String status) {
+    return switch (status) {
+      'taken' => l10n.takenStatus,
+      'skipped' => l10n.skippedStatus,
+      'missed' => l10n.missedStatus,
+      'pending' => l10n.pendingStatus,
+      _ => l10n.upcomingStatus,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -93,16 +109,25 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
           children: [
             Text(title, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
-            Text('${dose.quantityText} ${dose.unit} • $meal'),
+            Text('${compactQuantity(dose.quantityText)} ${dose.unit} • $meal'),
             const SizedBox(height: 4),
-            Text(l10n.scheduledTime(dose.scheduledLocalTime)),
-            const SizedBox(height: 24),
+            Text(
+              l10n.scheduledTime(
+                formatLocalTime12h(context, dose.scheduledLocalTime),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Chip(label: Text(_statusLabel(l10n, dose.status))),
+            ),
+            const SizedBox(height: 16),
             if (_error != null) ...[
               Text(_error!),
               const SizedBox(height: 12),
             ],
             FilledButton(
-              onPressed: _acting
+              onPressed: _acting || _isFinal(dose.status)
                   ? null
                   : () => _act(
                         () => widget.repository.markTaken(
@@ -130,7 +155,7 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: _acting
+              onPressed: _acting || _isFinal(dose.status)
                   ? null
                   : () => _act(
                         () => widget.repository.skip(
@@ -140,6 +165,18 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
                       ),
               child: Text(l10n.skipThisDose),
             ),
+            if (_isFinal(dose.status)) ...[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _acting
+                    ? null
+                    : () => context.push(
+                          '/doses/${dose.id}/correct?status=${dose.status}',
+                        ),
+                icon: const Icon(Icons.edit_outlined),
+                label: Text(l10n.correctRecord),
+              ),
+            ],
             const SizedBox(height: 24),
             Text(
               l10n.takenConfirmationDisclaimer,

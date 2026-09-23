@@ -206,6 +206,11 @@ class ApiTodayRepository implements TodayRepository {
           ))
         .getSingleOrNull();
     final eligible = reminderEligible ?? existing?.reminderEligible ?? false;
+    final medicationName =
+        dose.medicationName == 'Medication' && existing != null
+            ? existing.medicationName
+            : dose.medicationName;
+    final strength = dose.strength ?? existing?.strength;
 
     await _database.into(_database.cachedDoses).insertOnConflictUpdate(
           CachedDosesCompanion.insert(
@@ -215,8 +220,8 @@ class ApiTodayRepository implements TodayRepository {
             scheduleId: dose.scheduleId,
             memberId: dose.familyMemberId,
             medicationId: dose.memberMedicationId,
-            medicationName: dose.medicationName,
-            strength: Value<String?>(dose.strength),
+            medicationName: medicationName,
+            strength: Value<String?>(strength),
             quantityText: dose.quantityText,
             unit: dose.unit,
             mealRelation: Value<String?>(dose.mealRelation),

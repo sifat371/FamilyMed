@@ -156,7 +156,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('routineTime0')), '09:00');
     await tester.tap(find.widgetWithText(FilledButton, 'Save routine'));
     await tester.pumpAndSettle();
 
