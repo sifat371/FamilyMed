@@ -1,3 +1,4 @@
+import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +13,19 @@ class FamilyListScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final members = ref.watch(familyMembersProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.yourFamily)),
+      appBar: AppBar(
+        title: Text(l10n.yourFamily),
+        actions: [
+          IconButton(
+            key: const Key('signOutButton'),
+            tooltip: l10n.signOut,
+            onPressed: () async {
+              await ref.read(authControllerProvider.notifier).logout();
+            },
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -37,7 +50,7 @@ class FamilyListScreen extends ConsumerWidget {
                             title: Text(member.name),
                             subtitle: Text(member.relationship),
                             trailing: const Icon(Icons.chevron_right),
-                            onTap: () => context.go('/family/${member.id}'),
+                            onTap: () => context.push('/family/' + member.id),
                           ),
                         );
                       },
@@ -47,7 +60,7 @@ class FamilyListScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
-                onPressed: () => context.go('/family/new'),
+                onPressed: () => context.push('/family/new'),
                 icon: const Icon(Icons.person_add_alt_1),
                 label: Text(l10n.addFamilyMember),
               ),
