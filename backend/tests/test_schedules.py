@@ -149,6 +149,10 @@ async def test_generation_is_idempotent_and_respects_30_day_window(
     )
     await db_session.flush()
     controlled_now = datetime(2026, 9, 23, 1, 0, tzinfo=UTC)
+    schedule = await db_session.get(MedicationSchedule, schedule_id)
+    assert schedule is not None
+    schedule.generation_not_before_at = controlled_now
+    await db_session.flush()
     first = await generate_schedule_window(db_session, schedule_id, controlled_now)
     second = await generate_schedule_window(db_session, schedule_id, controlled_now)
     await db_session.flush()
