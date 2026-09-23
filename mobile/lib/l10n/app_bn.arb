@@ -119,5 +119,9 @@
   "signOut": "সাইন আউট",
   "removeReminderTime": "রিমাইন্ডারের সময় সরান",
   "enableRemindersBody": "নোটিফিকেশন অনুমতি দিন এবং Android চাইলে Alarms & reminders অনুমতিও দিন, যাতে ওষুধের রিমাইন্ডার নির্ধারিত সময়ের কাছাকাছি পৌঁছাতে পারে।",
-  "reminderPermissionNote": "নোটিফিকেশনের অনুমতি না থাকলেও FamilyMed আপনার রুটিন সংরক্ষণ করবে।"
+  "reminderPermissionNote": "নোটিফিকেশনের অনুমতি না থাকলেও FamilyMed আপনার রুটিন সংরক্ষণ করবে।",
+  "reminderSettings": "রিমাইন্ডার সেটিংস",
+  "remindersOn": "এই পরিবারের সদস্যের জন্য ওষুধের রিমাইন্ডার চালু আছে।",
+  "remindersOff": "এই পরিবারের সদস্যের জন্য ওষুধের রিমাইন্ডার বন্ধ আছে।",
+  "disableReminders": "রিমাইন্ডার বন্ধ করুন"
 }
