@@ -14,10 +14,15 @@ abstract interface class TodayRepository {
 }
 
 class ApiTodayRepository implements TodayRepository {
-  ApiTodayRepository(this._client, this._database);
+  ApiTodayRepository(
+    this._client,
+    this._database, {
+    String userId = '',
+  }) : _userId = userId;
 
   final ApiClient _client;
   final AppDatabase _database;
+  final String _userId;
 
   @override
   Future<TodayLoadResult> loadToday() async {
@@ -55,8 +60,11 @@ class ApiTodayRepository implements TodayRepository {
           )
           .toList(growable: false);
       await _database.transaction(() async {
+        final queuedDoseIds = await _queuedDoseIds();
         for (final dose in doses) {
-          await _upsertDose(dose);
+          if (!queuedDoseIds.contains(dose.id)) {
+            await _upsertDose(dose);
+          }
         }
       });
       return doses;
@@ -69,7 +77,11 @@ class ApiTodayRepository implements TodayRepository {
   @override
   Future<List<DoseProjection>> cachedReminderDoses() async {
     final rows = await (_database.select(_database.cachedDoses)
-          ..where((row) => row.status.isNotIn(<String>['taken', 'skipped', 'missed']))
+          ..where(
+            (row) =>
+                row.userId.equals(_userId) &
+                row.status.isNotIn(<String>['taken', 'skipped', 'missed']),
+          )
           ..orderBy([
             (row) => OrderingTerm.asc(row.effectiveReminderAt),
           ]))
@@ -79,11 +91,16 @@ class ApiTodayRepository implements TodayRepository {
 
   Future<void> _replaceTodayCache(List<TodayMemberGroup> groups) async {
     await _database.transaction(() async {
-      await _database.delete(_database.cachedTodayMembers).go();
+      final queuedDoseIds = await _queuedDoseIds();
+      await (_database.delete(_database.cachedTodayMembers)
+            ..where((row) => row.userId.equals(_userId)))
+          .go();
+
       for (final group in groups) {
         await _database.into(_database.cachedTodayMembers).insertOnConflictUpdate(
               CachedTodayMembersCompanion.insert(
                 memberId: group.memberId,
+                userId: Value<String>(_userId),
                 name: group.name,
                 relationship: group.relationship,
                 localDate: group.localDate,
@@ -91,24 +108,48 @@ class ApiTodayRepository implements TodayRepository {
                 updatedAt: DateTime.now().toUtc(),
               ),
             );
-        await (_database.delete(_database.cachedDoses)
+
+        final existing = await (_database.select(_database.cachedDoses)
               ..where(
                 (row) =>
+                    row.userId.equals(_userId) &
                     row.memberId.equals(group.memberId) &
                     row.scheduledLocalDate.equals(group.localDate),
               ))
-            .go();
+            .get();
+
+        for (final row in existing) {
+          if (queuedDoseIds.contains(row.doseId)) continue;
+          await (_database.delete(_database.cachedDoses)
+                ..where(
+                  (dose) =>
+                      dose.doseId.equals(row.doseId) &
+                      dose.userId.equals(_userId),
+                ))
+              .go();
+        }
+
         for (final dose in group.doses) {
-          await _upsertDose(dose);
+          if (!queuedDoseIds.contains(dose.id)) {
+            await _upsertDose(dose);
+          }
         }
       }
     });
+  }
+
+  Future<Set<String>> _queuedDoseIds() async {
+    final rows = await (_database.select(_database.syncOperations)
+          ..where((row) => row.userId.equals(_userId)))
+        .get();
+    return rows.map((row) => row.doseId).toSet();
   }
 
   Future<void> _upsertDose(DoseProjection dose) {
     return _database.into(_database.cachedDoses).insertOnConflictUpdate(
           CachedDosesCompanion.insert(
             doseId: dose.id,
+            userId: Value<String>(_userId),
             scheduleId: dose.scheduleId,
             memberId: dose.familyMemberId,
             medicationId: dose.memberMedicationId,
@@ -133,12 +174,15 @@ class ApiTodayRepository implements TodayRepository {
   }
 
   Future<List<TodayMemberGroup>> _readTodayCache() async {
-    final memberRows = await _database.select(_database.cachedTodayMembers).get();
+    final memberRows = await (_database.select(_database.cachedTodayMembers)
+          ..where((row) => row.userId.equals(_userId)))
+        .get();
     final groups = <TodayMemberGroup>[];
     for (final member in memberRows) {
       final doseRows = await (_database.select(_database.cachedDoses)
             ..where(
               (row) =>
+                  row.userId.equals(_userId) &
                   row.memberId.equals(member.memberId) &
                   row.scheduledLocalDate.equals(member.localDate),
             )
@@ -189,9 +233,11 @@ class ApiTodayRepository implements TodayRepository {
 }
 
 final todayRepositoryProvider = Provider<TodayRepository>((ref) {
+  final userId = ref.watch(authControllerProvider).user?.id ?? '';
   return ApiTodayRepository(
     ref.watch(apiClientProvider),
     ref.watch(appDatabaseProvider),
+    userId: userId,
   );
 });
 
