@@ -15,7 +15,7 @@ class _WhoDoYouCareForScreenState extends State<WhoDoYouCareForScreen> {
   String get _relationship {
     switch (_selection) {
       case 'parent':
-        return 'mother';
+        return 'parent';
       case 'spouse':
         return 'spouse';
       case 'child':
