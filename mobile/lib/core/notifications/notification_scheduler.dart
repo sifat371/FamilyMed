@@ -1,6 +1,4 @@
 import 'package:familymed/features/today/domain/dose_projection.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 abstract interface class NotificationScheduler {
   Future<bool> requestPermission();
   Future<void> reconcile(List<DoseProjection> doses);
@@ -17,7 +15,3 @@ int notificationIdForDose(String doseId) {
   }
   return hash;
 }
-
-final notificationSchedulerProvider = Provider<NotificationScheduler>((ref) {
-  throw StateError('NotificationScheduler production override not installed.');
-});
