@@ -26,6 +26,7 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
   final List<_RoutineRow> _rows = <_RoutineRow>[_RoutineRow()];
   String _mealRelation = 'unspecified';
   String? _scheduleId;
+  MedicationSchedule? _existingSchedule;
   bool _loading = false;
   String? _error;
 
@@ -42,6 +43,7 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
           .getCurrentSchedule(widget.medicationId);
       if (!mounted || schedule == null) return;
       _scheduleId = schedule.id;
+      _existingSchedule = schedule;
       _instruction.text = schedule.rawInstruction ?? '';
       _mealRelation = schedule.mealRelation ?? 'unspecified';
       for (final row in _rows) {
@@ -86,11 +88,13 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
       _error = null;
     });
     try {
+      final existing = _existingSchedule;
       final draft = ScheduleDraft(
         rawInstruction: _instruction.text,
         mealRelation: _mealRelation,
-        timezone: 'Asia/Dhaka',
-        startDate: DateTime.now(),
+        timezone: existing?.timezone ?? 'Asia/Dhaka',
+        startDate: existing?.startDate ?? DateTime.now(),
+        endDate: existing?.endDate,
         times: _rows
             .map(
               (row) => ScheduleDraftTime(
