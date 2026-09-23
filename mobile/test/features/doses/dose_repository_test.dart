@@ -117,7 +117,7 @@ void main() {
           ..where((row) => row.doseId.equals('dose-1')))
         .getSingle();
     expect(dose.status, 'pending');
-    expect(dose.snoozedUntil, snoozedUntil);
+    expect(dose.snoozedUntil?.toUtc(), snoozedUntil);
     expect(scheduler.snoozed, <String>['dose-1']);
   });
 
