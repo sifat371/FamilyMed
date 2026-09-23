@@ -123,5 +123,7 @@
   "reminderSettings": "Reminder settings",
   "remindersOn": "Medication reminders are on for this family member.",
   "remindersOff": "Medication reminders are off for this family member.",
-  "disableReminders": "Turn off reminders"
+  "disableReminders": "Turn off reminders",
+  "editMedicine": "Edit medicine",
+  "saveChanges": "Save changes"
 }
