@@ -117,5 +117,7 @@
   "noMealRelation": "No meal relation",
   "familyTab": "Family",
   "signOut": "Sign out",
-  "removeReminderTime": "Remove reminder time"
+  "removeReminderTime": "Remove reminder time",
+  "enableRemindersBody": "Allow notifications and, if Android asks, Alarms & reminders so medication alerts can arrive close to the scheduled time.",
+  "reminderPermissionNote": "FamilyMed will keep the routine even if notification permission is unavailable."
 }
