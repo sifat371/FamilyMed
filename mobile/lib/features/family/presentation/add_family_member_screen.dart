@@ -71,6 +71,25 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
     return trimmed.isEmpty ? null : DateTime.tryParse(trimmed);
   }
 
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final current = _parseDob(_dobController.text);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? DateTime(today.year - 40, today.month, today.day),
+      firstDate: DateTime(1900),
+      lastDate: today,
+    );
+    if (picked == null) return;
+    setState(() {
+      _dobController.text =
+          '${picked.year.toString().padLeft(4, '0')}-'
+          '${picked.month.toString().padLeft(2, '0')}-'
+          '${picked.day.toString().padLeft(2, '0')}';
+    });
+  }
+
   String? _validateDob(String? value) {
     final l10n = AppLocalizations.of(context);
     final trimmed = value?.trim() ?? '';
@@ -128,10 +147,19 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
                 TextFormField(
                   key: const Key('familyDob'),
                   controller: _dobController,
-                  keyboardType: TextInputType.datetime,
+                  readOnly: true,
+                  onTap: _submitting ? null : _pickDob,
                   decoration: InputDecoration(
                     labelText: l10n.dateOfBirth,
                     hintText: 'YYYY-MM-DD',
+                    suffixIcon: _dobController.text.isEmpty
+                        ? const Icon(Icons.calendar_today_outlined)
+                        : IconButton(
+                            onPressed: _submitting
+                                ? null
+                                : () => setState(_dobController.clear),
+                            icon: const Icon(Icons.clear),
+                          ),
                   ),
                   validator: _validateDob,
                 ),
