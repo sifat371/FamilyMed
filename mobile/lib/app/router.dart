@@ -145,6 +145,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/family/:memberId/reminders',
+            builder: (context, state) => EnableRemindersScreen(
+              memberId: state.pathParameters['memberId']!,
+            ),
+          ),
+          GoRoute(
             path: '/family/:memberId',
             builder: (context, state) => MemberProfileScreen(
               memberId: state.pathParameters['memberId']!,
