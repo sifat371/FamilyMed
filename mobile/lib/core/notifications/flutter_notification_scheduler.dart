@@ -5,10 +5,14 @@ import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 class FlutterNotificationScheduler implements NotificationScheduler {
-  FlutterNotificationScheduler({FlutterLocalNotificationsPlugin? plugin})
-      : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+  FlutterNotificationScheduler({
+    FlutterLocalNotificationsPlugin? plugin,
+    void Function(String doseId)? onDoseTapped,
+  })  : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+        _onDoseTapped = onDoseTapped;
 
   final FlutterLocalNotificationsPlugin _plugin;
+  final void Function(String doseId)? _onDoseTapped;
   bool _initialized = false;
 
   Future<void> _ensureInitialized() async {
@@ -18,6 +22,9 @@ class FlutterNotificationScheduler implements NotificationScheduler {
       const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       ),
+      onDidReceiveNotificationResponse: (response) {
+        handleNotificationPayload(response.payload);
+      },
     );
     _initialized = true;
   }
