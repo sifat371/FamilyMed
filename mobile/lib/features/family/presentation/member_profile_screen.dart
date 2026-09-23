@@ -137,13 +137,27 @@ class _MedicationCard extends StatelessWidget {
           children: [
             if (details.isNotEmpty) Text(details),
             Text(_medicationStatusLabel(l10n, medication.status)),
-            TextButton(
-              onPressed: () => context.push(
-                '/family/${medication.familyMemberId}/medications/${medication.id}/routine',
-              ),
-              child: Text(
-                medication.status == 'draft' ? l10n.setRoutine : l10n.editRoutine,
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                TextButton(
+                  onPressed: () => context.push(
+                    '/family/${medication.familyMemberId}/medications/${medication.id}/edit',
+                  ),
+                  child: Text(l10n.editMedicine),
+                ),
+                TextButton(
+                  onPressed: () => context.push(
+                    '/family/${medication.familyMemberId}/medications/${medication.id}/routine',
+                  ),
+                  child: Text(
+                    medication.status == 'draft'
+                        ? l10n.setRoutine
+                        : l10n.editRoutine,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
