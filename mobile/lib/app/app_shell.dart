@@ -30,11 +30,13 @@ class AppShell extends StatelessWidget {
         },
         destinations: [
           NavigationDestination(
+            key: const Key('todayTab'),
             icon: const Icon(Icons.today_outlined),
             selectedIcon: const Icon(Icons.today),
             label: l10n.todayTitle,
           ),
           NavigationDestination(
+            key: const Key('familyTab'),
             icon: const Icon(Icons.family_restroom_outlined),
             selectedIcon: const Icon(Icons.family_restroom),
             label: l10n.familyTab,
