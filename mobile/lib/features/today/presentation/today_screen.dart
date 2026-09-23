@@ -21,7 +21,7 @@ class TodayScreen extends ConsumerWidget {
             await ref.read(todayProvider.future);
           },
           child: today.when(
-            loading: () => const ListView(
+            loading: () => ListView(
               physics: AlwaysScrollableScrollPhysics(),
               children: [
                 SizedBox(height: 280),
