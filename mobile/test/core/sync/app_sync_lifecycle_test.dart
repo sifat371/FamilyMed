@@ -67,12 +67,16 @@ class _AuthRepository implements AuthRepository {
 }
 
 class _TodayRepository implements TodayRepository {
+  int reminderLoads = 0;
+
   @override
   Future<List<DoseProjection>> cachedReminderDoses() async => const [];
 
   @override
-  Future<List<DoseProjection>> loadReminderDoses({int days = 30}) async =>
-      const [];
+  Future<List<DoseProjection>> loadReminderDoses({int days = 30}) async {
+    reminderLoads++;
+    return const [];
+  }
 
   @override
   Future<TodayLoadResult> loadToday() async =>
@@ -81,10 +85,12 @@ class _TodayRepository implements TodayRepository {
 
 class _Transport implements SyncTransport {
   int calls = 0;
+  Object? error;
 
   @override
   Future<DoseProjection> submit(SyncOperationEnvelope operation) async {
     calls++;
+    if (error != null) throw error!;
     final scheduled = DateTime.utc(2026, 9, 23, 14);
     return DoseProjection(
       id: operation.doseId,
@@ -130,9 +136,48 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final transport = _Transport();
+    final todayRepository = _TodayRepository();
     final coordinator = SyncCoordinator(database: db, transport: transport);
     addTearDown(coordinator.dispose);
     await _seed(db, 'restore-action');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tokenStoreProvider.overrideWithValue(_TokenStore()),
+          authRepositoryProvider.overrideWithValue(_AuthRepository()),
+          todayRepositoryProvider.overrideWithValue(todayRepository),
+          syncCoordinatorProvider.overrideWithValue(coordinator),
+        ],
+        child: const FamilyMedApp(locale: Locale('en')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(transport.calls, 1);
+    expect(todayRepository.reminderLoads, 1);
+
+    await _seed(db, 'resume-action');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(transport.calls, 2);
+    expect(todayRepository.reminderLoads, 2);
+  });
+
+  testWidgets('terminal sync failure is visible to the caregiver', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final transport = _Transport()
+      ..error = const ApiError(
+        code: 'VALIDATION_ERROR',
+        message: 'invalid action',
+        statusCode: 422,
+      );
+    final coordinator = SyncCoordinator(database: db, transport: transport);
+    addTearDown(coordinator.dispose);
+    await _seed(db, 'terminal-action');
 
     await tester.pumpWidget(
       ProviderScope(
@@ -147,13 +192,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(transport.calls, 1);
-
-    await _seed(db, 'resume-action');
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pumpAndSettle();
-
-    expect(transport.calls, 2);
+    expect(
+      find.text('Could not sync this dose change. Review it and try again.'),
+      findsOneWidget,
+    );
   });
 }
