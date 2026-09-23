@@ -44,7 +44,7 @@ class _CorrectRecordScreenState extends State<CorrectRecordScreen> {
       context: context,
       initialDate: DateTime(current.year, current.month, current.day),
       firstDate: DateTime(2000),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
+      lastDate: DateTime.now(),
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(
@@ -88,14 +88,18 @@ class _CorrectRecordScreenState extends State<CorrectRecordScreen> {
       setState(() => _error = l10n.invalidCorrectionTime);
       return;
     }
+    final now = DateTime.now().toUtc();
+    final effectiveUtc = effectiveAt.toUtc();
+    if (effectiveUtc.isAfter(now)) {
+      setState(() => _error = l10n.invalidCorrectionTime);
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
     });
     try {
-      final now = DateTime.now().toUtc();
-      final effectiveUtc = effectiveAt.toUtc();
-      final occurredAt = effectiveUtc.isAfter(now) ? effectiveUtc : now;
+      final occurredAt = now;
       await widget.repository.correct(
         widget.doseId,
         occurredAt: occurredAt,
