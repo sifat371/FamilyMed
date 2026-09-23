@@ -67,6 +67,16 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
   bool _isFinal(String status) =>
       status == 'taken' || status == 'skipped' || status == 'missed';
 
+  String _statusLabel(AppLocalizations l10n, String status) {
+    return switch (status) {
+      'taken' => l10n.takenStatus,
+      'skipped' => l10n.skippedStatus,
+      'missed' => l10n.missedStatus,
+      'pending' => l10n.pendingStatus,
+      _ => l10n.upcomingStatus,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -101,8 +111,17 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
             const SizedBox(height: 8),
             Text('${compactQuantity(dose.quantityText)} ${dose.unit} • $meal'),
             const SizedBox(height: 4),
-            Text(l10n.scheduledTime(formatLocalTime12h(context, dose.scheduledLocalTime))),
-            const SizedBox(height: 24),
+            Text(
+              l10n.scheduledTime(
+                formatLocalTime12h(context, dose.scheduledLocalTime),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Chip(label: Text(_statusLabel(l10n, dose.status))),
+            ),
+            const SizedBox(height: 16),
             if (_error != null) ...[
               Text(_error!),
               const SizedBox(height: 12),
