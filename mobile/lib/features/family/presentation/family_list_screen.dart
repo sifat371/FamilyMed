@@ -1,5 +1,6 @@
 import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
+import 'package:familymed/features/family/presentation/family_relationship_label.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,7 +49,7 @@ class FamilyListScreen extends ConsumerWidget {
                         return Card(
                           child: ListTile(
                             title: Text(member.name),
-                            subtitle: Text(member.relationship),
+                            subtitle: Text(familyRelationshipLabel(l10n, member.relationship)),
                             trailing: const Icon(Icons.chevron_right),
                             onTap: () => context.go('/family/${member.id}'),
                           ),
