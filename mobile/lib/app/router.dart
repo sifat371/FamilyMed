@@ -16,6 +16,7 @@ import 'package:familymed/features/history/data/history_repository.dart';
 import 'package:familymed/features/history/presentation/correct_record_screen.dart';
 import 'package:familymed/features/history/presentation/member_history_screen.dart';
 import 'package:familymed/features/medications/presentation/add_manual_medication_screen.dart';
+import 'package:familymed/features/medications/presentation/edit_medication_screen.dart';
 import 'package:familymed/features/schedules/presentation/enable_reminders_screen.dart';
 import 'package:familymed/features/schedules/presentation/set_routine_screen.dart';
 import 'package:familymed/features/today/presentation/today_screen.dart';
@@ -129,6 +130,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/family/:memberId/medications/new',
             builder: (context, state) => AddManualMedicationScreen(
               memberId: state.pathParameters['memberId']!,
+            ),
+          ),
+          GoRoute(
+            path: '/family/:memberId/medications/:medicationId/edit',
+            builder: (context, state) => EditMedicationScreen(
+              memberId: state.pathParameters['memberId']!,
+              medicationId: state.pathParameters['medicationId']!,
             ),
           ),
           GoRoute(
