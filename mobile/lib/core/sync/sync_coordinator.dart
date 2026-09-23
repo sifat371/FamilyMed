@@ -4,8 +4,11 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:familymed/core/api/api_client.dart';
 import 'package:familymed/core/api/api_error.dart';
+import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/core/database/app_database.dart';
+import 'package:familymed/core/sync/api_activity_events.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum SyncEventKind { recordChanged, terminalFailure }
 
@@ -60,14 +63,20 @@ class SyncCoordinator {
   SyncCoordinator({
     required AppDatabase database,
     required SyncTransport transport,
+    ApiActivityEvents? activityEvents,
   })  : _database = database,
-        _transport = transport;
+        _transport = transport {
+    _activitySubscription = activityEvents?.successes.listen((_) {
+      unawaited(drain());
+    });
+  }
 
   final AppDatabase _database;
   final SyncTransport _transport;
   final StreamController<SyncEvent> _events =
       StreamController<SyncEvent>.broadcast();
   Future<void>? _drainFuture;
+  StreamSubscription<void>? _activitySubscription;
 
   Stream<SyncEvent> get events => _events.stream;
 
@@ -202,5 +211,19 @@ class SyncCoordinator {
         );
   }
 
-  Future<void> dispose() => _events.close();
+  Future<void> dispose() async {
+    await _activitySubscription?.cancel();
+    await _events.close();
+  }
+}
+
+final syncCoordinatorProvider = Provider<SyncCoordinator>((ref) {
+  final coordinator = SyncCoordinator(
+    database: ref.watch(appDatabaseProvider),
+    transport: ApiSyncTransport(ref.watch(apiClientProvider)),
+    activityEvents: ref.watch(apiActivityEventsProvider),
+  );
+  ref.onDispose(() => unawaited(coordinator.dispose()));
+  return coordinator;
+});
 }
