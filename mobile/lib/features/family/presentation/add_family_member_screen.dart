@@ -1,5 +1,6 @@
 import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
+import 'package:familymed/features/family/presentation/family_relationship_label.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,8 +21,8 @@ class AddFamilyMemberScreen extends ConsumerStatefulWidget {
 class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _relationshipController = TextEditingController();
   final _dobController = TextEditingController();
+  late String _relationship;
   String _preferredLanguage = 'bn';
   bool _submitting = false;
   String? _errorMessage;
@@ -29,13 +30,12 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
   @override
   void initState() {
     super.initState();
-    _relationshipController.text = widget.initialRelationship;
+    _relationship = _normalizedRelationship(widget.initialRelationship);
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _relationshipController.dispose();
     _dobController.dispose();
     super.dispose();
   }
@@ -49,7 +49,7 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
     try {
       final member = await ref.read(familyRepositoryProvider).createMember(
             name: _nameController.text.trim(),
-            relationship: _relationshipController.text.trim(),
+            relationship: _relationship,
             dateOfBirth: _parseDob(_dobController.text),
             preferredLanguage: _preferredLanguage,
             timezone: 'Asia/Dhaka',
@@ -64,6 +64,20 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  String _normalizedRelationship(String value) {
+    final normalized = value.trim().toLowerCase();
+    const known = {
+      'parent',
+      'mother',
+      'father',
+      'spouse',
+      'child',
+      'myself',
+      'other',
+    };
+    return known.contains(normalized) ? normalized : 'other';
   }
 
   DateTime? _parseDob(String value) {
@@ -131,17 +145,33 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
+                DropdownButtonFormField<String>(
                   key: const Key('familyRelationship'),
-                  controller: _relationshipController,
-                  textInputAction: TextInputAction.next,
+                  initialValue: _relationship,
                   decoration: InputDecoration(labelText: l10n.relationshipLabel),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return l10n.requiredFieldError;
-                    }
-                    return null;
-                  },
+                  items: const [
+                    'parent',
+                    'mother',
+                    'father',
+                    'spouse',
+                    'child',
+                    'myself',
+                    'other',
+                  ]
+                      .map(
+                        (value) => DropdownMenuItem(
+                          value: value,
+                          child: Text(familyRelationshipLabel(l10n, value)),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: _submitting
+                      ? null
+                      : (value) {
+                          if (value != null) {
+                            setState(() => _relationship = value);
+                          }
+                        },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
