@@ -108,5 +108,11 @@
   "correctionReason": "কারণ (ঐচ্ছিক)",
   "invalidCorrectionTime": "সঠিক তারিখ ও সময় লিখুন।",
   "saveCorrection": "সংশোধন সংরক্ষণ করুন",
-  "syncDoseChangeFailed": "এই ডোজের পরিবর্তন সিঙ্ক করা যায়নি। রেকর্ডটি দেখে আবার চেষ্টা করুন।"
+  "syncDoseChangeFailed": "এই ডোজের পরিবর্তন সিঙ্ক করা যায়নি। রেকর্ডটি দেখে আবার চেষ্টা করুন।",
+  "activeStatus": "সক্রিয়",
+  "pausedStatus": "বিরতিতে",
+  "completedStatus": "সম্পন্ন",
+  "endedStatus": "শেষ হয়েছে",
+  "duplicateReminderTimes": "রিমাইন্ডারের সময়গুলো আলাদা হতে হবে।",
+  "noMealRelation": "খাবারের সাথে সম্পর্ক নেই"
 }
