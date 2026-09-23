@@ -126,7 +126,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Marked adherence'), findsOneWidget);
-    expect(find.text('50.00%'), findsOneWidget);
+    expect(find.text('50%'), findsOneWidget);
     expect(find.text('Missed'), findsOneWidget);
     expect(find.text('Corrected'), findsOneWidget);
     expect(find.text('Correct record'), findsOneWidget);
@@ -180,10 +180,6 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Taken'));
-    await tester.enterText(
-      find.byKey(const Key('effectiveAtField')),
-      '2026-09-23T12:12:00Z',
-    );
     await tester.tap(find.text('Save correction'));
     await tester.pumpAndSettle();
 
