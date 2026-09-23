@@ -9,6 +9,7 @@ import 'package:familymed/features/doses/data/dose_repository.dart';
 import 'package:familymed/features/doses/presentation/dose_action_screen.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
 import 'package:familymed/features/family/presentation/add_family_member_screen.dart';
+import 'package:familymed/features/family/presentation/edit_family_member_screen.dart';
 import 'package:familymed/features/family/presentation/family_list_screen.dart';
 import 'package:familymed/features/family/presentation/member_profile_screen.dart';
 import 'package:familymed/features/family/presentation/who_do_you_care_for_screen.dart';
@@ -118,6 +119,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/family',
             builder: (context, state) => const FamilyListScreen(),
+          ),
+          GoRoute(
+            path: '/family/:memberId/edit',
+            builder: (context, state) => EditFamilyMemberScreen(
+              memberId: state.pathParameters['memberId']!,
+            ),
           ),
           GoRoute(
             path: '/family/:memberId/history',
