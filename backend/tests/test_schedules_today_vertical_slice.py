@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, time
+from datetime import UTC, datetime, time, timedelta
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
@@ -161,7 +161,7 @@ async def test_schedules_today_vertical_slice(client, db_session):
         json={
             "client_action_id": str(uuid4()),
             "occurred_at": now.isoformat(),
-            "snoozed_until": (now.replace(microsecond=0) + __import__("datetime").timedelta(minutes=15)).isoformat(),
+            "snoozed_until": (now.replace(microsecond=0) + timedelta(minutes=15)).isoformat(),
         },
     )
     assert snooze.status_code == 200
@@ -200,7 +200,7 @@ async def test_schedules_today_vertical_slice(client, db_session):
             "client_action_id": str(uuid4()),
             "occurred_at": datetime.now(UTC).isoformat(),
             "new_status": "taken",
-            "effective_at": (datetime.now(UTC) - __import__("datetime").timedelta(minutes=1)).isoformat(),
+            "effective_at": (datetime.now(UTC) - timedelta(minutes=1)).isoformat(),
             "reason": "Recorded late by caregiver",
         },
     )
