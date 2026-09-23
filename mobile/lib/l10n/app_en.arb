@@ -108,5 +108,11 @@
   "correctionReason": "Reason (optional)",
   "invalidCorrectionTime": "Enter a valid date and time.",
   "saveCorrection": "Save correction",
-  "syncDoseChangeFailed": "Could not sync this dose change. Review it and try again."
+  "syncDoseChangeFailed": "Could not sync this dose change. Review it and try again.",
+  "activeStatus": "Active",
+  "pausedStatus": "Paused",
+  "completedStatus": "Completed",
+  "endedStatus": "Ended",
+  "duplicateReminderTimes": "Reminder times must be unique.",
+  "noMealRelation": "No meal relation"
 }
