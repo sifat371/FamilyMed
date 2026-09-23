@@ -105,7 +105,7 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
         times: _rows
             .map(
               (row) => ScheduleDraftTime(
-                period: row.period,
+                period: _periodForTime(row.time),
                 localTime: row.time,
                 quantityText: row.quantity.text.trim(),
                 unit: row.unit.text.trim(),
@@ -143,6 +143,14 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  String _periodForTime(String localTime) {
+    final hour = int.tryParse(localTime.split(':').first) ?? 0;
+    if (hour >= 5 && hour < 12) return 'morning';
+    if (hour >= 12 && hour < 17) return 'afternoon';
+    if (hour >= 17 && hour < 21) return 'evening';
+    return 'night';
   }
 
   @override
