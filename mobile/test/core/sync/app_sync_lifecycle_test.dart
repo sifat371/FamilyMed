@@ -8,10 +8,13 @@ import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/core/auth/auth_tokens.dart';
 import 'package:familymed/core/auth/token_store.dart';
 import 'package:familymed/core/database/app_database.dart';
+import 'package:familymed/core/notifications/notification_providers.dart';
+import 'package:familymed/core/notifications/notification_scheduler.dart';
 import 'package:familymed/core/sync/sync_coordinator.dart';
 import 'package:familymed/features/auth/data/auth_repository.dart';
 import 'package:familymed/features/auth/domain/auth_session.dart';
 import 'package:familymed/features/auth/domain/current_user.dart';
+import 'package:familymed/features/schedules/data/notification_preference_repository.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:familymed/features/today/domain/today_member_group.dart';
@@ -68,6 +71,9 @@ class _AuthRepository implements AuthRepository {
 }
 
 class _TodayRepository implements TodayRepository {
+  _TodayRepository({this.reminderDoses = const []});
+
+  final List<DoseProjection> reminderDoses;
   int reminderLoads = 0;
 
   @override
@@ -76,12 +82,78 @@ class _TodayRepository implements TodayRepository {
   @override
   Future<List<DoseProjection>> loadReminderDoses({int days = 30}) async {
     reminderLoads++;
-    return const [];
+    return reminderDoses;
   }
 
   @override
   Future<TodayLoadResult> loadToday() async =>
       const TodayLoadResult(groups: <TodayMemberGroup>[], isOffline: false);
+}
+
+class _PreferenceRepository implements NotificationPreferenceRepository {
+  _PreferenceRepository(this.enabled);
+
+  final bool enabled;
+
+  @override
+  Future<NotificationPreference> getPreference(String memberId) async {
+    return NotificationPreference(
+      memberId: memberId,
+      enabled: enabled,
+      defaultSnoozeMinutes: 15,
+    );
+  }
+
+  @override
+  Future<NotificationPreference> updatePreference(
+    String memberId, {
+    bool? enabled,
+    int? defaultSnoozeMinutes,
+  }) {
+    throw UnimplementedError();
+  }
+}
+
+class _Scheduler implements NotificationScheduler {
+  List<DoseProjection>? reconciled;
+
+  @override
+  Future<void> cancelDose(String doseId) async {}
+
+  @override
+  Future<bool> requestPermission() async => true;
+
+  @override
+  Future<void> reconcile(List<DoseProjection> doses) async {
+    reconciled = List<DoseProjection>.from(doses);
+  }
+
+  @override
+  Future<void> scheduleDose(DoseProjection dose) async {}
+
+  @override
+  Future<void> snoozeDose(DoseProjection dose) async {}
+}
+
+DoseProjection _reminderDose() {
+  final scheduled = DateTime.utc(2026, 9, 23, 14);
+  return DoseProjection(
+    id: 'dose-reminder',
+    scheduleId: 'schedule-1',
+    familyMemberId: 'member-1',
+    memberMedicationId: 'med-1',
+    medicationName: 'Metformin',
+    strength: '500 mg',
+    scheduledAt: scheduled,
+    scheduledLocalDate: '2026-09-23',
+    scheduledLocalTime: '20:00',
+    timezone: 'Asia/Dhaka',
+    quantityText: '1',
+    unit: 'tablet',
+    mealRelation: 'after_food',
+    status: 'upcoming',
+    effectiveReminderAt: scheduled,
+  );
 }
 
 class _Transport implements SyncTransport {
@@ -198,4 +270,39 @@ void main() {
       findsOneWidget,
     );
   });
+  testWidgets('reminder refresh honors disabled Not now preference',
+      (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final coordinator = SyncCoordinator(
+      database: db,
+      transport: _Transport(),
+    );
+    addTearDown(coordinator.dispose);
+    final todayRepository = _TodayRepository(
+      reminderDoses: [_reminderDose()],
+    );
+    final scheduler = _Scheduler();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tokenStoreProvider.overrideWithValue(_TokenStore()),
+          authRepositoryProvider.overrideWithValue(_AuthRepository()),
+          todayRepositoryProvider.overrideWithValue(todayRepository),
+          syncCoordinatorProvider.overrideWithValue(coordinator),
+          notificationPreferenceRepositoryProvider.overrideWithValue(
+            _PreferenceRepository(false),
+          ),
+          notificationSchedulerProvider.overrideWithValue(scheduler),
+        ],
+        child: const FamilyMedApp(locale: Locale('en')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(todayRepository.reminderLoads, 1);
+    expect(scheduler.reconciled, isEmpty);
+  });
+
 }
