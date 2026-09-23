@@ -1,9 +1,9 @@
 {
   "appName": "FamilyMed",
   "welcomeHeadline": "Medication care for the people you love.",
-  "welcomeBody": "Scan prescriptions, build routines, and stay connected with your family's medication care.",
+  "welcomeBody": "Add medicines, build routines, and keep track of your family's medication care.",
   "getStarted": "Get started",
-  "aiConfirmationNote": "AI assists. You always confirm.",
+  "aiConfirmationNote": "You stay in control of every medication record.",
   "alreadyHaveAccount": "I already have an account",
   "nameLabel": "Name",
   "emailLabel": "Email",
