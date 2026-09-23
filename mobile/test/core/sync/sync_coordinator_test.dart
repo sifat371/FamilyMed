@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/core/database/app_database.dart';
+import 'package:familymed/core/sync/api_activity_events.dart';
 import 'package:familymed/core/sync/sync_coordinator.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -67,6 +68,31 @@ Future<void> _seedOperation(
 }
 
 void main() {
+  test('API activity event drains queued operations', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final transport = FakeSyncTransport()..response = _dose(status: 'taken');
+    final activityEvents = ApiActivityEvents();
+    addTearDown(activityEvents.dispose);
+    final coordinator = SyncCoordinator(
+      database: db,
+      transport: transport,
+      activityEvents: activityEvents,
+    );
+    addTearDown(coordinator.dispose);
+
+    await _seedOperation(db, operationId: 'action-event');
+    activityEvents.notifySuccess();
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(transport.calls, 1);
+    final pending = await db.customSelect(
+      'SELECT COUNT(*) AS count FROM sync_operations',
+    ).getSingle();
+    expect(pending.read<int>('count'), 0);
+  });
+
   test('network failure keeps operation and stable client action id for retry', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
