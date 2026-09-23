@@ -153,14 +153,22 @@ class DoseRepository {
   }) async {
     await _database.transaction(() async {
       final current = await (_database.select(_database.cachedDoses)
-            ..where((dose) => dose.doseId.equals(doseId)))
+            ..where(
+              (dose) =>
+                  dose.doseId.equals(doseId) &
+                  dose.userId.equals(_userId),
+            ))
           .getSingle();
       final queuedPayload = <String, dynamic>{
         ...payload,
         '_previous': _rowSnapshot(current),
       };
       await (_database.update(_database.cachedDoses)
-            ..where((dose) => dose.doseId.equals(doseId)))
+            ..where(
+              (dose) =>
+                  dose.doseId.equals(doseId) &
+                  dose.userId.equals(_userId),
+            ))
           .write(
         CachedDosesCompanion(
           status: Value<String>(optimisticStatus),
