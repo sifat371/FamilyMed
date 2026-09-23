@@ -45,5 +45,74 @@
   "endDate": "শেষ তারিখ",
   "saveMedicine": "ওষুধ সংরক্ষণ করুন",
   "draftStatus": "খসড়া",
-  "invalidDateRange": "শেষের তারিখ শুরুর তারিখের আগে হতে পারে না।"
+  "invalidDateRange": "শেষের তারিখ শুরুর তারিখের আগে হতে পারে না।",
+  "setRoutine": "রুটিন সেট করুন",
+  "editRoutine": "রুটিন সম্পাদনা করুন",
+  "sourceInstruction": "মূল নির্দেশনা",
+  "mealRelation": "খাবারের সাথে সম্পর্ক",
+  "reminderTime": "রিমাইন্ডারের সময়",
+  "quantity": "পরিমাণ",
+  "unitLabel": "একক",
+  "addReminderTime": "রিমাইন্ডারের সময় যোগ করুন",
+  "saveRoutine": "রুটিন সংরক্ষণ করুন",
+  "reminderPrescriptionDisclaimer": "রিমাইন্ডারের সময় প্রেসক্রিপশনের অংশ নয়।",
+  "enableReminders": "রিমাইন্ডার চালু করুন",
+  "notNow": "এখন নয়",
+  "continueToToday": "আজকের পাতায় যান",
+  "notificationPermissionDenied": "নোটিফিকেশন বন্ধ আছে। আপনার রুটিন তবুও সক্রিয়।",
+  "notificationSchedulingFailed": "নোটিফিকেশন নির্ধারণ করা যায়নি। আপনার রুটিন তবুও সক্রিয়।",
+  "afterFood": "খাবারের পরে",
+  "beforeFood": "খাবারের আগে",
+  "withFood": "খাবারের সাথে",
+  "unspecified": "উল্লেখ নেই",
+  "todayTitle": "আজ",
+  "offlineSavedDoses": "অফলাইন — সংরক্ষিত ডোজ দেখানো হচ্ছে",
+  "markedTakenSummary": "{taken} / {total} গ্রহণ করা হিসেবে চিহ্নিত",
+  "@markedTakenSummary": {
+    "placeholders": {
+      "taken": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "noDosesToday": "আজ কোনো ডোজ নির্ধারিত নেই।",
+  "takenStatus": "গ্রহণ করা হয়েছে",
+  "pendingStatus": "বাকি আছে",
+  "upcomingStatus": "আসন্ন",
+  "skippedStatus": "বাদ দেওয়া হয়েছে",
+  "missedStatus": "মিস হয়েছে",
+  "doseDetails": "ওষুধের ডোজের বিস্তারিত",
+  "doseNotAvailable": "এই ডোজটি পাওয়া যাচ্ছে না।",
+  "markAsTaken": "খাওয়া হয়েছে হিসেবে চিহ্নিত করুন",
+  "snooze15Minutes": "১৫ মিনিট পরে মনে করান",
+  "skipThisDose": "এই ডোজটি বাদ দিন",
+  "takenConfirmationDisclaimer": "খাওয়া হয়েছে অবস্থা পরিবার/ব্যবহারকারীর নিশ্চিতকরণের ভিত্তিতে দেখানো হয়।",
+  "scheduledTime": "নির্ধারিত সময় {time}",
+  "@scheduledTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "historyTitle": "ইতিহাস",
+  "markedAdherence": "চিহ্নিত ওষুধ গ্রহণের হার",
+  "notAvailable": "তথ্য নেই",
+  "correctRecord": "রেকর্ড সংশোধন করুন",
+  "correctedEvent": "সংশোধন করা হয়েছে",
+  "snoozedEvent": "পরে মনে করানো হয়েছে",
+  "correctionEffectiveAt": "কার্যকর সময়",
+  "correctionReason": "কারণ (ঐচ্ছিক)",
+  "invalidCorrectionTime": "সঠিক তারিখ ও সময় লিখুন।",
+  "saveCorrection": "সংশোধন সংরক্ষণ করুন",
+  "syncDoseChangeFailed": "এই ডোজের পরিবর্তন সিঙ্ক করা যায়নি। রেকর্ডটি দেখে আবার চেষ্টা করুন।",
+  "activeStatus": "সক্রিয়",
+  "pausedStatus": "বিরতিতে",
+  "completedStatus": "সম্পন্ন",
+  "endedStatus": "শেষ হয়েছে",
+  "duplicateReminderTimes": "রিমাইন্ডারের সময়গুলো আলাদা হতে হবে।",
+  "noMealRelation": "খাবারের সাথে সম্পর্ক নেই"
 }

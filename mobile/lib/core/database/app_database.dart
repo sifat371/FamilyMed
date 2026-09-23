@@ -2,20 +2,66 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:familymed/core/database/tables/cached_doses.dart';
+import 'package:familymed/core/database/tables/cached_today_members.dart';
+import 'package:familymed/core/database/tables/sync_operations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(tables: [])
+@DriftDatabase(
+  tables: <Type>[
+    CachedTodayMembers,
+    CachedDoses,
+    SyncOperations,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 4;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (Migrator migrator) => migrator.createAll(),
+        onUpgrade: (Migrator migrator, int from, int to) async {
+          if (from < 2) {
+            await migrator.createTable(cachedTodayMembers);
+            await migrator.createTable(cachedDoses);
+            await migrator.createTable(syncOperations);
+          }
+          if (from == 2) {
+            await migrator.addColumn(cachedTodayMembers, cachedTodayMembers.userId);
+            await migrator.addColumn(cachedDoses, cachedDoses.userId);
+            await migrator.addColumn(syncOperations, syncOperations.userId);
+
+            // V2 rows have no trustworthy account owner. Discarding them is
+            // safer than retaining medication data that could surface after
+            // an account switch.
+            await customStatement('DELETE FROM sync_operations');
+            await customStatement('DELETE FROM cached_doses');
+            await customStatement('DELETE FROM cached_today_members');
+          }
+          if (from >= 2 && from < 4) {
+            await migrator.addColumn(
+              cachedDoses,
+              cachedDoses.reminderEligible,
+            );
+          }
+        },
+      );
 }
+
+final appDatabaseProvider = Provider<AppDatabase>((ref) {
+  final database = AppDatabase();
+  ref.onDispose(database.close);
+  return database;
+});
 
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {

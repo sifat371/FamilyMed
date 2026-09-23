@@ -7,6 +7,7 @@ import 'package:familymed/core/api/api_client.dart';
 import 'package:familymed/core/auth/auth_tokens.dart';
 import 'package:familymed/core/auth/session_events.dart';
 import 'package:familymed/core/auth/token_store.dart';
+import 'package:familymed/core/sync/api_activity_events.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class MemoryTokenStore implements TokenStore {
@@ -97,6 +98,20 @@ class RefreshAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+class SuccessAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    return _jsonResponse(200, {'ok': true});
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
 ResponseBody _jsonResponse(int statusCode, Map<String, dynamic> body) {
   return ResponseBody.fromString(
     jsonEncode(body),
@@ -142,5 +157,34 @@ void main() {
     expect((await store.read())!.accessToken, 'new-access');
     expect(results[0].statusCode, 200);
     expect(results[1].statusCode, 200);
+  });
+
+  test('successful public request emits one API activity event', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'http://test/api/v1'));
+    final refreshDio = Dio(BaseOptions(baseUrl: 'http://test/api/v1'));
+    dio.httpClientAdapter = SuccessAdapter();
+    final store = MemoryTokenStore(
+      const AuthTokens(accessToken: 'access', refreshToken: 'refresh-token'),
+    );
+    final sessionEvents = SessionEvents();
+    final activityEvents = ApiActivityEvents();
+    addTearDown(sessionEvents.dispose);
+    addTearDown(activityEvents.dispose);
+    addTearDown(dio.close);
+    addTearDown(refreshDio.close);
+
+    final client = ApiClient(
+      tokenStore: store,
+      sessionEvents: sessionEvents,
+      activityEvents: activityEvents,
+      dio: dio,
+      refreshDio: refreshDio,
+    );
+
+    final event = activityEvents.successes.first;
+    final response = await client.get<dynamic>('/today');
+    await event;
+
+    expect(response.statusCode, 200);
   });
 }

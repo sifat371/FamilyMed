@@ -13,8 +13,11 @@ from app.medications.schemas import (
 )
 from app.medications.service import (
     create_manual_medication,
+    end_medication,
     get_medication,
     list_for_member,
+    pause_medication,
+    resume_medication,
     update_medication,
 )
 from app.users.models import User
@@ -86,4 +89,43 @@ async def patch_member_medication(
         medication_id,
         payload,
     )
+    return MemberMedicationResponse.model_validate(medication)
+
+
+@router.post(
+    "/member-medications/{medication_id}/pause",
+    response_model=MemberMedicationResponse,
+)
+async def pause_member_medication(
+    medication_id: UUID,
+    session: DbSession,
+    current_user: CurrentUser,
+) -> MemberMedicationResponse:
+    medication = await pause_medication(session, current_user.id, medication_id)
+    return MemberMedicationResponse.model_validate(medication)
+
+
+@router.post(
+    "/member-medications/{medication_id}/resume",
+    response_model=MemberMedicationResponse,
+)
+async def resume_member_medication(
+    medication_id: UUID,
+    session: DbSession,
+    current_user: CurrentUser,
+) -> MemberMedicationResponse:
+    medication = await resume_medication(session, current_user.id, medication_id)
+    return MemberMedicationResponse.model_validate(medication)
+
+
+@router.post(
+    "/member-medications/{medication_id}/end",
+    response_model=MemberMedicationResponse,
+)
+async def end_member_medication(
+    medication_id: UUID,
+    session: DbSession,
+    current_user: CurrentUser,
+) -> MemberMedicationResponse:
+    medication = await end_medication(session, current_user.id, medication_id)
     return MemberMedicationResponse.model_validate(medication)

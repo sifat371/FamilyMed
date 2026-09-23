@@ -45,5 +45,74 @@
   "endDate": "End date",
   "saveMedicine": "Save medicine",
   "draftStatus": "Draft",
-  "invalidDateRange": "End date cannot be before start date."
+  "invalidDateRange": "End date cannot be before start date.",
+  "setRoutine": "Set routine",
+  "editRoutine": "Edit routine",
+  "sourceInstruction": "Source instruction",
+  "mealRelation": "Meal relation",
+  "reminderTime": "Reminder time",
+  "quantity": "Quantity",
+  "unitLabel": "Unit",
+  "addReminderTime": "Add reminder time",
+  "saveRoutine": "Save routine",
+  "reminderPrescriptionDisclaimer": "Reminder times are not part of the prescription.",
+  "enableReminders": "Enable reminders",
+  "notNow": "Not now",
+  "continueToToday": "Continue to Today",
+  "notificationPermissionDenied": "Notifications are off. Your routine is still active.",
+  "notificationSchedulingFailed": "We could not schedule notifications. Your routine is still active.",
+  "afterFood": "After food",
+  "beforeFood": "Before food",
+  "withFood": "With food",
+  "unspecified": "Unspecified",
+  "todayTitle": "Today",
+  "offlineSavedDoses": "Offline — showing saved doses",
+  "markedTakenSummary": "{taken} / {total} marked taken",
+  "@markedTakenSummary": {
+    "placeholders": {
+      "taken": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "noDosesToday": "No doses scheduled for today.",
+  "takenStatus": "Taken",
+  "pendingStatus": "Pending",
+  "upcomingStatus": "Upcoming",
+  "skippedStatus": "Skipped",
+  "missedStatus": "Missed",
+  "doseDetails": "Dose details",
+  "doseNotAvailable": "This dose is not available.",
+  "markAsTaken": "Mark as taken",
+  "snooze15Minutes": "Snooze 15 min",
+  "skipThisDose": "Skip this dose",
+  "takenConfirmationDisclaimer": "Taken status is based on family/user confirmation.",
+  "scheduledTime": "Scheduled {time}",
+  "@scheduledTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "historyTitle": "History",
+  "markedAdherence": "Marked adherence",
+  "notAvailable": "Not available",
+  "correctRecord": "Correct record",
+  "correctedEvent": "Corrected",
+  "snoozedEvent": "Snoozed",
+  "correctionEffectiveAt": "Effective time",
+  "correctionReason": "Reason (optional)",
+  "invalidCorrectionTime": "Enter a valid date and time.",
+  "saveCorrection": "Save correction",
+  "syncDoseChangeFailed": "Could not sync this dose change. Review it and try again.",
+  "activeStatus": "Active",
+  "pausedStatus": "Paused",
+  "completedStatus": "Completed",
+  "endedStatus": "Ended",
+  "duplicateReminderTimes": "Reminder times must be unique.",
+  "noMealRelation": "No meal relation"
 }
