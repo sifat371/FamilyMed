@@ -136,5 +136,8 @@
   "selfRelationship": "নিজে",
   "otherRelationship": "অন্যান্য",
   "editFamilyMember": "পরিবারের সদস্য সম্পাদনা করুন",
-  "retry": "আবার চেষ্টা করুন"
+  "retry": "আবার চেষ্টা করুন",
+  "strengthHint": "যেমন 500 mg",
+  "dosageFormHint": "যেমন ট্যাবলেট, ক্যাপসুল, সিরাপ",
+  "sourceInstructionHint": "ঐচ্ছিক — প্রেসক্রিপশনের নির্দেশনা থাকলে এখানে লিখুন"
 }
