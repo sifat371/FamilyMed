@@ -116,5 +116,6 @@
   "duplicateReminderTimes": "Reminder times must be unique.",
   "noMealRelation": "No meal relation",
   "familyTab": "Family",
-  "signOut": "Sign out"
+  "signOut": "Sign out",
+  "removeReminderTime": "Remove reminder time"
 }
