@@ -1,3 +1,4 @@
+import 'package:familymed/core/notifications/notification_providers.dart';
 import 'package:familymed/core/notifications/notification_scheduler.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
