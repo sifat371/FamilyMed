@@ -97,5 +97,15 @@
         "type": "String"
       }
     }
-  }
+  },
+  "historyTitle": "ইতিহাস",
+  "markedAdherence": "চিহ্নিত ওষুধ গ্রহণের হার",
+  "notAvailable": "তথ্য নেই",
+  "correctRecord": "রেকর্ড সংশোধন করুন",
+  "correctedEvent": "সংশোধন করা হয়েছে",
+  "snoozedEvent": "পরে মনে করানো হয়েছে",
+  "correctionEffectiveAt": "কার্যকর সময়",
+  "correctionReason": "কারণ (ঐচ্ছিক)",
+  "invalidCorrectionTime": "সঠিক তারিখ ও সময় লিখুন।",
+  "saveCorrection": "সংশোধন সংরক্ষণ করুন"
 }
