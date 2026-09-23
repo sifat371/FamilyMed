@@ -13,6 +13,9 @@ import 'package:familymed/features/family/data/family_repository.dart';
 import 'package:familymed/features/family/domain/family_member.dart';
 import 'package:familymed/features/medications/data/medication_repository.dart';
 import 'package:familymed/features/medications/domain/member_medication.dart';
+import 'package:familymed/features/today/data/today_repository.dart';
+import 'package:familymed/features/today/domain/dose_projection.dart';
+import 'package:familymed/features/today/domain/today_member_group.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -155,6 +158,21 @@ class RecordingMedicationRepository implements MedicationRepository {
   }
 }
 
+class EmptyTodayRepository implements TodayRepository {
+  @override
+  Future<List<DoseProjection>> cachedReminderDoses() async => const [];
+
+  @override
+  Future<TodayLoadResult> loadToday() async => const TodayLoadResult(
+        groups: <TodayMemberGroup>[],
+        isOffline: false,
+      );
+
+  @override
+  Future<List<DoseProjection>> loadReminderDoses({int days = 30}) async =>
+      const [];
+}
+
 ProviderContainer makeContainer(RecordingMedicationRepository repository) {
   return ProviderContainer(
     overrides: [
@@ -162,6 +180,7 @@ ProviderContainer makeContainer(RecordingMedicationRepository repository) {
       authRepositoryProvider.overrideWithValue(MedicationAuthRepository()),
       familyRepositoryProvider.overrideWithValue(MedicationFamilyRepository()),
       medicationRepositoryProvider.overrideWithValue(repository),
+      todayRepositoryProvider.overrideWithValue(EmptyTodayRepository()),
     ],
   );
 }
