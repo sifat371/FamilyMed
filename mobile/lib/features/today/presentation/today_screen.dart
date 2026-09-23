@@ -70,7 +70,19 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
               padding: const EdgeInsets.all(20),
               children: [
                 const SizedBox(height: 120),
-                Center(child: Text(l10n.networkError)),
+                Center(
+                  child: Column(
+                    children: [
+                      Text(l10n.networkError),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () => ref.invalidate(todayProvider),
+                        icon: const Icon(Icons.refresh),
+                        label: Text(l10n.retry),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
             data: (result) => ListView(
