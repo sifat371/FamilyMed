@@ -305,4 +305,45 @@ void main() {
     expect(scheduler.reconciled, isEmpty);
   });
 
+  testWidgets('logout cancels medication notifications from the previous account',
+      (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final coordinator = SyncCoordinator(
+      database: db,
+      transport: _Transport(),
+    );
+    addTearDown(coordinator.dispose);
+    final scheduler = _Scheduler();
+    final todayRepository = _TodayRepository(
+      reminderDoses: [_reminderDose()],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tokenStoreProvider.overrideWithValue(_TokenStore()),
+          authRepositoryProvider.overrideWithValue(_AuthRepository()),
+          todayRepositoryProvider.overrideWithValue(todayRepository),
+          syncCoordinatorProvider.overrideWithValue(coordinator),
+          notificationPreferenceRepositoryProvider.overrideWithValue(
+            _PreferenceRepository(true),
+          ),
+          notificationSchedulerProvider.overrideWithValue(scheduler),
+        ],
+        child: const FamilyMedApp(locale: Locale('en')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(scheduler.reconciled?.map((dose) => dose.id), <String>['dose-reminder']);
+
+    await ProviderScope.containerOf(
+      tester.element(find.byType(FamilyMedApp)),
+    ).read(authControllerProvider.notifier).logout();
+    await tester.pumpAndSettle();
+
+    expect(scheduler.reconciled, isEmpty);
+  });
+
 }
