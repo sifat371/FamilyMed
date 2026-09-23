@@ -58,6 +58,12 @@ class MemberProfileScreen extends ConsumerWidget {
                       ),
               ),
               const SizedBox(height: 20),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/family/$memberId/history'),
+                icon: const Icon(Icons.history),
+                label: Text(l10n.historyTitle),
+              ),
+              const SizedBox(height: 10),
               FilledButton.icon(
                 onPressed: () => context.push(
                   '/family/$memberId/medications/new',
