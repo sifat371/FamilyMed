@@ -21,6 +21,7 @@ from app.doses.schemas import (
 from app.families.models import FamilyMember, FamilyMembership
 from app.families.repository import list_accessible_members, require_accessible_member
 from app.medications.models import MemberMedication
+from app.notifications.models import NotificationPreference
 from app.schedules.generation import generate_schedule_window
 from app.schedules.models import MedicationSchedule
 
@@ -91,8 +92,15 @@ async def build_reminder_feed(
                     MemberMedication,
                     MemberMedication.id == ScheduledDose.member_medication_id,
                 )
+                .join(
+                    NotificationPreference,
+                    NotificationPreference.family_member_id
+                    == ScheduledDose.family_member_id,
+                )
                 .where(
                     ScheduledDose.family_member_id.in_(member_ids),
+                    NotificationPreference.user_id == user_id,
+                    NotificationPreference.enabled.is_(True),
                     ScheduledDose.status.in_(["upcoming", "pending"]),
                     ScheduledDose.scheduled_at < window_end,
                 )
