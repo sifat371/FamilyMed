@@ -1,4 +1,5 @@
 import 'package:familymed/core/api/api_error.dart';
+import 'package:familymed/core/formatters/quantity_format.dart';
 import 'package:familymed/core/notifications/reminder_coordinator.dart';
 import 'package:familymed/core/time/local_time_format.dart';
 import 'package:familymed/features/medications/data/medication_repository.dart';
@@ -60,7 +61,7 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
             (item) => _RoutineRow(
               period: item.period,
               time: item.localTime,
-              quantity: item.quantityText,
+              quantity: compactQuantity(item.quantityText),
               unit: item.unit,
             ),
           ),
