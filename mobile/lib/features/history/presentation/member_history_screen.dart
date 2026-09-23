@@ -1,3 +1,4 @@
+import 'package:familymed/core/formatters/quantity_format.dart';
 import 'package:familymed/core/time/local_time_format.dart';
 import 'package:familymed/features/history/data/history_repository.dart';
 import 'package:familymed/features/history/domain/member_history.dart';
@@ -67,7 +68,7 @@ class _MemberHistoryScreenState extends State<MemberHistoryScreen> {
                       Text(
                         history.markedAdherencePercentage == null
                             ? l10n.notAvailable
-                            : '${history.markedAdherencePercentage}%',
+                            : '${compactQuantity(history.markedAdherencePercentage!)}%',
                       ),
                       const SizedBox(height: 24),
                       for (final day in history.days) ...[
