@@ -136,5 +136,8 @@
   "selfRelationship": "Self",
   "otherRelationship": "Other",
   "editFamilyMember": "Edit family member",
-  "retry": "Retry"
+  "retry": "Retry",
+  "strengthHint": "e.g. 500 mg",
+  "dosageFormHint": "e.g. tablet, capsule, syrup",
+  "sourceInstructionHint": "Optional — copy the prescription wording if available"
 }
