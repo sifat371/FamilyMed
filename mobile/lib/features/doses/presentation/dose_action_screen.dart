@@ -1,9 +1,11 @@
 import 'package:familymed/features/doses/data/dose_repository.dart';
+import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class DoseActionScreen extends StatefulWidget {
+class DoseActionScreen extends ConsumerStatefulWidget {
   const DoseActionScreen({
     super.key,
     required this.doseId,
@@ -14,10 +16,10 @@ class DoseActionScreen extends StatefulWidget {
   final DoseRepository repository;
 
   @override
-  State<DoseActionScreen> createState() => _DoseActionScreenState();
+  ConsumerState<DoseActionScreen> createState() => _DoseActionScreenState();
 }
 
-class _DoseActionScreenState extends State<DoseActionScreen> {
+class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
   DoseProjection? _dose;
   bool _loading = true;
   bool _acting = false;
@@ -48,6 +50,7 @@ class _DoseActionScreenState extends State<DoseActionScreen> {
     try {
       await action();
       final dose = await widget.repository.cachedDose(widget.doseId);
+      ref.invalidate(todayProvider);
       if (!mounted) return;
       setState(() => _dose = dose);
     } on Object {
