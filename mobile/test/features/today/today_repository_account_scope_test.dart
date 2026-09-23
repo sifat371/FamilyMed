@@ -83,11 +83,13 @@ Future<void> _seedDose(
   required String userId,
   required String doseId,
   String status = 'pending',
+  bool reminderEligible = false,
 }) async {
   await db.into(db.cachedDoses).insert(
         CachedDosesCompanion.insert(
           doseId: doseId,
           userId: Value<String>(userId),
+          reminderEligible: Value<bool>(reminderEligible),
           scheduleId: 'schedule-$userId',
           memberId: 'member-$userId',
           medicationId: 'med-$userId',
@@ -109,8 +111,24 @@ void main() {
   test('cached reminder doses never cross account boundaries', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
-    await _seedDose(db, userId: 'user-a', doseId: 'dose-a');
-    await _seedDose(db, userId: 'user-b', doseId: 'dose-b');
+    await _seedDose(
+      db,
+      userId: 'user-a',
+      doseId: 'dose-a',
+      reminderEligible: true,
+    );
+    await _seedDose(
+      db,
+      userId: 'user-a',
+      doseId: 'dose-disabled',
+      reminderEligible: false,
+    );
+    await _seedDose(
+      db,
+      userId: 'user-b',
+      doseId: 'dose-b',
+      reminderEligible: true,
+    );
 
     final dio = Dio(BaseOptions(baseUrl: 'http://test/api/v1'));
     final events = SessionEvents();
