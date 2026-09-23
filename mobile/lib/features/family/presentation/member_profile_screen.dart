@@ -1,4 +1,5 @@
 import 'package:familymed/features/family/data/family_repository.dart';
+import 'package:familymed/features/family/presentation/family_relationship_label.dart';
 import 'package:familymed/features/medications/data/medication_repository.dart';
 import 'package:familymed/features/medications/domain/member_medication.dart';
 import 'package:familymed/l10n/app_localizations.dart';
@@ -33,7 +34,7 @@ class MemberProfileScreen extends ConsumerWidget {
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               const SizedBox(height: 4),
-              Text(value.relationship),
+              Text(familyRelationshipLabel(l10n, value.relationship)),
               const SizedBox(height: 4),
               Text(
                 value.preferredLanguage == 'bn'
