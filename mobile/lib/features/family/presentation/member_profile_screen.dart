@@ -130,7 +130,7 @@ class _MedicationCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (details.isNotEmpty) Text(details),
-            Text(medication.status == 'draft' ? l10n.draftStatus : medication.status),
+            Text(_medicationStatusLabel(l10n, medication.status)),
             TextButton(
               onPressed: () => context.push(
                 '/family/${medication.familyMemberId}/medications/${medication.id}/routine',
@@ -143,5 +143,19 @@ class _MedicationCard extends StatelessWidget {
         ),
       ),
     );
+  String _medicationStatusLabel(
+    AppLocalizations l10n,
+    String status,
+  ) {
+    return switch (status) {
+      'draft' => l10n.draftStatus,
+      'active' => l10n.activeStatus,
+      'paused' => l10n.pausedStatus,
+      'completed' => l10n.completedStatus,
+      'ended' => l10n.endedStatus,
+      _ => status,
+    };
+  }
+
   }
 }
