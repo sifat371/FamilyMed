@@ -2,6 +2,8 @@ import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/core/auth/auth_state.dart';
 import 'package:familymed/features/auth/presentation/login_screen.dart';
 import 'package:familymed/features/auth/presentation/register_screen.dart';
+import 'package:familymed/features/doses/data/dose_repository.dart';
+import 'package:familymed/features/doses/presentation/dose_action_screen.dart';
 import 'package:familymed/features/family/presentation/add_family_member_screen.dart';
 import 'package:familymed/features/family/presentation/family_list_screen.dart';
 import 'package:familymed/features/family/presentation/member_profile_screen.dart';
@@ -80,6 +82,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const TodayScreen(),
       ),
       GoRoute(
+        path: '/doses/:doseId',
+        builder: (context, state) => DoseActionScreen(
+          doseId: state.pathParameters['doseId']!,
+          repository: ref.read(doseRepositoryProvider),
+        ),
+      ),
+      GoRoute(
         path: '/family',
         builder: (context, state) => const FamilyListScreen(),
       ),
@@ -117,6 +126,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 bool _isProtected(String path) {
   return path == '/care-for' ||
       path == '/today' ||
+      path.startsWith('/doses/') ||
       path == '/family' ||
       path.startsWith('/family/');
 }
