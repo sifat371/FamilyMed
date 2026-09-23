@@ -116,5 +116,6 @@
   "duplicateReminderTimes": "রিমাইন্ডারের সময়গুলো আলাদা হতে হবে।",
   "noMealRelation": "খাবারের সাথে সম্পর্ক নেই",
   "familyTab": "পরিবার",
-  "signOut": "সাইন আউট"
+  "signOut": "সাইন আউট",
+  "removeReminderTime": "রিমাইন্ডারের সময় সরান"
 }
