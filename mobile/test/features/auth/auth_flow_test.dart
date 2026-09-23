@@ -275,7 +275,7 @@ void main() {
     expect(currentPath(container), '/care-for');
   });
 
-  testWidgets('login with an existing member routes to family', (tester) async {
+  testWidgets('login with an existing member routes to today', (tester) async {
     final container = makeContainer(members: const [amma]);
     addTearDown(container.dispose);
     await pumpApp(tester, container);
@@ -293,7 +293,7 @@ void main() {
     await tester.tap(signInButton());
     await tester.pumpAndSettle();
 
-    expect(currentPath(container), '/family');
+    expect(currentPath(container), '/today');
   });
 
   testWidgets('unauthenticated protected route redirects to login', (tester) async {
@@ -307,7 +307,7 @@ void main() {
     expect(currentPath(container), '/login');
   });
 
-  testWidgets('restored authenticated session leaves welcome for family', (tester) async {
+  testWidgets('restored authenticated session leaves welcome for today', (tester) async {
     final container = makeContainer(
       tokenStore: FakeTokenStore(
         const AuthTokens(accessToken: 'access', refreshToken: 'refresh'),
@@ -317,6 +317,6 @@ void main() {
     addTearDown(container.dispose);
     await pumpApp(tester, container);
 
-    expect(currentPath(container), '/family');
+    expect(currentPath(container), '/today');
   });
 }
