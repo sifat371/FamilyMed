@@ -40,13 +40,16 @@ class _FakeScheduleRepository implements ScheduleRepository {
   }
 }
 
-Widget _app(_FakeScheduleRepository repository) {
+Widget _app(
+  _FakeScheduleRepository repository, {
+  Locale locale = const Locale('en'),
+}) {
   return ProviderScope(
     overrides: [
       scheduleRepositoryProvider.overrideWithValue(repository),
     ],
-    child: const MaterialApp(
-      locale: Locale('en'),
+    child: MaterialApp(
+      locale: locale,
       localizationsDelegates: <LocalizationsDelegate<dynamic>>[
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
@@ -54,7 +57,7 @@ Widget _app(_FakeScheduleRepository repository) {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: <Locale>[Locale('en'), Locale('bn')],
-      home: SetRoutineScreen(
+      home: const SetRoutineScreen(
         memberId: 'member-1',
         medicationId: 'med-1',
       ),
@@ -113,4 +116,40 @@ void main() {
     expect(draft.startDate, DateTime(2026, 1, 10));
     expect(draft.endDate, DateTime(2026, 12, 20));
   });
+  testWidgets('routine meal relation choices use localized labels',
+      (tester) async {
+    await tester.pumpWidget(_app(_FakeScheduleRepository()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Unspecified'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Before food'), findsOneWidget);
+    expect(find.text('After food'), findsOneWidget);
+    expect(find.text('With food'), findsOneWidget);
+    expect(find.text('No meal relation'), findsOneWidget);
+    expect(find.text('before_food'), findsNothing);
+    expect(find.text('after_food'), findsNothing);
+  });
+
+  testWidgets('duplicate reminder validation is localized in Bangla',
+      (tester) async {
+    await tester.pumpWidget(
+      _app(
+        _FakeScheduleRepository(),
+        locale: const Locale('bn'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('রিমাইন্ডারের সময় যোগ করুন'));
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('routineTime1')), '08:00');
+    await tester.tap(find.widgetWithText(FilledButton, 'রুটিন সংরক্ষণ করুন'));
+    await tester.pump();
+
+    expect(find.text('রিমাইন্ডারের সময়গুলো আলাদা হতে হবে।'), findsOneWidget);
+    expect(find.text('Reminder times must be unique.'), findsNothing);
+  });
+
 }
