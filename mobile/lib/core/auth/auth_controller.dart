@@ -6,6 +6,7 @@ import 'package:familymed/core/auth/auth_state.dart';
 import 'package:familymed/core/auth/session_events.dart';
 import 'package:familymed/core/auth/token_store.dart';
 import 'package:familymed/core/storage/secure_token_store.dart';
+import 'package:familymed/core/sync/api_activity_events.dart';
 import 'package:familymed/features/auth/data/auth_repository.dart';
 import 'package:familymed/features/auth/domain/current_user.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,10 +111,17 @@ final sessionEventsProvider = Provider<SessionEvents>((ref) {
   return events;
 });
 
+final apiActivityEventsProvider = Provider<ApiActivityEvents>((ref) {
+  final events = ApiActivityEvents();
+  ref.onDispose(events.dispose);
+  return events;
+});
+
 final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(
     tokenStore: ref.watch(tokenStoreProvider),
     sessionEvents: ref.watch(sessionEventsProvider),
+    activityEvents: ref.watch(apiActivityEventsProvider),
   );
 });
 
