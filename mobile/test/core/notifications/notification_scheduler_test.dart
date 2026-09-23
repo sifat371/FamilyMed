@@ -1,5 +1,6 @@
 import 'package:familymed/core/notifications/notification_scheduler.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeNotificationScheduler implements NotificationScheduler {
@@ -31,6 +32,15 @@ class FakeNotificationScheduler implements NotificationScheduler {
 }
 
 void main() {
+  test('production notification provider resolves a scheduler', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    expect(
+      () => container.read(notificationSchedulerProvider),
+      returnsNormally,
+    );
+  });
+
   test('notification IDs are deterministic and positive', () {
     expect(notificationIdForDose('dose-123'), notificationIdForDose('dose-123'));
     expect(notificationIdForDose('dose-123'), greaterThanOrEqualTo(0));
