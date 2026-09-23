@@ -319,7 +319,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Amma'), findsOneWidget);
-    expect(find.text('mother'), findsOneWidget);
+    expect(find.text('Mother'), findsOneWidget);
     expect(find.text('No medicines yet'), findsOneWidget);
     expect(find.text('Scan prescription — coming soon'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
