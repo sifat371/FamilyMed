@@ -36,7 +36,20 @@ class FamilyListScreen extends ConsumerWidget {
               Expanded(
                 child: members.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (_, _) => Center(child: Text(l10n.networkError)),
+                  error: (_, _) => Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(l10n.networkError),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => ref.invalidate(familyMembersProvider),
+                          icon: const Icon(Icons.refresh),
+                          label: Text(l10n.retry),
+                        ),
+                      ],
+                    ),
+                  ),
                   data: (items) {
                     if (items.isEmpty) {
                       return Center(child: Text(l10n.noFamilyMembersYet));
