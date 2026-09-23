@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/core/database/app_database.dart';
 import 'package:familymed/core/notifications/notification_providers.dart';
 import 'package:familymed/core/notifications/notification_scheduler.dart';
@@ -15,15 +16,18 @@ class DoseRepository {
     required SyncCoordinator syncCoordinator,
     required NotificationScheduler notificationScheduler,
     String Function()? idFactory,
+    String userId = '',
   })  : _database = database,
         _syncCoordinator = syncCoordinator,
         _notificationScheduler = notificationScheduler,
-        _idFactory = idFactory ?? const Uuid().v4;
+        _idFactory = idFactory ?? const Uuid().v4,
+        _userId = userId;
 
   final AppDatabase _database;
   final SyncCoordinator _syncCoordinator;
   final NotificationScheduler _notificationScheduler;
   final String Function() _idFactory;
+  final String _userId;
 
   Future<void> markTaken(
     String doseId, {
@@ -125,7 +129,11 @@ class DoseRepository {
 
   Future<DoseProjection?> cachedDose(String doseId) async {
     final row = await (_database.select(_database.cachedDoses)
-          ..where((dose) => dose.doseId.equals(doseId)))
+          ..where(
+            (dose) =>
+                dose.doseId.equals(doseId) &
+                dose.userId.equals(_userId),
+          ))
         .getSingleOrNull();
     return row == null ? null : _fromRow(row);
   }
@@ -171,6 +179,7 @@ class DoseRepository {
       await _database.into(_database.syncOperations).insert(
             SyncOperationsCompanion.insert(
               operationId: actionId,
+              userId: Value<String>(_userId),
               doseId: doseId,
               action: action,
               payloadJson: jsonEncode(queuedPayload),
@@ -218,9 +227,11 @@ class DoseRepository {
 
 
 final doseRepositoryProvider = Provider<DoseRepository>((ref) {
+  final userId = ref.watch(authControllerProvider).user?.id ?? '';
   return DoseRepository(
     database: ref.watch(appDatabaseProvider),
     syncCoordinator: ref.watch(syncCoordinatorProvider),
     notificationScheduler: ref.watch(notificationSchedulerProvider),
+    userId: userId,
   );
 });
