@@ -6,29 +6,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _LaunchNotificationsPlugin extends FlutterLocalNotificationsPlugin {
-  @override
-  Future<bool?> initialize(
-    InitializationSettings initializationSettings, {
-    DidReceiveNotificationResponseCallback? onDidReceiveNotificationResponse,
-    DidReceiveBackgroundNotificationResponseCallback?
-        onDidReceiveBackgroundNotificationResponse,
-  }) async {
-    return true;
-  }
-
-  @override
-  Future<NotificationAppLaunchDetails?> getNotificationAppLaunchDetails() async {
-    return const NotificationAppLaunchDetails(
-      true,
-      notificationResponse: NotificationResponse(
-        notificationResponseType: NotificationResponseType.selectedNotification,
-        payload: 'dose:dose-launch',
-      ),
-    );
-  }
-}
-
 class FakeNotificationScheduler implements NotificationScheduler {
   bool permission = false;
   final List<String> scheduled = <String>[];
@@ -91,15 +68,22 @@ void main() {
     expect(tappedDoseId, 'dose-123');
   });
 
-  test('production scheduler forwards notification that launched the app',
-      () async {
+  test('production scheduler forwards notification app launch details', () {
     String? tappedDoseId;
     final scheduler = FlutterNotificationScheduler(
-      plugin: _LaunchNotificationsPlugin(),
       onDoseTapped: (doseId) => tappedDoseId = doseId,
     );
 
-    await scheduler.requestPermission();
+    scheduler.handleNotificationAppLaunchDetails(
+      const NotificationAppLaunchDetails(
+        true,
+        notificationResponse: NotificationResponse(
+          notificationResponseType:
+              NotificationResponseType.selectedNotification,
+          payload: 'dose:dose-launch',
+        ),
+      ),
+    );
 
     expect(tappedDoseId, 'dose-launch');
   });
