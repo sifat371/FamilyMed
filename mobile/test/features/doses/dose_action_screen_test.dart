@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:familymed/core/database/app_database.dart';
 import 'package:familymed/core/notifications/notification_scheduler.dart';
