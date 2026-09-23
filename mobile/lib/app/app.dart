@@ -105,8 +105,6 @@ class _FamilyMedAppState extends ConsumerState<FamilyMedApp>
                       children: [
                         Expanded(child: Text(l10n.syncDoseChangeFailed)),
                         IconButton(
-                          tooltip: MaterialLocalizations.of(context)
-                              .closeButtonTooltip,
                           onPressed: () {
                             setState(() => _showSyncFailure = false);
                           },
