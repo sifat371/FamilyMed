@@ -64,5 +64,24 @@
   "afterFood": "After food",
   "beforeFood": "Before food",
   "withFood": "With food",
-  "unspecified": "Unspecified"
+  "unspecified": "Unspecified",
+  "todayTitle": "Today",
+  "offlineSavedDoses": "Offline — showing saved doses",
+  "markedTakenSummary": "{taken} / {total} marked taken",
+  "@markedTakenSummary": {
+    "placeholders": {
+      "taken": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "noDosesToday": "No doses scheduled for today.",
+  "takenStatus": "Taken",
+  "pendingStatus": "Pending",
+  "upcomingStatus": "Upcoming",
+  "skippedStatus": "Skipped",
+  "missedStatus": "Missed"
 }
