@@ -34,7 +34,20 @@ class MemberProfileScreen extends ConsumerWidget {
       body: SafeArea(
         child: member.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, _) => Center(child: Text(l10n.networkError)),
+          error: (_, _) => Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(l10n.networkError),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => ref.invalidate(familyMemberProvider(memberId)),
+                  icon: const Icon(Icons.refresh),
+                  label: Text(l10n.retry),
+                ),
+              ],
+            ),
+          ),
           data: (value) => ListView(
             padding: const EdgeInsets.all(20),
             children: [
@@ -53,7 +66,18 @@ class MemberProfileScreen extends ConsumerWidget {
               const SizedBox(height: 28),
               medications.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, _) => Text(l10n.networkError),
+                error: (_, _) => Column(
+                  children: [
+                    Text(l10n.networkError),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          ref.invalidate(memberMedicationsProvider(memberId)),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(l10n.retry),
+                    ),
+                  ],
+                ),
                 data: (items) => items.isEmpty
                     ? _EmptyMedicationCard(label: l10n.noMedicinesYet)
                     : Column(
