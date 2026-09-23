@@ -14,6 +14,7 @@ import 'package:familymed/features/history/presentation/correct_record_screen.da
 import 'package:familymed/features/history/presentation/member_history_screen.dart';
 import 'package:familymed/features/medications/data/medication_repository.dart';
 import 'package:familymed/features/medications/domain/member_medication.dart';
+import 'package:familymed/features/schedules/data/notification_preference_repository.dart';
 import 'package:familymed/features/schedules/data/schedule_repository.dart';
 import 'package:familymed/features/schedules/domain/medication_schedule.dart';
 import 'package:familymed/features/schedules/presentation/enable_reminders_screen.dart';
@@ -139,6 +140,34 @@ class _MedicationRepository implements MedicationRepository {
     DateTime? endDate,
   }) {
     throw UnimplementedError();
+  }
+}
+
+class _NotificationPreferenceRepository
+    implements NotificationPreferenceRepository {
+  bool enabled = false;
+
+  @override
+  Future<NotificationPreference> getPreference(String memberId) async {
+    return NotificationPreference(
+      memberId: memberId,
+      enabled: enabled,
+      defaultSnoozeMinutes: 15,
+    );
+  }
+
+  @override
+  Future<NotificationPreference> updatePreference(
+    String memberId, {
+    bool? enabled,
+    int? defaultSnoozeMinutes,
+  }) async {
+    this.enabled = enabled ?? this.enabled;
+    return NotificationPreference(
+      memberId: memberId,
+      enabled: this.enabled,
+      defaultSnoozeMinutes: defaultSnoozeMinutes ?? 15,
+    );
   }
 }
 
@@ -413,6 +442,9 @@ void main() {
             _MedicationRepository(),
           ),
           scheduleRepositoryProvider.overrideWithValue(scheduleRepository),
+          notificationPreferenceRepositoryProvider.overrideWithValue(
+            _NotificationPreferenceRepository(),
+          ),
           todayRepositoryProvider.overrideWithValue(_TodayRepository()),
         ],
         child: MaterialApp.router(
