@@ -106,7 +106,6 @@ void main() {
     await tester.pumpWidget(_app(repository));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('routineTime0')), '09:00');
     await tester.tap(find.widgetWithText(FilledButton, 'Save routine'));
     await tester.pumpAndSettle();
 
@@ -144,7 +143,6 @@ void main() {
 
     await tester.tap(find.text('রিমাইন্ডারের সময় যোগ করুন'));
     await tester.pump();
-    await tester.enterText(find.byKey(const Key('routineTime1')), '08:00');
     await tester.tap(find.widgetWithText(FilledButton, 'রুটিন সংরক্ষণ করুন'));
     await tester.pump();
 
