@@ -95,7 +95,7 @@ class SyncCoordinator {
             (row) =>
                 row.terminalFailure.equals(false) &
                 row.userId.equals(_userId),
-          ))
+          )
           ..orderBy([(row) => OrderingTerm.asc(row.createdAt)]))
         .get();
 
@@ -112,13 +112,7 @@ class SyncCoordinator {
       try {
         final serverDose = await _transport.submit(envelope);
         await _replaceCachedDose(serverDose);
-        await (_database.delete(_database.syncOperations)
-              ..where(
-                (item) =>
-                    item.operationId.equals(row.operationId) &
-                    item.userId.equals(_userId),
-              ))
-            .go();
+        await _deleteOperation(row.operationId);
       } on ApiError catch (error) {
         if (error.statusCode == 409) {
           final current = error.details['current'];
@@ -126,9 +120,7 @@ class SyncCoordinator {
             await _replaceCachedDose(
               DoseProjection.fromJson(Map<String, dynamic>.from(current)),
             );
-            await (_database.delete(_database.syncOperations)
-                  ..where((item) => item.operationId.equals(row.operationId)))
-                .go();
+            await _deleteOperation(row.operationId);
             _events.add(
               SyncEvent(
                 kind: SyncEventKind.recordChanged,
@@ -137,14 +129,10 @@ class SyncCoordinator {
               ),
             );
           } else {
-            await (_database.update(_database.syncOperations)
-                  ..where((item) => item.operationId.equals(row.operationId)))
-                .write(
-              SyncOperationsCompanion(
-                attemptCount: Value<int>(row.attemptCount + 1),
-                lastError: Value<String?>(error.message),
-                terminalFailure: const Value<bool>(true),
-              ),
+            await _markTerminalFailure(
+              row.operationId,
+              row.attemptCount,
+              error.message,
             );
             _events.add(
               SyncEvent(
@@ -165,21 +153,15 @@ class SyncCoordinator {
                         dose.userId.equals(_userId),
                   ))
                 .go();
-            await (_database.delete(_database.syncOperations)
-                  ..where((item) => item.operationId.equals(row.operationId)))
-                .go();
+            await _deleteOperation(row.operationId);
           });
           continue;
         }
         if (error.statusCode == 422) {
-          await (_database.update(_database.syncOperations)
-                ..where((item) => item.operationId.equals(row.operationId)))
-              .write(
-            SyncOperationsCompanion(
-              attemptCount: Value<int>(row.attemptCount + 1),
-              lastError: Value<String?>(error.message),
-              terminalFailure: const Value<bool>(true),
-            ),
+          await _markTerminalFailure(
+            row.operationId,
+            row.attemptCount,
+            error.message,
           );
           _events.add(
             SyncEvent(
@@ -190,7 +172,11 @@ class SyncCoordinator {
           );
           continue;
         }
-        await _recordTransientFailure(row.operationId, row.attemptCount, error.message);
+        await _recordTransientFailure(
+          row.operationId,
+          row.attemptCount,
+          error.message,
+        );
       } on Object catch (error) {
         await _recordTransientFailure(
           row.operationId,
@@ -199,6 +185,36 @@ class SyncCoordinator {
         );
       }
     }
+  }
+
+  Future<void> _deleteOperation(String operationId) {
+    return (_database.delete(_database.syncOperations)
+          ..where(
+            (item) =>
+                item.operationId.equals(operationId) &
+                item.userId.equals(_userId),
+          ))
+        .go();
+  }
+
+  Future<void> _markTerminalFailure(
+    String operationId,
+    int attempts,
+    String message,
+  ) {
+    return (_database.update(_database.syncOperations)
+          ..where(
+            (item) =>
+                item.operationId.equals(operationId) &
+                item.userId.equals(_userId),
+          ))
+        .write(
+      SyncOperationsCompanion(
+        attemptCount: Value<int>(attempts + 1),
+        lastError: Value<String?>(message),
+        terminalFailure: const Value<bool>(true),
+      ),
+    );
   }
 
   Future<void> _recordTransientFailure(
