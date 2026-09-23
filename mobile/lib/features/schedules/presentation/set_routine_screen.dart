@@ -1,9 +1,10 @@
 import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/core/notifications/reminder_coordinator.dart';
+import 'package:familymed/core/time/local_time_format.dart';
 import 'package:familymed/features/medications/data/medication_repository.dart';
 import 'package:familymed/features/schedules/data/schedule_repository.dart';
-import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/features/schedules/domain/medication_schedule.dart';
+import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,7 +82,7 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _loading) return;
-    final clocks = _rows.map((row) => row.time.text.trim()).toList();
+    final clocks = _rows.map((row) => row.time).toList();
     if (clocks.toSet().length != clocks.length) {
       setState(
         () => _error = AppLocalizations.of(context).duplicateReminderTimes,
@@ -104,7 +105,7 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
             .map(
               (row) => ScheduleDraftTime(
                 period: row.period,
-                localTime: row.time.text.trim(),
+                localTime: row.time,
                 quantityText: row.quantity.text.trim(),
                 unit: row.unit.text.trim(),
               ),
@@ -189,7 +190,20 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
               ),
               const SizedBox(height: 20),
               for (var index = 0; index < _rows.length; index++)
-                _RoutineRowFields(index: index, row: _rows[index]),
+                _RoutineRowFields(
+                  index: index,
+                  row: _rows[index],
+                  canRemove: _rows.length > 1,
+                  onTimeChanged: (value) {
+                    setState(() => _rows[index].time = value);
+                  },
+                  onRemove: () {
+                    setState(() {
+                      final row = _rows.removeAt(index);
+                      row.dispose();
+                    });
+                  },
+                ),
               TextButton.icon(
                 onPressed: _rows.length >= 8
                     ? null
@@ -199,12 +213,20 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
               ),
               if (_error != null) ...[
                 const SizedBox(height: 8),
-                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ],
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: _loading ? null : _submit,
-                child: Text(l10n.saveRoutine),
+                child: _loading
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(l10n.saveRoutine),
               ),
             ],
           ),
@@ -217,30 +239,54 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
 class _RoutineRow {
   _RoutineRow({
     this.period = 'morning',
-    String time = '08:00',
+    this.time = '08:00',
     String quantity = '1',
     String unit = 'tablet',
-  })  : time = TextEditingController(text: time),
-        quantity = TextEditingController(text: quantity),
+  })  : quantity = TextEditingController(text: quantity),
         unit = TextEditingController(text: unit);
 
   String period;
-  final TextEditingController time;
+  String time;
   final TextEditingController quantity;
   final TextEditingController unit;
 
   void dispose() {
-    time.dispose();
     quantity.dispose();
     unit.dispose();
   }
 }
 
 class _RoutineRowFields extends StatelessWidget {
-  const _RoutineRowFields({required this.index, required this.row});
+  const _RoutineRowFields({
+    required this.index,
+    required this.row,
+    required this.canRemove,
+    required this.onTimeChanged,
+    required this.onRemove,
+  });
 
   final int index;
   final _RoutineRow row;
+  final bool canRemove;
+  final ValueChanged<String> onTimeChanged;
+  final VoidCallback onRemove;
+
+  Future<void> _pickTime(BuildContext context) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: timeOfDayFromLocalTime(row.time),
+      helpText: AppLocalizations.of(context).reminderTime,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    );
+    if (picked != null) {
+      onTimeChanged(localTimeFromTimeOfDay(picked));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -248,16 +294,35 @@ class _RoutineRowFields extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
             flex: 2,
-            child: TextFormField(
+            child: InkWell(
               key: Key('routineTime$index'),
-              controller: row.time,
-              decoration: InputDecoration(labelText: l10n.reminderTime),
+              onTap: () => _pickTime(context),
+              borderRadius: BorderRadius.circular(4),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: l10n.reminderTime,
+                  suffixIcon: const Icon(Icons.schedule),
+                ),
+                child: Text(
+                  formatLocalTime12h(context, row.time),
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextFormField(
+              controller: row.quantity,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: l10n.quantity),
               validator: (value) {
-                final text = value?.trim() ?? '';
-                return RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(text)
+                final parsed = double.tryParse(value?.trim() ?? '');
+                return parsed != null && parsed > 0
                     ? null
                     : l10n.requiredFieldError;
               },
@@ -266,23 +331,22 @@ class _RoutineRowFields extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: TextFormField(
-              controller: row.quantity,
-              decoration: InputDecoration(labelText: l10n.quantity),
-              validator: (value) {
-                final parsed = double.tryParse(value?.trim() ?? '');
-                return parsed != null && parsed > 0 ? null : l10n.requiredFieldError;
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextFormField(
               controller: row.unit,
               decoration: InputDecoration(labelText: l10n.unitLabel),
-              validator: (value) =>
-                  (value?.trim().isNotEmpty ?? false) ? null : l10n.requiredFieldError,
+              validator: (value) => (value?.trim().isNotEmpty ?? false)
+                  ? null
+                  : l10n.requiredFieldError,
             ),
           ),
+          if (canRemove) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              key: Key('removeRoutineTime$index'),
+              onPressed: onRemove,
+              tooltip: l10n.removeReminderTime,
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ],
         ],
       ),
     );
