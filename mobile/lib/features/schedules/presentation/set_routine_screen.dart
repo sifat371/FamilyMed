@@ -171,7 +171,10 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
               TextFormField(
                 key: const Key('routineInstruction'),
                 controller: _instruction,
-                decoration: InputDecoration(labelText: l10n.sourceInstruction),
+                decoration: InputDecoration(
+                  labelText: l10n.sourceInstruction,
+                  hintText: l10n.sourceInstructionHint,
+                ),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
