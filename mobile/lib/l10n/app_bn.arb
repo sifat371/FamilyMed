@@ -64,5 +64,24 @@
   "afterFood": "খাবারের পরে",
   "beforeFood": "খাবারের আগে",
   "withFood": "খাবারের সাথে",
-  "unspecified": "উল্লেখ নেই"
+  "unspecified": "উল্লেখ নেই",
+  "todayTitle": "আজ",
+  "offlineSavedDoses": "অফলাইন — সংরক্ষিত ডোজ দেখানো হচ্ছে",
+  "markedTakenSummary": "{taken} / {total} গ্রহণ করা হিসেবে চিহ্নিত",
+  "@markedTakenSummary": {
+    "placeholders": {
+      "taken": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "noDosesToday": "আজ কোনো ডোজ নির্ধারিত নেই।",
+  "takenStatus": "গ্রহণ করা হয়েছে",
+  "pendingStatus": "বাকি আছে",
+  "upcomingStatus": "আসন্ন",
+  "skippedStatus": "বাদ দেওয়া হয়েছে",
+  "missedStatus": "মিস হয়েছে"
 }
