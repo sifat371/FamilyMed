@@ -64,6 +64,12 @@ class MemberProfileScreen extends ConsumerWidget {
                 label: Text(l10n.historyTitle),
               ),
               const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/family/$memberId/reminders'),
+                icon: const Icon(Icons.notifications_outlined),
+                label: Text(l10n.reminderSettings),
+              ),
+              const SizedBox(height: 10),
               FilledButton.icon(
                 onPressed: () => context.push(
                   '/family/$memberId/medications/new',
