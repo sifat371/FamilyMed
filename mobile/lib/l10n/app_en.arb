@@ -114,5 +114,7 @@
   "completedStatus": "Completed",
   "endedStatus": "Ended",
   "duplicateReminderTimes": "Reminder times must be unique.",
-  "noMealRelation": "No meal relation"
+  "noMealRelation": "No meal relation",
+  "familyTab": "Family",
+  "signOut": "Sign out"
 }
