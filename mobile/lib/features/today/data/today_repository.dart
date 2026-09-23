@@ -70,7 +70,7 @@ class ApiTodayRepository implements TodayRepository {
   Future<List<DoseProjection>> cachedReminderDoses() async {
     final rows = await (_database.select(_database.cachedDoses)
           ..where((row) => row.status.isNotIn(<String>['taken', 'skipped', 'missed']))
-          ..orderBy(<OrderingTerm Function(CachedDose)>[
+          ..orderBy([
             (row) => OrderingTerm.asc(row.effectiveReminderAt),
           ]))
         .get();
@@ -142,7 +142,7 @@ class ApiTodayRepository implements TodayRepository {
                   row.memberId.equals(member.memberId) &
                   row.scheduledLocalDate.equals(member.localDate),
             )
-            ..orderBy(<OrderingTerm Function(CachedDose)>[
+            ..orderBy([
               (row) => OrderingTerm.asc(row.effectiveReminderAt),
             ]))
           .get();
