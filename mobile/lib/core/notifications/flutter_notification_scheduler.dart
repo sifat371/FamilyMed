@@ -29,6 +29,13 @@ class FlutterNotificationScheduler implements NotificationScheduler {
     _initialized = true;
   }
 
+  void handleNotificationPayload(String? payload) {
+    if (payload == null || !payload.startsWith('dose:')) return;
+    final doseId = payload.substring('dose:'.length);
+    if (doseId.isEmpty) return;
+    _onDoseTapped?.call(doseId);
+  }
+
   @override
   Future<bool> requestPermission() async {
     await _ensureInitialized();
