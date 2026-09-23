@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 class SyncOperations extends Table {
   TextColumn get operationId => text()();
+  TextColumn get userId => text().withDefault(const Constant(''))();
   TextColumn get doseId => text()();
   TextColumn get action => text()();
   TextColumn get payloadJson => text()();
