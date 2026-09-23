@@ -83,5 +83,19 @@
   "pendingStatus": "Pending",
   "upcomingStatus": "Upcoming",
   "skippedStatus": "Skipped",
-  "missedStatus": "Missed"
+  "missedStatus": "Missed",
+  "doseDetails": "Dose details",
+  "doseNotAvailable": "This dose is not available.",
+  "markAsTaken": "Mark as taken",
+  "snooze15Minutes": "Snooze 15 min",
+  "skipThisDose": "Skip this dose",
+  "takenConfirmationDisclaimer": "Taken status is based on family/user confirmation.",
+  "scheduledTime": "Scheduled {time}",
+  "@scheduledTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  }
 }
