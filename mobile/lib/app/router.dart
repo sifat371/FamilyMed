@@ -75,7 +75,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           initialRelationship: state.uri.queryParameters['relationship'] ?? 'mother',
         ),
       ),
-      GoRoute(\n        path: '/today',\n        builder: (context, state) => const TodayScreen(),\n      ),\n      GoRoute(\n        path: '/family',\n        builder: (context, state) => const FamilyListScreen(),\n      ),
+      GoRoute(
+        path: '/today',
+        builder: (context, state) => const TodayScreen(),
+      ),
+      GoRoute(
+        path: '/family',
+        builder: (context, state) => const FamilyListScreen(),
+      ),
       GoRoute(
         path: '/family/:memberId/medications/new',
         builder: (context, state) => AddManualMedicationScreen(
@@ -108,7 +115,10 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 bool _isProtected(String path) {
-  return path == '/care-for' ||\n      path == '/today' ||\n      path == '/family' ||\n      path.startsWith('/family/');
+  return path == '/care-for' ||
+      path == '/today' ||
+      path == '/family' ||
+      path.startsWith('/family/');
 }
 
 class _SplashScreen extends StatelessWidget {
