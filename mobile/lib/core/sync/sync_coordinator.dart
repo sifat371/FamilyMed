@@ -115,17 +115,34 @@ class SyncCoordinator {
             await _replaceCachedDose(
               DoseProjection.fromJson(Map<String, dynamic>.from(current)),
             );
+            await (_database.delete(_database.syncOperations)
+                  ..where((item) => item.operationId.equals(row.operationId)))
+                .go();
+            _events.add(
+              SyncEvent(
+                kind: SyncEventKind.recordChanged,
+                doseId: row.doseId,
+                message: error.message,
+              ),
+            );
+          } else {
+            await (_database.update(_database.syncOperations)
+                  ..where((item) => item.operationId.equals(row.operationId)))
+                .write(
+              SyncOperationsCompanion(
+                attemptCount: Value<int>(row.attemptCount + 1),
+                lastError: Value<String?>(error.message),
+                terminalFailure: const Value<bool>(true),
+              ),
+            );
+            _events.add(
+              SyncEvent(
+                kind: SyncEventKind.terminalFailure,
+                doseId: row.doseId,
+                message: error.message,
+              ),
+            );
           }
-          await (_database.delete(_database.syncOperations)
-                ..where((item) => item.operationId.equals(row.operationId)))
-              .go();
-          _events.add(
-            SyncEvent(
-              kind: SyncEventKind.recordChanged,
-              doseId: row.doseId,
-              message: error.message,
-            ),
-          );
           continue;
         }
         if (error.statusCode == 404) {
