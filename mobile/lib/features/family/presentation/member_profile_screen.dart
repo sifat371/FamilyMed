@@ -143,6 +143,8 @@ class _MedicationCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
   String _medicationStatusLabel(
     AppLocalizations l10n,
     String status,
@@ -155,7 +157,5 @@ class _MedicationCard extends StatelessWidget {
       'ended' => l10n.endedStatus,
       _ => status,
     };
-  }
-
   }
 }
