@@ -1,3 +1,4 @@
+import 'package:familymed/core/formatters/quantity_format.dart';
 import 'package:familymed/core/notifications/notification_scheduler.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -93,7 +94,7 @@ class FlutterNotificationScheduler implements NotificationScheduler {
     await _plugin.zonedSchedule(
       notificationIdForDose(dose.id),
       dose.medicationName,
-      '${dose.quantityText} ${dose.unit}',
+      '${compactQuantity(dose.quantityText)} ${dose.unit}',
       at,
       const NotificationDetails(
         android: AndroidNotificationDetails(
