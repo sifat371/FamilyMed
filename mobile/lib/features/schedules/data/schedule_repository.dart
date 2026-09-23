@@ -1,4 +1,5 @@
 import 'package:familymed/core/api/api_client.dart';
+import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/features/schedules/domain/medication_schedule.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,12 +42,8 @@ class ApiScheduleRepository implements ScheduleRepository {
         '/member-medications/$medicationId/schedule',
       );
       return MedicationSchedule.fromJson(response.data!);
-    } on Object catch (error) {
-      if (error is dynamic &&
-          error.runtimeType.toString() == 'ApiError' &&
-          (error as dynamic).statusCode == 404) {
-        return null;
-      }
+    } on ApiError catch (error) {
+      if (error.statusCode == 404) return null;
       rethrow;
     }
   }
