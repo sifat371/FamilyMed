@@ -232,3 +232,33 @@ async def test_correction_preserves_prior_missed_log_and_sets_effective_time(cli
         },
     )
     assert invalid.status_code == 422
+
+
+async def test_finalized_conflict_returns_current_projection_for_offline_reconciliation(
+    client,
+    db_session,
+):
+    auth, dose = await _seed_dose(
+        client,
+        db_session,
+        "dose-conflict-projection@example.com",
+    )
+    now = datetime.now(UTC)
+    dose.status = "skipped"
+    dose.skipped_at = now
+    await db_session.flush()
+
+    response = await client.post(
+        f"/api/v1/doses/{dose.id}/taken",
+        headers=_headers(auth),
+        json={
+            "client_action_id": str(uuid4()),
+            "occurred_at": now.isoformat(),
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "DOSE_ALREADY_FINALIZED"
+    current = response.json()["error"]["details"]["current"]
+    assert current["id"] == str(dose.id)
+    assert current["status"] == "skipped"
