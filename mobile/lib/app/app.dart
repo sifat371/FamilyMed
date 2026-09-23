@@ -4,9 +4,9 @@ import 'package:familymed/app/router.dart';
 import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/core/auth/auth_state.dart';
 import 'package:familymed/core/notifications/notification_providers.dart';
+import 'package:familymed/core/notifications/reminder_coordinator.dart';
 import 'package:familymed/core/sync/sync_coordinator.dart';
 import 'package:familymed/core/theme/familymed_theme.dart';
-import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,9 +49,7 @@ class _FamilyMedAppState extends ConsumerState<FamilyMedApp>
     }
     await ref.read(syncCoordinatorProvider).drain();
     try {
-      final doses =
-          await ref.read(todayRepositoryProvider).loadReminderDoses(days: 30);
-      await ref.read(notificationSchedulerProvider).reconcile(doses);
+      await ref.read(reminderCoordinatorProvider).refresh();
     } on Object {
       // Reminder refresh is best-effort. The canonical routine remains active.
     }
@@ -59,7 +57,7 @@ class _FamilyMedAppState extends ConsumerState<FamilyMedApp>
 
   Future<void> _cancelSessionReminders() async {
     try {
-      await ref.read(notificationSchedulerProvider).reconcile(const []);
+      await ref.read(reminderCoordinatorProvider).clear();
     } on Object {
       // Session teardown should not be blocked by platform notification errors.
     }
