@@ -23,40 +23,6 @@ class FakeSyncTransport implements SyncTransport {
     return response ?? _dose(status: 'taken');
   }
 
-  test('only replays queued actions belonging to the authenticated account', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
-    final transport = FakeSyncTransport()..response = _dose(status: 'taken');
-    final coordinator = SyncCoordinator(
-      database: db,
-      transport: transport,
-      userId: 'user-a',
-    );
-    addTearDown(coordinator.dispose);
-
-    await _seedOperation(
-      db,
-      operationId: 'action-a',
-      userId: 'user-a',
-    );
-    await _seedOperation(
-      db,
-      operationId: 'action-b',
-      userId: 'user-b',
-    );
-
-    await coordinator.drain();
-
-    expect(transport.clientActionIds, <String>['action-a']);
-    final remaining = await db.customSelect(
-      'SELECT operation_id FROM sync_operations ORDER BY operation_id',
-    ).get();
-    expect(
-      remaining.map((row) => row.read<String>('operation_id')).toList(),
-      <String>['action-b'],
-    );
-  });
-
 }
 
 DoseProjection _dose({required String status}) {
@@ -250,5 +216,41 @@ void main() {
     expect(row.read<int>('terminal_failure'), 1);
     expect((await eventFuture).kind, SyncEventKind.terminalFailure);
   });
+
+
+  test('only replays queued actions belonging to the authenticated account', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final transport = FakeSyncTransport()..response = _dose(status: 'taken');
+    final coordinator = SyncCoordinator(
+      database: db,
+      transport: transport,
+      userId: 'user-a',
+    );
+    addTearDown(coordinator.dispose);
+
+    await _seedOperation(
+      db,
+      operationId: 'action-a',
+      userId: 'user-a',
+    );
+    await _seedOperation(
+      db,
+      operationId: 'action-b',
+      userId: 'user-b',
+    );
+
+    await coordinator.drain();
+
+    expect(transport.clientActionIds, <String>['action-a']);
+    final remaining = await db.customSelect(
+      'SELECT operation_id FROM sync_operations ORDER BY operation_id',
+    ).get();
+    expect(
+      remaining.map((row) => row.read<String>('operation_id')).toList(),
+      <String>['action-b'],
+    );
+  });
+
 
 }
