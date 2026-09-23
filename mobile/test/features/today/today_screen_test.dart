@@ -2,6 +2,7 @@ import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:familymed/features/today/domain/today_member_group.dart';
 import 'package:familymed/features/today/presentation/today_screen.dart';
+import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -79,7 +80,7 @@ Future<void> pumpToday(
       overrides: [
         todayRepositoryProvider.overrideWithValue(FakeTodayRepository(loadResult)),
       ],
-      child: const MaterialApp(home: TodayScreen()),
+      child: const MaterialApp(\n        locale: Locale('en'),\n        localizationsDelegates: AppLocalizations.localizationsDelegates,\n        supportedLocales: AppLocalizations.supportedLocales,\n        home: TodayScreen(),\n      ),
     ),
   );
   await tester.pumpAndSettle();
