@@ -242,7 +242,7 @@ void main() {
     expect(repository.createCalls, 0);
   });
 
-  testWidgets('end date before start date blocks submit', (tester) async {
+  testWidgets('end date picker does not allow dates before start date', (tester) async {
     final repository = RecordingMedicationRepository();
     final container = makeContainer(repository);
     addTearDown(container.dispose);
@@ -250,14 +250,17 @@ void main() {
 
     container.read(routerProvider).go('/family/member-id/medications/new');
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('medicationName')), 'Metformin');
-    await tester.enterText(find.byKey(const Key('medicationStartDate')), '2026-09-23');
-    await tester.enterText(find.byKey(const Key('medicationEndDate')), '2026-09-22');
-    await tester.tap(find.widgetWithText(FilledButton, 'Save medicine'));
+
+    final startField = tester.widget<TextFormField>(
+      find.byKey(const Key('medicationStartDate')),
+    );
+    final startDate = DateTime.parse(startField.controller!.text);
+
+    await tester.tap(find.byKey(const Key('medicationEndDate')));
     await tester.pumpAndSettle();
 
-    expect(find.text('End date cannot be before start date.'), findsOneWidget);
-    expect(repository.createCalls, 0);
+    final dialog = tester.widget<DatePickerDialog>(find.byType(DatePickerDialog));
+    expect(dialog.firstDate, DateTime(startDate.year, startDate.month, startDate.day));
   });
 
   testWidgets('network failure retains all entered medication values', (tester) async {
