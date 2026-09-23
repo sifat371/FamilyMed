@@ -243,3 +243,7 @@ final syncCoordinatorProvider = Provider<SyncCoordinator>((ref) {
   ref.onDispose(() => unawaited(coordinator.dispose()));
   return coordinator;
 });
+
+final syncEventsProvider = StreamProvider<SyncEvent>((ref) {
+  return ref.watch(syncCoordinatorProvider).events;
+});
