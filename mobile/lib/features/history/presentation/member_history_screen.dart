@@ -72,7 +72,9 @@ class _MemberHistoryScreenState extends State<MemberHistoryScreen> {
                       const SizedBox(height: 24),
                       for (final day in history.days) ...[
                         Text(
-                          day.localDate,
+                          MaterialLocalizations.of(context).formatMediumDate(
+                            DateTime.parse(day.localDate),
+                          ),
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 8),
