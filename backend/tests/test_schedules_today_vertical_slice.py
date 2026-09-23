@@ -186,12 +186,16 @@ async def test_schedules_today_vertical_slice(client, db_session):
     assert history.status_code == 200
     history_body = history.json()
     assert history_body["marked_adherence_percentage"] == "50.00"
-    day = next(\n        item\n        for item in history_body["days"]\n        if item["local_date"] == local_today.isoformat()\n    )
+    day = next(
+        item
+        for item in history_body["days"]
+        if item["local_date"] == local_today.isoformat()
+    )
     history_doses = {item["id"]: item for item in day["doses"]}
-    assert [event["action"] for event in history_doses[str(evening.id)]["events"]] == [
-        "snoozed",
-        "skipped",
+    evening_actions = [
+        event["action"] for event in history_doses[str(evening.id)]["events"]
     ]
+    assert evening_actions == ["snoozed", "skipped"]
 
     corrected = await client.post(
         f"/api/v1/doses/{evening.id}/correct",
