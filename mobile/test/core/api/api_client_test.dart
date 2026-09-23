@@ -23,34 +23,6 @@ class MemoryTokenStore implements TokenStore {
 
   @override
   Future<void> write(AuthTokens value) async => tokens = value;
-
-  test('successful public request emits one API activity event', () async {
-    final dio = Dio(BaseOptions(baseUrl: 'http://test/api/v1'));
-    dio.httpClientAdapter = SuccessAdapter();
-    final store = MemoryTokenStore(
-      const AuthTokens(accessToken: 'access', refreshToken: 'refresh-token'),
-    );
-    final sessionEvents = SessionEvents();
-    final activityEvents = ApiActivityEvents();
-    addTearDown(sessionEvents.dispose);
-    addTearDown(activityEvents.dispose);
-    addTearDown(dio.close);
-
-    final client = ApiClient(
-      tokenStore: store,
-      sessionEvents: sessionEvents,
-      activityEvents: activityEvents,
-      dio: dio,
-      refreshDio: Dio(BaseOptions(baseUrl: 'http://test/api/v1')),
-    );
-
-    final event = activityEvents.successes.first;
-    final response = await client.get<dynamic>('/today');
-    await event;
-
-    expect(response.statusCode, 200);
-  });
-
 }
 
 class ProtectedAdapter implements HttpClientAdapter {
@@ -126,8 +98,6 @@ class RefreshAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-
-
 class SuccessAdapter implements HttpClientAdapter {
   @override
   Future<ResponseBody> fetch(
@@ -187,5 +157,34 @@ void main() {
     expect((await store.read())!.accessToken, 'new-access');
     expect(results[0].statusCode, 200);
     expect(results[1].statusCode, 200);
+  });
+
+  test('successful public request emits one API activity event', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'http://test/api/v1'));
+    final refreshDio = Dio(BaseOptions(baseUrl: 'http://test/api/v1'));
+    dio.httpClientAdapter = SuccessAdapter();
+    final store = MemoryTokenStore(
+      const AuthTokens(accessToken: 'access', refreshToken: 'refresh-token'),
+    );
+    final sessionEvents = SessionEvents();
+    final activityEvents = ApiActivityEvents();
+    addTearDown(sessionEvents.dispose);
+    addTearDown(activityEvents.dispose);
+    addTearDown(dio.close);
+    addTearDown(refreshDio.close);
+
+    final client = ApiClient(
+      tokenStore: store,
+      sessionEvents: sessionEvents,
+      activityEvents: activityEvents,
+      dio: dio,
+      refreshDio: refreshDio,
+    );
+
+    final event = activityEvents.successes.first;
+    final response = await client.get<dynamic>('/today');
+    await event;
+
+    expect(response.statusCode, 200);
   });
 }
