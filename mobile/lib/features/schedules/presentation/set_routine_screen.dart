@@ -1,6 +1,8 @@
 import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/core/notifications/reminder_coordinator.dart';
+import 'package:familymed/features/medications/data/medication_repository.dart';
 import 'package:familymed/features/schedules/data/schedule_repository.dart';
+import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/features/schedules/domain/medication_schedule.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -124,6 +126,8 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
       } on Object {
         // The routine is already saved; reminder refresh is best-effort.
       }
+      ref.invalidate(todayProvider);
+      ref.invalidate(memberMedicationsProvider(widget.memberId));
       if (!mounted) return;
       if (isNewRoutine) {
         context.go(

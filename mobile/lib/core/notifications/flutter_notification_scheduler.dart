@@ -51,7 +51,12 @@ class FlutterNotificationScheduler implements NotificationScheduler {
     await _ensureInitialized();
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    return await android?.requestNotificationsPermission() ?? true;
+    final notificationsAllowed =
+        await android?.requestNotificationsPermission() ?? true;
+    if (!notificationsAllowed) return false;
+
+    await android?.requestExactAlarmsPermission();
+    return true;
   }
 
   @override
@@ -80,6 +85,11 @@ class FlutterNotificationScheduler implements NotificationScheduler {
     final location = tz.getLocation(dose.timezone);
     final at = tz.TZDateTime.from(dose.effectiveReminderAt, location);
     if (at.isBefore(tz.TZDateTime.now(location))) return;
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    final canScheduleExactly =
+        await android?.canScheduleExactNotifications() ?? false;
+
     await _plugin.zonedSchedule(
       notificationIdForDose(dose.id),
       dose.medicationName,
@@ -94,7 +104,9 @@ class FlutterNotificationScheduler implements NotificationScheduler {
           priority: Priority.high,
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: canScheduleExactly
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle,
       payload: 'dose:${dose.id}',
     );
   }

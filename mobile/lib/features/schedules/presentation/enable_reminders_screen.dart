@@ -1,6 +1,7 @@
 import 'package:familymed/core/notifications/notification_providers.dart';
 import 'package:familymed/core/notifications/reminder_coordinator.dart';
 import 'package:familymed/features/schedules/data/notification_preference_repository.dart';
+import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,6 +50,7 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
         }
         return;
       }
+      ref.invalidate(todayProvider);
       if (mounted) context.go('/today');
     } finally {
       if (mounted) setState(() => _loading = false);
