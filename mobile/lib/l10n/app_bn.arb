@@ -127,5 +127,12 @@
   "editMedicine": "ওষুধ সম্পাদনা করুন",
   "saveChanges": "পরিবর্তন সংরক্ষণ করুন",
   "showPassword": "পাসওয়ার্ড দেখান",
-  "hidePassword": "পাসওয়ার্ড লুকান"
+  "hidePassword": "পাসওয়ার্ড লুকান",
+  "motherRelationship": "মা",
+  "fatherRelationship": "বাবা",
+  "parentRelationship": "বাবা বা মা",
+  "spouseRelationship": "জীবনসঙ্গী",
+  "childRelationship": "সন্তান",
+  "selfRelationship": "নিজে",
+  "otherRelationship": "অন্যান্য"
 }
