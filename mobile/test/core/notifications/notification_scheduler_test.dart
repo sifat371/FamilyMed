@@ -2,9 +2,32 @@ import 'package:familymed/core/notifications/notification_providers.dart';
 import 'package:familymed/core/notifications/flutter_notification_scheduler.dart';
 import 'package:familymed/core/notifications/notification_scheduler.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+class _LaunchNotificationsPlugin extends FlutterLocalNotificationsPlugin {
+  @override
+  Future<bool?> initialize(
+    InitializationSettings initializationSettings, {
+    DidReceiveNotificationResponseCallback? onDidReceiveNotificationResponse,
+    DidReceiveBackgroundNotificationResponseCallback?
+        onDidReceiveBackgroundNotificationResponse,
+  }) async {
+    return true;
+  }
+
+  @override
+  Future<NotificationAppLaunchDetails?> getNotificationAppLaunchDetails() async {
+    return const NotificationAppLaunchDetails(
+      true,
+      notificationResponse: NotificationResponse(
+        notificationResponseType: NotificationResponseType.selectedNotification,
+        payload: 'dose:dose-launch',
+      ),
+    );
+  }
+}
 
 class FakeNotificationScheduler implements NotificationScheduler {
   bool permission = false;
@@ -50,7 +73,8 @@ void main() {
     expect(notificationIdForDose('dose-123'), lessThan(0x80000000));
   });
 
-  test('notification abstraction remains fakeable when permission is denied', () async {
+  test('notification abstraction remains fakeable when permission is denied',
+      () async {
     final scheduler = FakeNotificationScheduler();
     expect(await scheduler.requestPermission(), isFalse);
     expect(scheduler.scheduled, isEmpty);
@@ -67,4 +91,16 @@ void main() {
     expect(tappedDoseId, 'dose-123');
   });
 
+  test('production scheduler forwards notification that launched the app',
+      () async {
+    String? tappedDoseId;
+    final scheduler = FlutterNotificationScheduler(
+      plugin: _LaunchNotificationsPlugin(),
+      onDoseTapped: (doseId) => tappedDoseId = doseId,
+    );
+
+    await scheduler.requestPermission();
+
+    expect(tappedDoseId, 'dose-launch');
+  });
 }
