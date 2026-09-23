@@ -204,7 +204,7 @@ String currentPath(ProviderContainer container) {
 }
 
 void main() {
-  testWidgets('care-for screen shows choices and parent pre-fills mother', (tester) async {
+  testWidgets('care-for screen shows choices and parent pre-fills parent', (tester) async {
     final repository = RecordingFamilyRepository();
     final container = makeContainer(repository);
     addTearDown(container.dispose);
@@ -227,7 +227,7 @@ void main() {
     final relationship = tester.widget<TextFormField>(
       find.byKey(const Key('familyRelationship')),
     );
-    expect(relationship.controller?.text, 'mother');
+    expect(relationship.controller?.text, 'parent');
   });
 
   testWidgets('adding Amma submits Bangla and Asia Dhaka defaults', (tester) async {
