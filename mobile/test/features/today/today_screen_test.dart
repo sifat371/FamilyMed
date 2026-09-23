@@ -80,7 +80,12 @@ Future<void> pumpToday(
       overrides: [
         todayRepositoryProvider.overrideWithValue(FakeTodayRepository(loadResult)),
       ],
-      child: const MaterialApp(\n        locale: Locale('en'),\n        localizationsDelegates: AppLocalizations.localizationsDelegates,\n        supportedLocales: AppLocalizations.supportedLocales,\n        home: TodayScreen(),\n      ),
+      child: const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: TodayScreen(),
+      ),
     ),
   );
   await tester.pumpAndSettle();
