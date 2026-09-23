@@ -14,7 +14,6 @@ import 'package:familymed/core/sync/sync_coordinator.dart';
 import 'package:familymed/features/auth/data/auth_repository.dart';
 import 'package:familymed/features/auth/domain/auth_session.dart';
 import 'package:familymed/features/auth/domain/current_user.dart';
-import 'package:familymed/features/schedules/data/notification_preference_repository.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:familymed/features/today/domain/today_member_group.dart';
@@ -88,30 +87,6 @@ class _TodayRepository implements TodayRepository {
   @override
   Future<TodayLoadResult> loadToday() async =>
       const TodayLoadResult(groups: <TodayMemberGroup>[], isOffline: false);
-}
-
-class _PreferenceRepository implements NotificationPreferenceRepository {
-  _PreferenceRepository(this.enabled);
-
-  final bool enabled;
-
-  @override
-  Future<NotificationPreference> getPreference(String memberId) async {
-    return NotificationPreference(
-      memberId: memberId,
-      enabled: enabled,
-      defaultSnoozeMinutes: 15,
-    );
-  }
-
-  @override
-  Future<NotificationPreference> updatePreference(
-    String memberId, {
-    bool? enabled,
-    int? defaultSnoozeMinutes,
-  }) {
-    throw UnimplementedError();
-  }
 }
 
 class _Scheduler implements NotificationScheduler {
@@ -270,7 +245,7 @@ void main() {
       findsOneWidget,
     );
   });
-  testWidgets('reminder refresh honors disabled Not now preference',
+  testWidgets('reminder refresh clears notifications for an empty server feed',
       (tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
@@ -279,9 +254,7 @@ void main() {
       transport: _Transport(),
     );
     addTearDown(coordinator.dispose);
-    final todayRepository = _TodayRepository(
-      reminderDoses: [_reminderDose()],
-    );
+    final todayRepository = _TodayRepository();
     final scheduler = _Scheduler();
 
     await tester.pumpWidget(
@@ -291,9 +264,6 @@ void main() {
           authRepositoryProvider.overrideWithValue(_AuthRepository()),
           todayRepositoryProvider.overrideWithValue(todayRepository),
           syncCoordinatorProvider.overrideWithValue(coordinator),
-          notificationPreferenceRepositoryProvider.overrideWithValue(
-            _PreferenceRepository(false),
-          ),
           notificationSchedulerProvider.overrideWithValue(scheduler),
         ],
         child: const FamilyMedApp(locale: Locale('en')),
@@ -326,9 +296,6 @@ void main() {
           authRepositoryProvider.overrideWithValue(_AuthRepository()),
           todayRepositoryProvider.overrideWithValue(todayRepository),
           syncCoordinatorProvider.overrideWithValue(coordinator),
-          notificationPreferenceRepositoryProvider.overrideWithValue(
-            _PreferenceRepository(true),
-          ),
           notificationSchedulerProvider.overrideWithValue(scheduler),
         ],
         child: const FamilyMedApp(locale: Locale('en')),
