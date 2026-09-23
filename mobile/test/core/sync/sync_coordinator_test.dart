@@ -187,4 +187,31 @@ void main() {
     final event = await eventFuture;
     expect(event.kind, SyncEventKind.recordChanged);
   });
+
+  test('409 without canonical projection remains visible terminal failure', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final transport = FakeSyncTransport()
+      ..error = const ApiError(
+        code: 'IDEMPOTENCY_KEY_REUSED',
+        message: 'action id was reused',
+        statusCode: 409,
+      );
+    final coordinator = SyncCoordinator(database: db, transport: transport);
+    addTearDown(coordinator.dispose);
+
+    await _seedOperation(db, operationId: 'action-bad-409');
+    final eventFuture = coordinator.events.first;
+    await coordinator.drain();
+
+    final row = await db.customSelect(
+      'SELECT attempt_count, terminal_failure FROM sync_operations '
+      'WHERE operation_id = ?',
+      variables: [const Variable<String>('action-bad-409')],
+    ).getSingle();
+    expect(row.read<int>('attempt_count'), 1);
+    expect(row.read<int>('terminal_failure'), 1);
+    expect((await eventFuture).kind, SyncEventKind.terminalFailure);
+  });
+
 }
