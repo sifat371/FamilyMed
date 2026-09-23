@@ -21,7 +21,16 @@ class MemberProfileScreen extends ConsumerWidget {
     final member = ref.watch(familyMemberProvider(memberId));
     final medications = ref.watch(memberMedicationsProvider(memberId));
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.familyProfile)),
+      appBar: AppBar(
+        title: Text(l10n.familyProfile),
+        actions: [
+          IconButton(
+            tooltip: l10n.editFamilyMember,
+            onPressed: () => context.push('/family/$memberId/edit'),
+            icon: const Icon(Icons.edit_outlined),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: member.when(
           loading: () => const Center(child: CircularProgressIndicator()),
