@@ -278,10 +278,30 @@ void main() {
     expect(find.text('Your family'), findsOneWidget);
     expect(find.text('Amma'), findsOneWidget);
     expect(find.text('Add family member'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('Family'), findsOneWidget);
 
     await tester.tap(find.text('Amma'));
     await tester.pumpAndSettle();
     expect(currentPath(container), '/family/member-id');
+  });
+
+  testWidgets('bottom navigation switches between Today and Family', (tester) async {
+    final repository = RecordingFamilyRepository(const [amma]);
+    final container = makeContainer(repository);
+    addTearDown(container.dispose);
+    await pumpApp(tester, container);
+
+    expect(currentPath(container), '/today');
+    expect(find.byType(NavigationBar), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('familyTab')));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/family');
+
+    await tester.tap(find.byKey(const Key('todayTab')));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/today');
   });
 
   testWidgets('member profile shows identity empty state and disabled scan', (tester) async {
@@ -297,6 +317,7 @@ void main() {
     expect(find.text('mother'), findsOneWidget);
     expect(find.text('No medicines yet'), findsOneWidget);
     expect(find.text('Scan prescription — coming soon'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
 
     final scanButton = tester.widget<FilledButton>(
       find.byKey(const Key('scanPrescriptionButton')),

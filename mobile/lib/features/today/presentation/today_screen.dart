@@ -1,8 +1,10 @@
+import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/features/today/presentation/dose_card.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class TodayScreen extends ConsumerWidget {
   const TodayScreen({super.key});
@@ -13,7 +15,19 @@ class TodayScreen extends ConsumerWidget {
     final today = ref.watch(todayProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.todayTitle)),
+      appBar: AppBar(
+        title: Text(l10n.todayTitle),
+        actions: [
+          IconButton(
+            key: const Key('signOutButton'),
+            tooltip: l10n.signOut,
+            onPressed: () async {
+              await ref.read(authControllerProvider.notifier).logout();
+            },
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -22,8 +36,8 @@ class TodayScreen extends ConsumerWidget {
           },
           child: today.when(
             loading: () => ListView(
-              physics: AlwaysScrollableScrollPhysics(),
-              children: [
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
                 SizedBox(height: 280),
                 Center(child: CircularProgressIndicator()),
               ],
@@ -61,7 +75,28 @@ class TodayScreen extends ConsumerWidget {
                 if (result.groups.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 80),
-                    child: Center(child: Text(l10n.noDosesToday)),
+                    child: Column(
+                      children: [
+                        Text(
+                          l10n.noDosesToday,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
+                        FilledButton.icon(
+                          key: const Key('openFamilyButton'),
+                          onPressed: () => context.go('/family'),
+                          icon: const Icon(Icons.family_restroom),
+                          label: Text(l10n.familyTab),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          key: const Key('addFamilyMemberFromTodayButton'),
+                          onPressed: () => context.push('/family/new'),
+                          icon: const Icon(Icons.person_add_alt_1),
+                          label: Text(l10n.addFamilyMember),
+                        ),
+                      ],
+                    ),
                   )
                 else
                   for (final group in result.groups) ...[

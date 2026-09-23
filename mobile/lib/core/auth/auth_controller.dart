@@ -54,7 +54,6 @@ class AuthController extends StateNotifier<AuthState> {
     required String email,
     required String password,
   }) async {
-    state = const AuthState.loading();
     try {
       final session = await _repository.register(
         name: name,
@@ -74,7 +73,6 @@ class AuthController extends StateNotifier<AuthState> {
     required String email,
     required String password,
   }) async {
-    state = const AuthState.loading();
     try {
       final session = await _repository.login(email: email, password: password);
       await _tokenStore.write(session.tokens);

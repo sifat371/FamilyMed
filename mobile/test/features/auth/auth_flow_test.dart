@@ -326,6 +326,18 @@ void main() {
     expect(currentPath(container), '/login');
   });
 
+  testWidgets('restored authenticated session with no members routes to care-for', (tester) async {
+    final container = makeContainer(
+      tokenStore: FakeTokenStore(
+        const AuthTokens(accessToken: 'access', refreshToken: 'refresh'),
+      ),
+    );
+    addTearDown(container.dispose);
+    await pumpApp(tester, container);
+
+    expect(currentPath(container), '/care-for');
+  });
+
   testWidgets('restored authenticated session leaves welcome for today', (tester) async {
     final container = makeContainer(
       tokenStore: FakeTokenStore(
