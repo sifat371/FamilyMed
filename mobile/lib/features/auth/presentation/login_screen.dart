@@ -42,7 +42,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           );
       final members = await ref.read(familyRepositoryProvider).listMembers();
       if (!mounted) return;
-      context.go(members.isEmpty ? '/care-for' : '/family');
+      context.go(members.isEmpty ? '/care-for' : '/today');
     } on ApiError catch (error) {
       if (!mounted) return;
       setState(() {
