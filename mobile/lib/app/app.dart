@@ -6,7 +6,6 @@ import 'package:familymed/core/auth/auth_state.dart';
 import 'package:familymed/core/notifications/notification_providers.dart';
 import 'package:familymed/core/sync/sync_coordinator.dart';
 import 'package:familymed/core/theme/familymed_theme.dart';
-import 'package:familymed/features/schedules/data/notification_preference_repository.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -45,22 +44,24 @@ class _FamilyMedAppState extends ConsumerState<FamilyMedApp>
   }
 
   Future<void> _syncAndRefreshReminders() async {
+    if (ref.read(authControllerProvider).status != AuthStatus.authenticated) {
+      return;
+    }
     await ref.read(syncCoordinatorProvider).drain();
     try {
       final doses =
           await ref.read(todayRepositoryProvider).loadReminderDoses(days: 30);
-      final preferences = ref.read(notificationPreferenceRepositoryProvider);
-      final enabledMembers = <String>{};
-      for (final memberId in doses.map((dose) => dose.familyMemberId).toSet()) {
-        final preference = await preferences.getPreference(memberId);
-        if (preference.enabled) enabledMembers.add(memberId);
-      }
-      final enabledDoses = doses
-          .where((dose) => enabledMembers.contains(dose.familyMemberId))
-          .toList(growable: false);
-      await ref.read(notificationSchedulerProvider).reconcile(enabledDoses);
+      await ref.read(notificationSchedulerProvider).reconcile(doses);
     } on Object {
       // Reminder refresh is best-effort. The canonical routine remains active.
+    }
+  }
+
+  Future<void> _cancelSessionReminders() async {
+    try {
+      await ref.read(notificationSchedulerProvider).reconcile(const []);
+    } on Object {
+      // Session teardown should not be blocked by platform notification errors.
     }
   }
 
@@ -70,6 +71,9 @@ class _FamilyMedAppState extends ConsumerState<FamilyMedApp>
       if (next.status == AuthStatus.authenticated &&
           previous?.status != AuthStatus.authenticated) {
         unawaited(_syncAndRefreshReminders());
+      } else if (next.status == AuthStatus.unauthenticated &&
+          previous?.status == AuthStatus.authenticated) {
+        unawaited(_cancelSessionReminders());
       }
     });
     ref.listen<AsyncValue<SyncEvent>>(syncEventsProvider, (previous, next) {
