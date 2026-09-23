@@ -2,9 +2,11 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:familymed/core/database/app_database.dart';
+import 'package:familymed/core/notifications/notification_providers.dart';
 import 'package:familymed/core/notifications/notification_scheduler.dart';
 import 'package:familymed/core/sync/sync_coordinator.dart';
 import 'package:familymed/features/today/domain/dose_projection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 class DoseRepository {
@@ -213,3 +215,12 @@ class DoseRepository {
     );
   }
 }
+
+
+final doseRepositoryProvider = Provider<DoseRepository>((ref) {
+  return DoseRepository(
+    database: ref.watch(appDatabaseProvider),
+    syncCoordinator: ref.watch(syncCoordinatorProvider),
+    notificationScheduler: ref.watch(notificationSchedulerProvider),
+  );
+});
