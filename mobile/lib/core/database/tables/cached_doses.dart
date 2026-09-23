@@ -3,6 +3,8 @@ import 'package:drift/drift.dart';
 class CachedDoses extends Table {
   TextColumn get doseId => text()();
   TextColumn get userId => text().withDefault(const Constant(''))();
+  BoolColumn get reminderEligible =>
+      boolean().withDefault(const Constant<bool>(false))();
   TextColumn get scheduleId => text()();
   TextColumn get memberId => text()();
   TextColumn get medicationId => text()();
