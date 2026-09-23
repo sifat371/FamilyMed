@@ -91,6 +91,13 @@ Future<void> pumpToday(
   await tester.pumpAndSettle();
 }
 
+TodayLoadResult emptyResult() {
+  return const TodayLoadResult(
+    isOffline: false,
+    groups: <TodayMemberGroup>[],
+  );
+}
+
 void main() {
   testWidgets('renders family dose summary with text statuses', (tester) async {
     await pumpToday(tester, loadResult: result(offline: false));
@@ -100,6 +107,14 @@ void main() {
     expect(find.text('Metformin 500 mg'), findsNWidgets(2));
     expect(find.text('Taken'), findsNWidgets(2));
     expect(find.text('Pending'), findsOneWidget);
+  });
+
+  testWidgets('empty Today offers Family setup actions', (tester) async {
+    await pumpToday(tester, loadResult: emptyResult());
+
+    expect(find.text('No doses scheduled for today.'), findsOneWidget);
+    expect(find.byKey(const Key('openFamilyButton')), findsOneWidget);
+    expect(find.byKey(const Key('addFamilyMemberFromTodayButton')), findsOneWidget);
   });
 
   testWidgets('renders cached today with offline indicator', (tester) async {
