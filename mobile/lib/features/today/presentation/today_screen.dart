@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:familymed/core/auth/auth_controller.dart';
+import 'package:familymed/core/theme/familymed_theme.dart';
+import 'package:familymed/core/widgets/familymed_ui.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/features/today/presentation/dose_card.dart';
 import 'package:familymed/l10n/app_localizations.dart';
@@ -39,7 +41,6 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.todayTitle),
         actions: [
           IconButton(
             key: const Key('signOutButton'),
@@ -87,22 +88,38 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             ),
             data: (result) => ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 2, 20, 28),
               children: [
-                if (result.isOffline) ...[
-                  Semantics(
-                    label: l10n.offlineSavedDoses,
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.cloud_off_outlined),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(l10n.offlineSavedDoses)),
-                          ],
-                        ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l10n.todayTitle,
+                        style: Theme.of(context).textTheme.headlineMedium,
                       ),
+                    ),
+                    FamilyMedPill(label: l10n.familyCare),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  l10n.todaysCare,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 14),
+                if (result.isOffline) ...[
+                  FamilyMedSoftCard(
+                    color: FamilyMedColors.surface,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.cloud_off_outlined,
+                          color: FamilyMedColors.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(l10n.offlineSavedDoses)),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -115,6 +132,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                         Text(
                           l10n.noDosesToday,
                           textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyLarge,
                         ),
                         const SizedBox(height: 20),
                         FilledButton.icon(
@@ -135,20 +153,40 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                   )
                 else
                   for (final group in result.groups) ...[
-                    Text(
-                      group.name,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.markedTakenSummary(
-                        group.takenCount,
-                        group.totalCount,
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    group.name,
+                                    style:
+                                        Theme.of(context).textTheme.titleLarge,
+                                  ),
+                                ),
+                                FamilyMedPill(
+                                  label: l10n.markedTakenSummary(
+                                    group.takenCount,
+                                    group.totalCount,
+                                  ),
+                                  backgroundColor:
+                                      FamilyMedColors.successSoft,
+                                  foregroundColor: FamilyMedColors.success,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            for (final dose in group.doses)
+                              DoseCard(dose: dose),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    for (final dose in group.doses) DoseCard(dose: dose),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 18),
                   ],
               ],
             ),
@@ -157,4 +195,5 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
       ),
     );
   }
+
 }
