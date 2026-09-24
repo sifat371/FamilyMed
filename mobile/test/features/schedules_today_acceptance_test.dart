@@ -480,6 +480,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('addReminderTimeButton')));
     await tester.pump();
+    await tester.ensureVisible(find.byKey(const Key('routineTime1')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('routineTime1')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('PM'));
