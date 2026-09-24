@@ -152,15 +152,25 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
                                 ),
                           ),
                           if (snoozed) ...[
+                            const SizedBox(height: 8),
+                            FamilyMedPill(label: l10n.snoozedStatus),
                             const SizedBox(height: 6),
-                            FamilyMedPill(
-                              label: l10n.snoozedUntil(
+                            Text(
+                              l10n.snoozedUntil(
                                 formatInstantInTimezone12h(
                                   context,
                                   dose.snoozedUntil!,
                                   dose.timezone,
                                 ),
                               ),
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: FamilyMedColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                             ),
                           ] else ...[
                             const SizedBox(height: 10),
