@@ -233,8 +233,21 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    FamilyMedSectionLabel(l10n.reminderTime),
-                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FamilyMedSectionLabel(l10n.reminderTime),
+                        ),
+                        TextButton.icon(
+                          onPressed: _rows.length >= 8
+                              ? null
+                              : () => setState(() => _rows.add(_RoutineRow())),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: Text(l10n.addReminderTime),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
                     for (var index = 0; index < _rows.length; index++)
                       _RoutineRowFields(
                         index: index,
@@ -250,13 +263,6 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
                           });
                         },
                       ),
-                    OutlinedButton.icon(
-                      onPressed: _rows.length >= 8
-                          ? null
-                          : () => setState(() => _rows.add(_RoutineRow())),
-                      icon: const Icon(Icons.add),
-                      label: Text(l10n.addReminderTime),
-                    ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
                       Text(
