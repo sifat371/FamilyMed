@@ -87,4 +87,27 @@ void main() {
 
     expect(tappedDoseId, 'dose-launch');
   });
+
+  test('notification title identifies family member and medicine', () {
+    final dose = DoseProjection(
+      id: 'dose-1',
+      scheduleId: 'schedule-1',
+      familyMemberId: 'member-1',
+      familyMemberName: 'Amma',
+      memberMedicationId: 'med-1',
+      medicationName: 'Napa',
+      strength: '500',
+      scheduledAt: DateTime.utc(2026, 9, 24, 17),
+      scheduledLocalDate: '2026-09-24',
+      scheduledLocalTime: '23:00',
+      timezone: 'Asia/Dhaka',
+      quantityText: '1',
+      unit: 'tablet',
+      status: 'upcoming',
+      effectiveReminderAt: DateTime.utc(2026, 9, 24, 17),
+    );
+
+    expect(notificationTitleForDose(dose), 'Amma · Napa 500');
+  });
+
 }
