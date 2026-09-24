@@ -4,7 +4,7 @@ from decimal import Decimal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.errors import ApiError
@@ -40,19 +40,38 @@ async def build_today(
         rows = list(
             (
                 await session.execute(
-                    select(ScheduledDose, MemberMedication)
+                    select(
+                        ScheduledDose,
+                        MemberMedication,
+                        MedicationSchedule,
+                    )
                     .join(
                         MemberMedication,
                         MemberMedication.id == ScheduledDose.member_medication_id,
                     )
+                    .join(
+                        MedicationSchedule,
+                        MedicationSchedule.id == ScheduledDose.schedule_id,
+                    )
                     .where(
                         ScheduledDose.family_member_id == member.id,
                         ScheduledDose.scheduled_local_date == local_date,
+                        or_(
+                            ScheduledDose.status.in_(["taken", "skipped", "missed"]),
+                            and_(
+                                ScheduledDose.status.in_(["upcoming", "pending"]),
+                                MemberMedication.status == "active",
+                                MedicationSchedule.status == "active",
+                            ),
+                        ),
                     )
                 )
             ).all()
         )
-        doses = [_today_dose(dose, medication) for dose, medication in rows]
+        doses = [
+            _today_dose(dose, medication, member.name)
+            for dose, medication, _schedule in rows
+        ]
         doses.sort(key=lambda item: (item.effective_reminder_at, item.id))
         groups.append(
             TodayMemberResponse(
@@ -87,10 +106,18 @@ async def build_reminder_feed(
     rows = list(
         (
             await session.execute(
-                select(ScheduledDose, MemberMedication)
+                select(ScheduledDose, MemberMedication, FamilyMember)
                 .join(
                     MemberMedication,
                     MemberMedication.id == ScheduledDose.member_medication_id,
+                )
+                .join(
+                    MedicationSchedule,
+                    MedicationSchedule.id == ScheduledDose.schedule_id,
+                )
+                .join(
+                    FamilyMember,
+                    FamilyMember.id == ScheduledDose.family_member_id,
                 )
                 .join(
                     NotificationPreference,
@@ -101,13 +128,18 @@ async def build_reminder_feed(
                     ScheduledDose.family_member_id.in_(member_ids),
                     NotificationPreference.user_id == user_id,
                     NotificationPreference.enabled.is_(True),
+                    MemberMedication.status == "active",
+                    MedicationSchedule.status == "active",
                     ScheduledDose.status.in_(["upcoming", "pending"]),
                     ScheduledDose.scheduled_at < window_end,
                 )
             )
         ).all()
     )
-    result = [_today_dose(dose, medication) for dose, medication in rows]
+    result = [
+        _today_dose(dose, medication, member.name)
+        for dose, medication, member in rows
+    ]
     result.sort(key=lambda item: (item.effective_reminder_at, item.id))
     return result
 
@@ -172,7 +204,7 @@ async def build_member_history(
                 )
             ).all()
         )
-        base = _today_dose(dose, medication)
+        base = _today_dose(dose, medication, member.name)
         by_day[dose.scheduled_local_date].append(
             HistoryDoseResponse(
                 **base.model_dump(),
@@ -250,6 +282,7 @@ async def _refresh_accessible_schedules(
 def _today_dose(
     dose: ScheduledDose,
     medication: MemberMedication,
+    family_member_name: str,
 ) -> TodayDoseResponse:
     effective = dose.scheduled_at
     if (
@@ -263,6 +296,7 @@ def _today_dose(
         schedule_id=dose.schedule_id,
         family_member_id=dose.family_member_id,
         member_medication_id=dose.member_medication_id,
+        family_member_name=family_member_name,
         medication_name=medication.display_name,
         strength=medication.strength,
         scheduled_at=dose.scheduled_at,
