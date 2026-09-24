@@ -1,4 +1,6 @@
 import 'package:familymed/core/formatters/quantity_format.dart';
+import 'package:familymed/core/theme/familymed_theme.dart';
+import 'package:familymed/core/widgets/familymed_ui.dart';
 import 'package:familymed/core/time/local_time_format.dart';
 import 'package:familymed/features/doses/data/dose_repository.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
@@ -98,111 +100,175 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
       'after_food' => l10n.afterFood,
       'before_food' => l10n.beforeFood,
       'with_food' => l10n.withFood,
+      'none' => l10n.noMealRelation,
       _ => l10n.unspecified,
     };
+    final memberName = dose.familyMemberName?.trim();
+    final header = memberName == null || memberName.isEmpty
+        ? l10n.doseDetails
+        : l10n.doseForMember(memberName);
+    final snoozed = dose.status == 'pending' && dose.snoozedUntil != null;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.doseDetails)),
+      appBar: AppBar(title: Text(header)),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Text(title, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 8),
-            Text('${compactQuantity(dose.quantityText)} ${dose.unit} • $meal'),
-            const SizedBox(height: 4),
-            Text(
-              l10n.scheduledTime(
-                formatLocalTime12h(context, dose.scheduledLocalTime),
-              ),
-            ),
-            if (dose.status == 'pending' && dose.snoozedUntil != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                l10n.snoozedUntil(
-                  formatInstantInTimezone12h(
-                    context,
-                    dose.snoozedUntil!,
-                    dose.timezone,
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Chip(
-                label: Text(
-                  dose.status == 'pending' && dose.snoozedUntil != null
-                      ? l10n.snoozedStatus
-                      : _statusLabel(l10n, dose.status),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_error != null) ...[
-              Text(_error!),
-              const SizedBox(height: 12),
-            ],
-            FilledButton(
-              onPressed: _acting || _isFinal(dose.status)
-                  ? null
-                  : () => _act(
-                        () => widget.repository.markTaken(
-                          dose.id,
-                          occurredAt: DateTime.now().toUtc(),
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              sliver: SliverFillRemaining(
+                hasScrollBody: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FamilyMedSoftCard(
+                      child: Column(
+                        children: [
+                          Text(
+                            title,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${compactQuantity(dose.quantityText)} '
+                            '${dose.unit} • $meal',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  color: FamilyMedColors.textSecondary,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            l10n.scheduledTime(
+                              formatLocalTime12h(
+                                context,
+                                dose.scheduledLocalTime,
+                              ),
+                            ),
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: FamilyMedColors.textSecondary,
+                                ),
+                          ),
+                          if (snoozed) ...[
+                            const SizedBox(height: 6),
+                            FamilyMedPill(
+                              label: l10n.snoozedUntil(
+                                formatInstantInTimezone12h(
+                                  context,
+                                  dose.snoozedUntil!,
+                                  dose.timezone,
+                                ),
+                              ),
+                            ),
+                          ] else ...[
+                            const SizedBox(height: 10),
+                            FamilyMedPill(
+                              label: _statusLabel(l10n, dose.status),
+                              backgroundColor: _isFinal(dose.status)
+                                  ? FamilyMedColors.successSoft
+                                  : FamilyMedColors.primarySoft,
+                              foregroundColor: _isFinal(dose.status)
+                                  ? FamilyMedColors.success
+                                  : FamilyMedColors.primary,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          memberName == null || memberName.isEmpty
+                              ? l10n.takenConfirmationDisclaimer
+                              : l10n.markDoseCareNote(memberName),
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: FamilyMedColors.textSecondary,
+                              ),
                         ),
                       ),
-              child: Text(l10n.markAsTaken),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: _acting || dose.status != 'pending'
-                  ? null
-                  : () async {
-                      final now = DateTime.now().toUtc();
-                      await _act(
-                        () => widget.repository.snooze(
-                          dose.id,
-                          occurredAt: now,
-                          snoozedUntil: now.add(const Duration(minutes: 15)),
-                        ),
-                      );
-                    },
-              child: Text(l10n.snooze15Minutes),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: _acting || _isFinal(dose.status)
-                  ? null
-                  : () => _act(
-                        () => widget.repository.skip(
-                          dose.id,
-                          occurredAt: DateTime.now().toUtc(),
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        _error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
                         ),
                       ),
-              child: Text(l10n.skipThisDose),
-            ),
-            if (_isFinal(dose.status)) ...[
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: _acting
-                    ? null
-                    : () => context.push(
-                          '/doses/${dose.id}/correct?status=${dose.status}',
-                        ),
-                icon: const Icon(Icons.edit_outlined),
-                label: Text(l10n.correctRecord),
+                    ],
+                    const Spacer(),
+                    FilledButton.icon(
+                      onPressed: _acting || _isFinal(dose.status)
+                          ? null
+                          : () => _act(
+                                () => widget.repository.markTaken(
+                                  dose.id,
+                                  occurredAt: DateTime.now().toUtc(),
+                                ),
+                              ),
+                      icon: const Icon(Icons.check),
+                      label: Text(l10n.markAsTaken),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton(
+                      onPressed: _acting || dose.status != 'pending'
+                          ? null
+                          : () async {
+                              final now = DateTime.now().toUtc();
+                              await _act(
+                                () => widget.repository.snooze(
+                                  dose.id,
+                                  occurredAt: now,
+                                  snoozedUntil:
+                                      now.add(const Duration(minutes: 15)),
+                                ),
+                              );
+                            },
+                      child: Text(l10n.snooze15Minutes),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: _acting || _isFinal(dose.status)
+                          ? null
+                          : () => _act(
+                                () => widget.repository.skip(
+                                  dose.id,
+                                  occurredAt: DateTime.now().toUtc(),
+                                ),
+                              ),
+                      child: Text(l10n.skipThisDose),
+                    ),
+                    if (_isFinal(dose.status)) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _acting
+                            ? null
+                            : () => context.push(
+                                  '/doses/${dose.id}/correct'
+                                  '?status=${dose.status}',
+                                ),
+                        icon: const Icon(Icons.edit_outlined),
+                        label: Text(l10n.correctRecord),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    Text(
+                      l10n.takenConfirmationDisclaimer,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
-            ],
-            const SizedBox(height: 24),
-            Text(
-              l10n.takenConfirmationDisclaimer,
-              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
       ),
     );
   }
+
 }
