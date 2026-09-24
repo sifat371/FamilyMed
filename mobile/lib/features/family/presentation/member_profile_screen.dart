@@ -1,7 +1,11 @@
+import 'package:familymed/core/api/api_error.dart';
+import 'package:familymed/core/notifications/reminder_coordinator.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
 import 'package:familymed/features/family/presentation/family_relationship_label.dart';
+import 'package:familymed/features/medications/data/medication_lifecycle_repository.dart';
 import 'package:familymed/features/medications/data/medication_repository.dart';
 import 'package:familymed/features/medications/domain/member_medication.dart';
+import 'package:familymed/features/today/data/today_repository.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -148,13 +152,95 @@ class _EmptyMedicationCard extends StatelessWidget {
   }
 }
 
-class _MedicationCard extends StatelessWidget {
+class _MedicationCard extends ConsumerStatefulWidget {
   const _MedicationCard({required this.medication});
 
   final MemberMedication medication;
 
   @override
+  ConsumerState<_MedicationCard> createState() => _MedicationCardState();
+}
+
+class _MedicationCardState extends ConsumerState<_MedicationCard> {
+  bool _working = false;
+
+  Future<void> _runLifecycle(
+    Future<MemberMedication> Function() action,
+  ) async {
+    if (_working) return;
+    setState(() => _working = true);
+    final medication = widget.medication;
+    final l10n = AppLocalizations.of(context);
+    try {
+      await action();
+      try {
+        await ref.read(reminderCoordinatorProvider).refresh();
+      } on Object {
+        // Medication state is already canonical; local reminders reconcile later.
+      }
+      ref.invalidate(memberMedicationsProvider(medication.familyMemberId));
+      ref.invalidate(todayProvider);
+    } on ApiError catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.networkError)),
+      );
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _pause() {
+    return _runLifecycle(
+      () => ref
+          .read(medicationLifecycleRepositoryProvider)
+          .pause(widget.medication.id),
+    );
+  }
+
+  Future<void> _resume() {
+    return _runLifecycle(
+      () => ref
+          .read(medicationLifecycleRepositoryProvider)
+          .resume(widget.medication.id),
+    );
+  }
+
+  Future<void> _end() async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.endMedicineTitle),
+        content: Text(l10n.endMedicineBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.endMedicine),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _runLifecycle(
+      () => ref
+          .read(medicationLifecycleRepositoryProvider)
+          .end(widget.medication.id),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final medication = widget.medication;
     final l10n = AppLocalizations.of(context);
     final details = [
       if (medication.strength != null && medication.strength!.isNotEmpty)
@@ -162,6 +248,10 @@ class _MedicationCard extends StatelessWidget {
       if (medication.dosageForm != null && medication.dosageForm!.isNotEmpty)
         medication.dosageForm!,
     ].join(' • ');
+    final canEditRoutine =
+        medication.status == 'draft' ||
+        medication.status == 'active' ||
+        medication.status == 'paused';
 
     return Card(
       child: ListTile(
@@ -176,23 +266,56 @@ class _MedicationCard extends StatelessWidget {
               runSpacing: 4,
               children: [
                 TextButton(
-                  onPressed: () => context.push(
-                    '/family/${medication.familyMemberId}/medications/${medication.id}/edit',
-                  ),
+                  onPressed: _working
+                      ? null
+                      : () => context.push(
+                            '/family/${medication.familyMemberId}/medications/${medication.id}/edit',
+                          ),
                   child: Text(l10n.editMedicine),
                 ),
-                TextButton(
-                  onPressed: () => context.push(
-                    '/family/${medication.familyMemberId}/medications/${medication.id}/routine',
+                if (canEditRoutine)
+                  TextButton(
+                    onPressed: _working
+                        ? null
+                        : () => context.push(
+                              '/family/${medication.familyMemberId}/medications/${medication.id}/routine',
+                            ),
+                    child: Text(
+                      medication.status == 'draft'
+                          ? l10n.setRoutine
+                          : l10n.editRoutine,
+                    ),
                   ),
-                  child: Text(
-                    medication.status == 'draft'
-                        ? l10n.setRoutine
-                        : l10n.editRoutine,
+                if (medication.status == 'active')
+                  TextButton(
+                    key: Key('pauseMedication-${medication.id}'),
+                    onPressed: _working ? null : _pause,
+                    child: Text(l10n.pauseMedicine),
                   ),
-                ),
+                if (medication.status == 'paused')
+                  TextButton(
+                    key: Key('resumeMedication-${medication.id}'),
+                    onPressed: _working ? null : _resume,
+                    child: Text(l10n.resumeMedicine),
+                  ),
+                if (medication.status == 'active' ||
+                    medication.status == 'paused')
+                  TextButton(
+                    key: Key('endMedication-${medication.id}'),
+                    onPressed: _working ? null : _end,
+                    child: Text(
+                      l10n.endMedicine,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
               ],
             ),
+            if (_working) ...[
+              const SizedBox(height: 4),
+              const LinearProgressIndicator(),
+            ],
           ],
         ),
       ),
