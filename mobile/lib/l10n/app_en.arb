@@ -139,5 +139,11 @@
   "retry": "Retry",
   "strengthHint": "e.g. 500 mg",
   "dosageFormHint": "e.g. tablet, capsule, syrup",
-  "sourceInstructionHint": "Optional — copy the prescription wording if available"
+  "sourceInstructionHint": "Optional — copy the prescription wording if available",
+  "pauseMedicine": "Pause medicine",
+  "resumeMedicine": "Resume medicine",
+  "endMedicine": "End medicine",
+  "endMedicineTitle": "End this medicine?",
+  "endMedicineBody": "Future reminders and untouched doses will stop. Existing history will be kept.",
+  "cancel": "Cancel"
 }
