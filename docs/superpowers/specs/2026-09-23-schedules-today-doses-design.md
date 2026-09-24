@@ -525,7 +525,7 @@ Production rules:
 - schedule edit/pause/end/refresh reconciles local notifications with current cached/server dose IDs;
 - tapping a notification opens that dose's action screen;
 - Android notification permission is requested only from the user's Enable action;
-- exact-alarm permission is not required by this slice; use a plugin/platform scheduling mode that avoids restricted exact-alarm privileges and do not promise second-level exact delivery.
+- Android reminder delivery uses exact scheduling when the platform grants Alarms & reminders access, with inexact scheduling as a fallback when exact scheduling is unavailable or denied. Denying exact-alarm access must not deactivate the medication routine, and the UI must not promise second-level exact delivery. This decision supersedes the earlier inexact-only approach after physical-device testing showed materially delayed reminder delivery.
 
 ## 13. Offline Cache and Action Queue
 
