@@ -1,6 +1,8 @@
 import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/core/formatters/quantity_format.dart';
 import 'package:familymed/core/notifications/reminder_coordinator.dart';
+import 'package:familymed/core/theme/familymed_theme.dart';
+import 'package:familymed/core/widgets/familymed_ui.dart';
 import 'package:familymed/core/time/local_time_format.dart';
 import 'package:familymed/features/medications/data/medication_repository.dart';
 import 'package:familymed/features/schedules/data/schedule_repository.dart';
@@ -156,88 +158,128 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.setRoutine)),
+      appBar: AppBar(),
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(20),
+          child: Column(
             children: [
-              Text(
-                l10n.reminderPrescriptionDisclaimer,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 20),
-              TextFormField(
-                key: const Key('routineInstruction'),
-                controller: _instruction,
-                decoration: InputDecoration(
-                  labelText: l10n.sourceInstruction,
-                  hintText: l10n.sourceInstructionHint,
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: _mealRelation,
-                decoration: InputDecoration(labelText: l10n.mealRelation),
-                items: <String, String>{
-                  'unspecified': l10n.unspecified,
-                  'before_food': l10n.beforeFood,
-                  'after_food': l10n.afterFood,
-                  'with_food': l10n.withFood,
-                  'none': l10n.noMealRelation,
-                }
-                    .entries
-                    .map(
-                      (entry) => DropdownMenuItem(
-                        value: entry.key,
-                        child: Text(entry.value),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FamilyMedPill(label: l10n.setRoutine),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      l10n.setRoutine,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 18),
+                    FamilyMedSoftCard(
+                      child: Text(
+                        l10n.reminderPrescriptionDisclaimer,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: FamilyMedColors.primary,
+                            ),
                       ),
-                    )
-                    .toList(growable: false),
-                onChanged: (value) {
-                  if (value != null) setState(() => _mealRelation = value);
-                },
-              ),
-              const SizedBox(height: 20),
-              for (var index = 0; index < _rows.length; index++)
-                _RoutineRowFields(
-                  index: index,
-                  row: _rows[index],
-                  canRemove: _rows.length > 1,
-                  onTimeChanged: (value) {
-                    setState(() => _rows[index].time = value);
-                  },
-                  onRemove: () {
-                    setState(() {
-                      final row = _rows.removeAt(index);
-                      row.dispose();
-                    });
-                  },
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TextFormField(
+                              key: const Key('routineInstruction'),
+                              controller: _instruction,
+                              decoration: InputDecoration(
+                                labelText: l10n.sourceInstruction,
+                                hintText: l10n.sourceInstructionHint,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            DropdownButtonFormField<String>(
+                              initialValue: _mealRelation,
+                              decoration: InputDecoration(
+                                labelText: l10n.mealRelation,
+                              ),
+                              items: <String, String>{
+                                'unspecified': l10n.unspecified,
+                                'before_food': l10n.beforeFood,
+                                'after_food': l10n.afterFood,
+                                'with_food': l10n.withFood,
+                                'none': l10n.noMealRelation,
+                              }
+                                  .entries
+                                  .map(
+                                    (entry) => DropdownMenuItem(
+                                      value: entry.key,
+                                      child: Text(entry.value),
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _mealRelation = value);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    FamilyMedSectionLabel(l10n.reminderTime),
+                    const SizedBox(height: 10),
+                    for (var index = 0; index < _rows.length; index++)
+                      _RoutineRowFields(
+                        index: index,
+                        row: _rows[index],
+                        canRemove: _rows.length > 1,
+                        onTimeChanged: (value) {
+                          setState(() => _rows[index].time = value);
+                        },
+                        onRemove: () {
+                          setState(() {
+                            final row = _rows.removeAt(index);
+                            row.dispose();
+                          });
+                        },
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: _rows.length >= 8
+                          ? null
+                          : () => setState(() => _rows.add(_RoutineRow())),
+                      icon: const Icon(Icons.add),
+                      label: Text(l10n.addReminderTime),
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              TextButton.icon(
-                onPressed: _rows.length >= 8
-                    ? null
-                    : () => setState(() => _rows.add(_RoutineRow())),
-                icon: const Icon(Icons.add),
-                label: Text(l10n.addReminderTime),
               ),
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                child: FilledButton(
+                  onPressed: _loading ? null : _submit,
+                  child: _loading
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(l10n.saveRoutine),
                 ),
-              ],
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _loading ? null : _submit,
-                child: _loading
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(l10n.saveRoutine),
               ),
             ],
           ),
@@ -245,6 +287,7 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
       ),
     );
   }
+
 }
 
 class _RoutineRow {
