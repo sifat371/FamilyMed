@@ -141,7 +141,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('রিমাইন্ডারের সময় যোগ করুন'));
+    await tester.tap(find.byKey(const Key('addReminderTimeButton')));
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'রুটিন সংরক্ষণ করুন'));
     await tester.pump();
