@@ -490,7 +490,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Today'), findsOneWidget);
-    await tester.tap(find.text('8:00 AM • Pending'));
+    await tester.tap(find.byKey(const Key('doseCard-dose-1')));
     await tester.pumpAndSettle();
     expect(
       find.text('Taken status is based on family/user confirmation.'),
@@ -506,7 +506,7 @@ void main() {
 
     router.go('/today');
     await tester.pumpAndSettle();
-    await tester.tap(find.text('8:00 PM • Pending'));
+    await tester.tap(find.byKey(const Key('doseCard-dose-2')));
     await tester.pumpAndSettle();
 
     transport.online = false;
