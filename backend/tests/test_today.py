@@ -154,6 +154,36 @@ async def test_today_hides_ended_pending_but_preserves_final_and_history(
     assert str(pending.id) in active_ids
     assert str(taken.id) in active_ids
 
+    paused = await client.post(
+        f"/api/v1/member-medications/{medication['id']}/pause",
+        headers=_headers(auth),
+    )
+    assert paused.status_code == 200
+    while_paused = await client.get("/api/v1/today", headers=_headers(auth))
+    assert while_paused.status_code == 200
+    paused_ids = {
+        item["id"]
+        for group in while_paused.json()
+        for item in group["doses"]
+    }
+    assert str(pending.id) not in paused_ids
+    assert str(taken.id) in paused_ids
+
+    resumed = await client.post(
+        f"/api/v1/member-medications/{medication['id']}/resume",
+        headers=_headers(auth),
+    )
+    assert resumed.status_code == 200
+    after_resume = await client.get("/api/v1/today", headers=_headers(auth))
+    assert after_resume.status_code == 200
+    resumed_ids = {
+        item["id"]
+        for group in after_resume.json()
+        for item in group["doses"]
+    }
+    assert str(pending.id) in resumed_ids
+    assert str(taken.id) in resumed_ids
+
     ended = await client.post(
         f"/api/v1/member-medications/{medication['id']}/end",
         headers=_headers(auth),
