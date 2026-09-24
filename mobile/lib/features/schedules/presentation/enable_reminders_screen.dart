@@ -1,4 +1,6 @@
 import 'package:familymed/core/notifications/notification_providers.dart';
+import 'package:familymed/core/theme/familymed_theme.dart';
+import 'package:familymed/core/widgets/familymed_ui.dart';
 import 'package:familymed/core/notifications/reminder_coordinator.dart';
 import 'package:familymed/features/schedules/data/notification_preference_repository.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
@@ -114,55 +116,80 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.reminderSettings)),
+      appBar: AppBar(),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FamilyMedPill(label: l10n.enableReminders),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                l10n.reminderSettings,
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 18),
               if (_loadingPreference)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 20),
-                  child: LinearProgressIndicator(),
-                )
-              else ...[
-                Row(
-                  children: [
-                    Icon(
-                      _enabled == true
-                          ? Icons.notifications_active_outlined
-                          : Icons.notifications_off_outlined,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _enabled == true ? l10n.remindersOn : l10n.remindersOff,
+                const LinearProgressIndicator()
+              else
+                FamilyMedSoftCard(
+                  child: Row(
+                    children: [
+                      Icon(
+                        _enabled == true
+                            ? Icons.notifications_active_outlined
+                            : Icons.notifications_off_outlined,
+                        color: FamilyMedColors.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _enabled == true
+                              ? l10n.remindersOn
+                              : l10n.remindersOff,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(17),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.enableReminders,
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.enableRemindersBody,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.reminderPermissionNote,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 20),
-              ],
-              Text(
-                l10n.enableRemindersBody,
-                style: Theme.of(context).textTheme.bodyLarge,
               ),
-              const SizedBox(height: 8),
-              Text(
-                l10n.reminderPermissionNote,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 20),
               if (_message != null) ...[
-                Text(_message!),
                 const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: () => context.go('/today'),
-                  child: Text(l10n.continueToToday),
+                Text(
+                  _message!,
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
+              const Spacer(),
               if (_enabled != true)
                 FilledButton(
                   onPressed: _loading || _loadingPreference ? null : _enable,
@@ -173,6 +200,7 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
                   onPressed: _loading || _loadingPreference ? null : _disable,
                   child: Text(l10n.disableReminders),
                 ),
+              const SizedBox(height: 10),
               TextButton(
                 onPressed: _loading ? null : () => context.go('/today'),
                 child: Text(l10n.continueToToday),
@@ -183,4 +211,5 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
       ),
     );
   }
+
 }
