@@ -40,6 +40,7 @@ class DoseCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
+        key: Key('doseCard-${dose.id}'),
         color: background,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
