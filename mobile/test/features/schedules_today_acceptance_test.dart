@@ -474,6 +474,10 @@ void main() {
       find.byKey(const Key('routineInstruction')),
       '1+0+1 PC',
     );
+    await tester.ensureVisible(
+      find.byKey(const Key('addReminderTimeButton')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('addReminderTimeButton')));
     await tester.pump();
     await tester.tap(find.byKey(const Key('routineTime1')));
