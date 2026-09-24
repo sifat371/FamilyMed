@@ -1,10 +1,10 @@
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
 from app.doses.models import ScheduledDose
-from zoneinfo import ZoneInfo
 
 
 def _headers(auth: dict[str, object]) -> dict[str, str]:
