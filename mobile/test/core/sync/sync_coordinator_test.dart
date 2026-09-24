@@ -253,4 +253,57 @@ void main() {
   });
 
 
+
+  test('inactive lifecycle conflict drops stale queued dose action and cache',
+      () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    await db.customInsert(
+      'INSERT INTO cached_doses '
+      '(dose_id, schedule_id, member_id, medication_id, medication_name, '
+      'quantity_text, unit, scheduled_at, scheduled_local_date, '
+      'scheduled_local_time, timezone, status, effective_reminder_at, '
+      'updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      variables: [
+        const Variable<String>('dose-1'),
+        const Variable<String>('schedule-1'),
+        const Variable<String>('member-1'),
+        const Variable<String>('med-1'),
+        const Variable<String>('Napa'),
+        const Variable<String>('1'),
+        const Variable<String>('tablet'),
+        Variable<DateTime>(DateTime.utc(2026, 9, 24, 17)),
+        const Variable<String>('2026-09-24'),
+        const Variable<String>('23:00'),
+        const Variable<String>('Asia/Dhaka'),
+        const Variable<String>('pending'),
+        Variable<DateTime>(DateTime.utc(2026, 9, 24, 17)),
+        Variable<DateTime>(DateTime.utc(2026, 9, 24, 17)),
+      ],
+    );
+    await _seedOperation(db, operationId: 'action-inactive');
+
+    final transport = FakeSyncTransport()
+      ..error = const ApiError(
+        code: 'MEDICATION_NOT_ACTIVE',
+        message: 'Medication is not active.',
+        statusCode: 409,
+      );
+    final coordinator = SyncCoordinator(database: db, transport: transport);
+    addTearDown(coordinator.dispose);
+
+    final eventFuture = coordinator.events.first;
+    await coordinator.drain();
+
+    final operationCount = await db.customSelect(
+      'SELECT COUNT(*) AS count FROM sync_operations',
+    ).getSingle();
+    final doseCount = await db.customSelect(
+      'SELECT COUNT(*) AS count FROM cached_doses',
+    ).getSingle();
+    expect(operationCount.read<int>('count'), 0);
+    expect(doseCount.read<int>('count'), 0);
+    expect((await eventFuture).kind, SyncEventKind.recordChanged);
+  });
+
 }
