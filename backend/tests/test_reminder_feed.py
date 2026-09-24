@@ -93,6 +93,7 @@ async def test_reminder_feed_only_returns_enabled_members(client):
     assert enabled.status_code == 200
     assert enabled.json()
     assert {dose["family_member_id"] for dose in enabled.json()} == {member["id"]}
+    assert {dose["family_member_name"] for dose in enabled.json()} == {"Amma"}
 
 
 async def test_reminder_feed_validates_days(client):
