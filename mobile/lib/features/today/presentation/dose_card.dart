@@ -18,15 +18,44 @@ class DoseCard extends StatelessWidget {
     final name = dose.strength == null || dose.strength!.isEmpty
         ? dose.medicationName
         : '${dose.medicationName} ${dose.strength}';
-    final status = _statusLabel(l10n, dose.status);
+    final snoozed = dose.status == 'pending' && dose.snoozedUntil != null;
+    final status = snoozed
+        ? l10n.snoozedStatus
+        : _statusLabel(l10n, dose.status);
     final icon = _statusIcon(dose.status);
+
+    final subtitle = snoozed
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                l10n.snoozedUntil(
+                  formatInstantInTimezone12h(
+                    context,
+                    dose.snoozedUntil!,
+                    dose.timezone,
+                  ),
+                ),
+              ),
+              Text(
+                l10n.scheduledTime(
+                  formatLocalTime12h(context, dose.scheduledLocalTime),
+                ),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          )
+        : Text(
+            '${formatLocalTime12h(context, dose.scheduledLocalTime)} • $status',
+          );
 
     return Card(
       child: ListTile(
         onTap: () => context.push('/doses/${dose.id}'),
         leading: Icon(icon, semanticLabel: status),
         title: Text(name),
-        subtitle: Text('${formatLocalTime12h(context, dose.scheduledLocalTime)} • $status'),
+        subtitle: subtitle,
         trailing: Text(status),
       ),
     );
