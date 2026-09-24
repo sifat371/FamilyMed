@@ -255,12 +255,14 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
                         label: Text(l10n.correctRecord),
                       ),
                     ],
-                    const SizedBox(height: 18),
-                    Text(
-                      l10n.takenConfirmationDisclaimer,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                    if (memberName != null && memberName.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      Text(
+                        l10n.takenConfirmationDisclaimer,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                   ],
                 ),
               ),
