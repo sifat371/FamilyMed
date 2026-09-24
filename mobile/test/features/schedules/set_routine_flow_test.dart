@@ -141,6 +141,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(
+      find.byKey(const Key('addReminderTimeButton')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('addReminderTimeButton')));
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'রুটিন সংরক্ষণ করুন'));
