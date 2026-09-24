@@ -116,10 +116,28 @@ class _DoseActionScreenState extends ConsumerState<DoseActionScreen> {
                 formatLocalTime12h(context, dose.scheduledLocalTime),
               ),
             ),
+            if (dose.status == 'pending' && dose.snoozedUntil != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                l10n.snoozedUntil(
+                  formatInstantInTimezone12h(
+                    context,
+                    dose.snoozedUntil!,
+                    dose.timezone,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerLeft,
-              child: Chip(label: Text(_statusLabel(l10n, dose.status))),
+              child: Chip(
+                label: Text(
+                  dose.status == 'pending' && dose.snoozedUntil != null
+                      ? l10n.snoozedStatus
+                      : _statusLabel(l10n, dose.status),
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             if (_error != null) ...[
