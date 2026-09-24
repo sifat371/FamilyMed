@@ -5,6 +5,7 @@ from uuid import uuid4
 from sqlalchemy import func, select
 
 from app.doses.models import DoseLog, ScheduledDose
+from app.doses.projections import build_today
 from app.doses.reconciliation import reconcile_schedule
 from app.families.models import Family, FamilyMember, FamilyMembership
 from app.medications.models import MemberMedication
@@ -203,3 +204,41 @@ async def test_natural_completion_waits_for_final_end_date_dose(db_session):
         .where(DoseLog.scheduled_dose_id == dose.id, DoseLog.action == "missed")
     )
     assert missed_count == 1
+
+
+async def test_local_day_rollover_shows_new_occurrence_without_resetting_prior_final(
+    db_session,
+):
+    medication, schedule, prior = await _seed_dose(db_session)
+    prior.scheduled_at = datetime(2026, 9, 24, 2, 0, tzinfo=UTC)
+    prior.scheduled_local_date = date(2026, 9, 24)
+    prior.scheduled_local_time = time(8, 0)
+    prior.status = "taken"
+    prior.taken_at = datetime(2026, 9, 24, 2, 5, tzinfo=UTC)
+    await db_session.flush()
+
+    before_midnight = await build_today(
+        db_session,
+        medication.created_by_user_id,
+        datetime(2026, 9, 24, 17, 59, tzinfo=UTC),
+    )
+    assert before_midnight[0].local_date == date(2026, 9, 24)
+    assert any(
+        item.id == prior.id and item.status == "taken"
+        for item in before_midnight[0].doses
+    )
+
+    after_midnight = await build_today(
+        db_session,
+        medication.created_by_user_id,
+        datetime(2026, 9, 24, 18, 1, tzinfo=UTC),
+    )
+    assert after_midnight[0].local_date == date(2026, 9, 25)
+    assert any(
+        item.scheduled_local_date == date(2026, 9, 25)
+        for item in after_midnight[0].doses
+    )
+
+    await db_session.refresh(prior)
+    assert prior.status == "taken"
+    assert prior.taken_at == datetime(2026, 9, 24, 2, 5, tzinfo=UTC)
