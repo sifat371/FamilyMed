@@ -55,6 +55,7 @@ class DoseProjection(BaseModel):
 
 
 class TodayDoseResponse(DoseProjection):
+    family_member_name: str
     medication_name: str
     strength: str | None
     effective_reminder_at: datetime

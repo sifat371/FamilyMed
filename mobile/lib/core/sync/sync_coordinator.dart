@@ -115,6 +115,17 @@ class SyncCoordinator {
         await _deleteOperation(row.operationId);
       } on ApiError catch (error) {
         if (error.statusCode == 409) {
+          if (error.code == 'MEDICATION_NOT_ACTIVE') {
+            await _discardInactiveDose(row.doseId);
+            _events.add(
+              SyncEvent(
+                kind: SyncEventKind.recordChanged,
+                doseId: row.doseId,
+                message: error.message,
+              ),
+            );
+            continue;
+          }
           final current = error.details['current'];
           if (current is Map) {
             await _replaceCachedDose(
@@ -187,6 +198,25 @@ class SyncCoordinator {
     }
   }
 
+  Future<void> _discardInactiveDose(String doseId) {
+    return _database.transaction(() async {
+      await (_database.delete(_database.cachedDoses)
+            ..where(
+              (dose) =>
+                  dose.doseId.equals(doseId) &
+                  dose.userId.equals(_userId),
+            ))
+          .go();
+      await (_database.delete(_database.syncOperations)
+            ..where(
+              (operation) =>
+                  operation.doseId.equals(doseId) &
+                  operation.userId.equals(_userId),
+            ))
+          .go();
+    });
+  }
+
   Future<void> _deleteOperation(String operationId) {
     return (_database.delete(_database.syncOperations)
           ..where(
@@ -247,6 +277,10 @@ class SyncCoordinator {
     final reminderEligible = _isFinal(dose.status)
         ? false
         : existing?.reminderEligible ?? false;
+    final memberName = dose.familyMemberName ??
+        (existing == null || existing.memberName.isEmpty
+            ? null
+            : existing.memberName);
 
     await _database.into(_database.cachedDoses).insertOnConflictUpdate(
           CachedDosesCompanion.insert(
@@ -255,6 +289,7 @@ class SyncCoordinator {
             reminderEligible: Value<bool>(reminderEligible),
             scheduleId: dose.scheduleId,
             memberId: dose.familyMemberId,
+            memberName: Value<String>(memberName ?? ''),
             medicationId: dose.memberMedicationId,
             medicationName: dose.medicationName,
             strength: Value<String?>(dose.strength),

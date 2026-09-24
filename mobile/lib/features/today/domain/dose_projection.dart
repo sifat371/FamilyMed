@@ -3,6 +3,7 @@ class DoseProjection {
     required this.id,
     required this.scheduleId,
     required this.familyMemberId,
+    this.familyMemberName,
     required this.memberMedicationId,
     required this.medicationName,
     this.strength,
@@ -24,6 +25,7 @@ class DoseProjection {
   final String id;
   final String scheduleId;
   final String familyMemberId;
+  final String? familyMemberName;
   final String memberMedicationId;
   final String medicationName;
   final String? strength;
@@ -47,6 +49,7 @@ class DoseProjection {
       id: json['id'].toString(),
       scheduleId: json['schedule_id'].toString(),
       familyMemberId: json['family_member_id'].toString(),
+      familyMemberName: _optionalText(json['family_member_name']),
       memberMedicationId: json['member_medication_id'].toString(),
       medicationName: _medicationName(json),
       strength: _optionalText(
@@ -86,6 +89,7 @@ class DoseProjection {
       id: id,
       scheduleId: scheduleId,
       familyMemberId: familyMemberId,
+      familyMemberName: familyMemberName,
       memberMedicationId: memberMedicationId,
       medicationName: medicationName,
       strength: strength,

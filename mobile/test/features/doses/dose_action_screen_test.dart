@@ -35,7 +35,7 @@ class _FakeScheduler implements NotificationScheduler {
   Future<void> snoozeDose(DoseProjection dose) async {}
 }
 
-Future<DoseRepository> _repository() async {
+Future<DoseRepository> _repository({DateTime? snoozedUntil}) async {
   final db = AppDatabase.forTesting(NativeDatabase.memory());
   await db.customInsert(
     'INSERT INTO cached_doses '
@@ -63,6 +63,18 @@ Future<DoseRepository> _repository() async {
       Variable<DateTime>(DateTime.utc(2026, 9, 23, 13)),
     ],
   );
+  if (snoozedUntil != null) {
+    await db.customUpdate(
+      'UPDATE cached_doses '
+      'SET snoozed_until = ?, effective_reminder_at = ? '
+      'WHERE dose_id = ?',
+      variables: [
+        Variable<DateTime>(snoozedUntil),
+        Variable<DateTime>(snoozedUntil),
+        const Variable<String>('dose-1'),
+      ],
+    );
+  }
   return DoseRepository(
     database: db,
     syncCoordinator: SyncCoordinator(database: db, transport: _OfflineTransport()),
@@ -100,4 +112,32 @@ void main() {
     expect(find.text('Snooze 15 min'), findsOneWidget);
     expect(find.text('Skip this dose'), findsOneWidget);
   });
+
+  testWidgets('snoozed pending dose shows snoozed-until time', (tester) async {
+    final repository = await _repository(
+      snoozedUntil: DateTime.utc(2026, 9, 23, 14, 15),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: DoseActionScreen(
+          doseId: 'dose-1',
+          repository: repository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Snoozed'), findsOneWidget);
+    expect(find.text('Snoozed until 8:15 PM'), findsOneWidget);
+    expect(find.text('Scheduled 8:00 PM'), findsOneWidget);
+  });
+
 }

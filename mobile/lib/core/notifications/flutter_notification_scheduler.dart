@@ -93,7 +93,7 @@ class FlutterNotificationScheduler implements NotificationScheduler {
 
     await _plugin.zonedSchedule(
       notificationIdForDose(dose.id),
-      dose.medicationName,
+      notificationTitleForDose(dose),
       '${compactQuantity(dose.quantityText)} ${dose.unit}',
       at,
       const NotificationDetails(
@@ -123,4 +123,13 @@ class FlutterNotificationScheduler implements NotificationScheduler {
 
   bool _isFinal(String status) =>
       status == 'taken' || status == 'skipped' || status == 'missed';
+}
+
+
+String notificationTitleForDose(DoseProjection dose) {
+  final medicine = dose.strength == null || dose.strength!.trim().isEmpty
+      ? dose.medicationName
+      : '${dose.medicationName} ${dose.strength}';
+  final member = dose.familyMemberName?.trim();
+  return member == null || member.isEmpty ? medicine : '$member · $medicine';
 }

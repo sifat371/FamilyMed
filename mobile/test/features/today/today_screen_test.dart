@@ -29,6 +29,8 @@ DoseProjection dose({
   required String name,
   required String status,
   required String localTime,
+  DateTime? snoozedUntil,
+  DateTime? effectiveReminderAt,
 }) {
   return DoseProjection(
     id: id,
@@ -45,7 +47,9 @@ DoseProjection dose({
     unit: 'tablet',
     mealRelation: 'after_food',
     status: status,
-    effectiveReminderAt: DateTime.utc(2026, 9, 23, 2),
+    snoozedUntil: snoozedUntil,
+    effectiveReminderAt:
+        effectiveReminderAt ?? DateTime.utc(2026, 9, 23, 2),
   );
 }
 
@@ -124,4 +128,82 @@ void main() {
     expect(find.text('Amma'), findsOneWidget);
     expect(find.text('Pending'), findsOneWidget);
   });
+
+  testWidgets('snoozed dose explains effective reminder time', (tester) async {
+    final snoozed = TodayLoadResult(
+      isOffline: false,
+      groups: [
+        TodayMemberGroup(
+          memberId: 'member-1',
+          name: 'Amma',
+          relationship: 'mother',
+          localDate: '2026-09-23',
+          timezone: 'Asia/Dhaka',
+          takenCount: 0,
+          totalCount: 1,
+          doses: [
+            dose(
+              id: 'snoozed',
+              name: 'Metformin',
+              status: 'pending',
+              localTime: '20:00',
+              snoozedUntil: DateTime.utc(2026, 9, 23, 14, 15),
+              effectiveReminderAt: DateTime.utc(2026, 9, 23, 14, 15),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    await pumpToday(tester, loadResult: snoozed);
+
+    expect(find.text('Snoozed'), findsOneWidget);
+    expect(find.text('Snoozed until 8:15 PM'), findsOneWidget);
+    expect(find.text('Scheduled 8:00 PM'), findsOneWidget);
+  });
+
+
+  testWidgets('snoozed dose ordering matches its visible effective time',
+      (tester) async {
+    final ordered = TodayLoadResult(
+      isOffline: false,
+      groups: [
+        TodayMemberGroup(
+          memberId: 'member-1',
+          name: 'Amma',
+          relationship: 'mother',
+          localDate: '2026-09-23',
+          timezone: 'Asia/Dhaka',
+          takenCount: 0,
+          totalCount: 2,
+          doses: [
+            dose(
+              id: 'later-scheduled',
+              name: 'Amlodipine',
+              status: 'pending',
+              localTime: '20:10',
+              effectiveReminderAt: DateTime.utc(2026, 9, 23, 14, 10),
+            ),
+            dose(
+              id: 'earlier-snoozed',
+              name: 'Metformin',
+              status: 'pending',
+              localTime: '20:00',
+              snoozedUntil: DateTime.utc(2026, 9, 23, 14, 15),
+              effectiveReminderAt: DateTime.utc(2026, 9, 23, 14, 15),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    await pumpToday(tester, loadResult: ordered);
+
+    final amlodipine = tester.getTopLeft(find.text('Amlodipine 5 mg')).dy;
+    final metformin = tester.getTopLeft(find.text('Metformin 500 mg')).dy;
+    expect(amlodipine, lessThan(metformin));
+    expect(find.text('Snoozed until 8:15 PM'), findsOneWidget);
+    expect(find.text('Scheduled 8:00 PM'), findsOneWidget);
+  });
+
 }

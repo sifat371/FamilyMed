@@ -7,6 +7,7 @@ class CachedDoses extends Table {
       boolean().withDefault(const Constant<bool>(false))();
   TextColumn get scheduleId => text()();
   TextColumn get memberId => text()();
+  TextColumn get memberName => text().withDefault(const Constant(''))();
   TextColumn get medicationId => text()();
   TextColumn get medicationName => text()();
   TextColumn get strength => text().nullable()();

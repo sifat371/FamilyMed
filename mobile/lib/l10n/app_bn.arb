@@ -145,5 +145,14 @@
   "endMedicine": "ওষুধ শেষ করুন",
   "endMedicineTitle": "এই ওষুধটি শেষ করবেন?",
   "endMedicineBody": "ভবিষ্যতের রিমাইন্ডার ও অনস্পর্শিত ডোজ বন্ধ হবে। আগের ইতিহাস সংরক্ষিত থাকবে।",
-  "cancel": "বাতিল"
+  "cancel": "বাতিল",
+  "snoozedStatus": "পরে মনে করানো হবে",
+  "snoozedUntil": "{time} পর্যন্ত পরে মনে করানো হয়েছে",
+  "@snoozedUntil": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  }
 }

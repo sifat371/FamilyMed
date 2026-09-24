@@ -213,6 +213,7 @@ class DoseRepository {
       id: row.doseId,
       scheduleId: row.scheduleId,
       familyMemberId: row.memberId,
+      familyMemberName: row.memberName.isEmpty ? null : row.memberName,
       memberMedicationId: row.medicationId,
       medicationName: row.medicationName,
       strength: row.strength,

@@ -145,5 +145,14 @@
   "endMedicine": "End medicine",
   "endMedicineTitle": "End this medicine?",
   "endMedicineBody": "Future reminders and untouched doses will stop. Existing history will be kept.",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "snoozedStatus": "Snoozed",
+  "snoozedUntil": "Snoozed until {time}",
+  "@snoozedUntil": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  }
 }
