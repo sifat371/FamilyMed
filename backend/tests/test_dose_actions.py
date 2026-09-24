@@ -262,3 +262,90 @@ async def test_finalized_conflict_returns_current_projection_for_offline_reconci
     current = response.json()["error"]["details"]["current"]
     assert current["id"] == str(dose.id)
     assert current["status"] == "skipped"
+
+
+async def test_inactive_lifecycle_rejects_new_actions_but_keeps_idempotent_retries(
+    client,
+    db_session,
+):
+    auth, first = await _seed_dose(
+        client,
+        db_session,
+        "dose-inactive-lifecycle@example.com",
+    )
+    doses = list(
+        (
+            await db_session.scalars(
+                select(ScheduledDose)
+                .where(ScheduledDose.schedule_id == first.schedule_id)
+                .order_by(ScheduledDose.scheduled_at)
+                .limit(3)
+            )
+        ).all()
+    )
+    assert len(doses) == 3
+    for dose in doses:
+        dose.status = "pending"
+    await db_session.flush()
+
+    paused = await client.post(
+        f"/api/v1/member-medications/{first.member_medication_id}/pause",
+        headers=_headers(auth),
+    )
+    assert paused.status_code == 200
+
+    now = datetime.now(UTC)
+    paused_action = await client.post(
+        f"/api/v1/doses/{doses[0].id}/snooze",
+        headers=_headers(auth),
+        json={
+            "client_action_id": str(uuid4()),
+            "occurred_at": now.isoformat(),
+            "snoozed_until": (now + timedelta(minutes=15)).isoformat(),
+        },
+    )
+    assert paused_action.status_code == 409
+    assert paused_action.json()["error"]["code"] == "MEDICATION_NOT_ACTIVE"
+
+    resumed = await client.post(
+        f"/api/v1/member-medications/{first.member_medication_id}/resume",
+        headers=_headers(auth),
+    )
+    assert resumed.status_code == 200
+
+    action_id = uuid4()
+    payload = {
+        "client_action_id": str(action_id),
+        "occurred_at": datetime.now(UTC).isoformat(),
+    }
+    accepted = await client.post(
+        f"/api/v1/doses/{doses[1].id}/taken",
+        headers=_headers(auth),
+        json=payload,
+    )
+    assert accepted.status_code == 200
+
+    ended = await client.post(
+        f"/api/v1/member-medications/{first.member_medication_id}/end",
+        headers=_headers(auth),
+    )
+    assert ended.status_code == 200
+
+    duplicate = await client.post(
+        f"/api/v1/doses/{doses[1].id}/taken",
+        headers=_headers(auth),
+        json=payload,
+    )
+    assert duplicate.status_code == 200
+    assert duplicate.json()["status"] == "taken"
+
+    ended_action = await client.post(
+        f"/api/v1/doses/{doses[2].id}/taken",
+        headers=_headers(auth),
+        json={
+            "client_action_id": str(uuid4()),
+            "occurred_at": datetime.now(UTC).isoformat(),
+        },
+    )
+    assert ended_action.status_code == 409
+    assert ended_action.json()["error"]["code"] == "MEDICATION_NOT_ACTIVE"
