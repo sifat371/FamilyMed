@@ -247,6 +247,10 @@ class SyncCoordinator {
     final reminderEligible = _isFinal(dose.status)
         ? false
         : existing?.reminderEligible ?? false;
+    final memberName = dose.familyMemberName ??
+        (existing == null || existing.memberName.isEmpty
+            ? null
+            : existing.memberName);
 
     await _database.into(_database.cachedDoses).insertOnConflictUpdate(
           CachedDosesCompanion.insert(
@@ -255,6 +259,7 @@ class SyncCoordinator {
             reminderEligible: Value<bool>(reminderEligible),
             scheduleId: dose.scheduleId,
             memberId: dose.familyMemberId,
+            memberName: Value<String>(memberName ?? ''),
             medicationId: dose.memberMedicationId,
             medicationName: dose.medicationName,
             strength: Value<String?>(dose.strength),
