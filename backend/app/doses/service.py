@@ -8,6 +8,8 @@ from app.doses.models import DoseLog, ScheduledDose
 from app.doses.reconciliation import reconcile_schedule
 from app.doses.repository import get_log_by_client_action_id, require_accessible_dose
 from app.doses.schemas import CorrectionRequest, DoseActionRequest, DoseProjection, SnoozeRequest
+from app.medications.models import MemberMedication
+from app.schedules.models import MedicationSchedule
 
 _FINAL_STATUSES = {"taken", "skipped", "missed"}
 
@@ -60,8 +62,6 @@ async def snooze_dose(
 ) -> ScheduledDose:
     now = _server_now(now_utc)
     dose = await require_accessible_dose(session, user_id, dose_id, for_write=True)
-    await reconcile_schedule(session, dose.schedule_id, now)
-    await session.refresh(dose)
 
     duplicate = await _check_idempotency(
         session,
@@ -71,6 +71,10 @@ async def snooze_dose(
     )
     if duplicate:
         return dose
+
+    await _require_active_lifecycle(session, dose)
+    await reconcile_schedule(session, dose.schedule_id, now)
+    await session.refresh(dose)
 
     occurred_at = _validate_action_time(payload.occurred_at, now)
     snoozed_until = _require_aware_utc(payload.snoozed_until, "snoozed_until")
@@ -178,8 +182,6 @@ async def _apply_ordinary_action(
 ) -> ScheduledDose:
     now = _server_now(now_utc)
     dose = await require_accessible_dose(session, user_id, dose_id, for_write=True)
-    await reconcile_schedule(session, dose.schedule_id, now)
-    await session.refresh(dose)
 
     duplicate = await _check_idempotency(
         session,
@@ -189,6 +191,20 @@ async def _apply_ordinary_action(
     )
     if duplicate:
         return dose
+
+    if dose.status in _FINAL_STATUSES:
+        raise ApiError(
+            409,
+            "DOSE_ALREADY_FINALIZED",
+            "Dose is already finalized.",
+            {
+                "current": DoseProjection.model_validate(dose).model_dump(mode="json"),
+            },
+        )
+
+    await _require_active_lifecycle(session, dose)
+    await reconcile_schedule(session, dose.schedule_id, now)
+    await session.refresh(dose)
 
     occurred_at = _validate_action_time(payload.occurred_at, now)
     if dose.status in _FINAL_STATUSES:
@@ -224,6 +240,25 @@ async def _apply_ordinary_action(
     await session.commit()
     await session.refresh(dose)
     return dose
+
+
+async def _require_active_lifecycle(
+    session: AsyncSession,
+    dose: ScheduledDose,
+) -> None:
+    medication = await session.get(MemberMedication, dose.member_medication_id)
+    schedule = await session.get(MedicationSchedule, dose.schedule_id)
+    if (
+        medication is None
+        or schedule is None
+        or medication.status != "active"
+        or schedule.status != "active"
+    ):
+        raise ApiError(
+            409,
+            "MEDICATION_NOT_ACTIVE",
+            "Medication is not active.",
+        )
 
 
 async def _check_idempotency(
