@@ -154,5 +154,29 @@
         "type": "String"
       }
     }
+  },
+  "careForSubtitle": "শুরু করতে একজনকে বেছে নিন। পরে অন্যদেরও যোগ করতে পারবেন।",
+  "familyProfileIntro": "এই প্রোফাইলটি ওষুধ ও রিমাইন্ডার গুছিয়ে রাখতে ব্যবহার করা হবে।",
+  "privacyMedicationCare": "ওষুধের যত্নের জন্য যতটুকু তথ্য দরকার, শুধু সেটুকুই প্রয়োজন।",
+  "addMedicineSection": "ওষুধ যোগ করুন",
+  "youStayInControl": "নিয়ন্ত্রণ আপনার হাতে",
+  "aiSuggestionSafety": "AI-এর কোনো পরামর্শ আপনি ওষুধ ও রুটিন দেখে নিশ্চিত না করা পর্যন্ত সক্রিয় হবে না।",
+  "todaysCare": "আজকের যত্ন",
+  "familyCare": "পরিবারের যত্ন",
+  "doseForMember": "{member}-এর ডোজ",
+  "markDoseCareNote": "{member} ওষুধটি নেওয়ার পরেই এই ডোজটি নেওয়া হয়েছে হিসেবে চিহ্নিত করুন।",
+  "@doseForMember": {
+    "placeholders": {
+      "member": {
+        "type": "String"
+      }
+    }
+  },
+  "@markDoseCareNote": {
+    "placeholders": {
+      "member": {
+        "type": "String"
+      }
+    }
   }
 }

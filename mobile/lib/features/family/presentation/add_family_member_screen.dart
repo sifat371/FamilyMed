@@ -1,4 +1,6 @@
 import 'package:familymed/core/api/api_error.dart';
+import 'package:familymed/core/theme/familymed_theme.dart';
+import 'package:familymed/core/widgets/familymed_ui.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
 import 'package:familymed/features/family/presentation/family_relationship_label.dart';
 import 'package:familymed/l10n/app_localizations.dart';
@@ -123,106 +125,147 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.familyProfile)),
+      appBar: AppBar(),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextFormField(
-                  key: const Key('familyName'),
-                  controller: _nameController,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(labelText: l10n.familyMemberName),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return l10n.requiredFieldError;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  key: const Key('familyRelationship'),
-                  initialValue: _relationship,
-                  decoration: InputDecoration(labelText: l10n.relationshipLabel),
-                  items: const [
-                    'parent',
-                    'mother',
-                    'father',
-                    'spouse',
-                    'child',
-                    'myself',
-                    'other',
-                  ]
-                      .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text(familyRelationshipLabel(l10n, value)),
-                        ),
-                      )
-                      .toList(growable: false),
-                  onChanged: _submitting
-                      ? null
-                      : (value) {
-                          if (value != null) {
-                            setState(() => _relationship = value);
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: FamilyMedPill(label: l10n.familyProfile),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        l10n.addFamilyMember,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        l10n.familyProfileIntro,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: FamilyMedColors.textSecondary,
+                            ),
+                      ),
+                      const SizedBox(height: 26),
+                      TextFormField(
+                        key: const Key('familyName'),
+                        controller: _nameController,
+                        textInputAction: TextInputAction.next,
+                        decoration:
+                            InputDecoration(labelText: l10n.familyMemberName),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return l10n.requiredFieldError;
                           }
+                          return null;
                         },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  key: const Key('familyDob'),
-                  controller: _dobController,
-                  readOnly: true,
-                  onTap: _submitting ? null : _pickDob,
-                  decoration: InputDecoration(
-                    labelText: l10n.dateOfBirth,
-                    hintText: 'YYYY-MM-DD',
-                    suffixIcon: _dobController.text.isEmpty
-                        ? const Icon(Icons.calendar_today_outlined)
-                        : IconButton(
-                            onPressed: _submitting
-                                ? null
-                                : () => setState(_dobController.clear),
-                            icon: const Icon(Icons.clear),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        key: const Key('familyRelationship'),
+                        initialValue: _relationship,
+                        decoration:
+                            InputDecoration(labelText: l10n.relationshipLabel),
+                        items: const [
+                          'parent',
+                          'mother',
+                          'father',
+                          'spouse',
+                          'child',
+                          'myself',
+                          'other',
+                        ]
+                            .map(
+                              (value) => DropdownMenuItem(
+                                value: value,
+                                child: Text(
+                                  familyRelationshipLabel(l10n, value),
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: _submitting
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _relationship = value);
+                                }
+                              },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        key: const Key('familyDob'),
+                        controller: _dobController,
+                        readOnly: true,
+                        onTap: _submitting ? null : _pickDob,
+                        decoration: InputDecoration(
+                          labelText: l10n.dateOfBirth,
+                          hintText: 'YYYY-MM-DD',
+                          suffixIcon: _dobController.text.isEmpty
+                              ? const Icon(Icons.calendar_today_outlined)
+                              : IconButton(
+                                  onPressed: _submitting
+                                      ? null
+                                      : () => setState(_dobController.clear),
+                                  icon: const Icon(Icons.clear),
+                                ),
+                        ),
+                        validator: _validateDob,
+                      ),
+                      const SizedBox(height: 20),
+                      FamilyMedSectionLabel(l10n.preferredLanguage),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: Text(l10n.banglaLanguage),
+                            selected: _preferredLanguage == 'bn',
+                            onSelected: (_) => setState(
+                              () => _preferredLanguage = 'bn',
+                            ),
                           ),
+                          ChoiceChip(
+                            label: Text(l10n.englishLanguage),
+                            selected: _preferredLanguage == 'en',
+                            onSelected: (_) => setState(
+                              () => _preferredLanguage = 'en',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      FamilyMedSoftCard(
+                        child: Text(
+                          l10n.privacyMedicationCare,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: FamilyMedColors.primary,
+                              ),
+                        ),
+                      ),
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  validator: _validateDob,
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  l10n.preferredLanguage,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: Text(l10n.banglaLanguage),
-                      selected: _preferredLanguage == 'bn',
-                      onSelected: (_) => setState(() => _preferredLanguage = 'bn'),
-                    ),
-                    ChoiceChip(
-                      label: Text(l10n.englishLanguage),
-                      selected: _preferredLanguage == 'en',
-                      onSelected: (_) => setState(() => _preferredLanguage = 'en'),
-                    ),
-                  ],
-                ),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    _errorMessage!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
-                  ),
-                ],
-                const SizedBox(height: 28),
-                FilledButton(
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                child: FilledButton(
                   onPressed: _submitting ? null : _submit,
                   child: _submitting
                       ? const SizedBox.square(
@@ -231,11 +274,12 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
                         )
                       : Text(l10n.addFamilyMember),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+
 }

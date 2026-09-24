@@ -1,3 +1,5 @@
+import 'package:familymed/core/theme/familymed_theme.dart';
+import 'package:familymed/core/widgets/familymed_ui.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -39,65 +41,103 @@ class _WhoDoYouCareForScreenState extends State<WhoDoYouCareForScreen> {
     ];
 
     return Scaffold(
-      appBar: AppBar(),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Chip(label: Text(l10n.familyFirst)),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                l10n.whoDoYouCareFor,
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 24),
-              ...choices.map(
-                (choice) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () => setState(() => _selection = choice.$1),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.outlineVariant,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _selection == choice.$1
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_unchecked,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(child: Text(choice.$2)),
-                        ],
-                      ),
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 26, 20, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FamilyMedPill(label: l10n.familyFirst),
                     ),
-                  ),
+                    const SizedBox(height: 18),
+                    Text(
+                      l10n.whoDoYouCareFor,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      l10n.careForSubtitle,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: FamilyMedColors.textSecondary,
+                          ),
+                    ),
+                    const SizedBox(height: 22),
+                    ...choices.map(
+                      (choice) {
+                        final selected = _selection == choice.$1;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () =>
+                                setState(() => _selection = choice.$1),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 140),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? FamilyMedColors.primarySoft
+                                    : FamilyMedColors.surface,
+                                border: Border.all(
+                                  color: selected
+                                      ? FamilyMedColors.primary
+                                      : FamilyMedColors.border,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    selected
+                                        ? Icons.circle
+                                        : Icons.radio_button_unchecked,
+                                    size: selected ? 14 : 18,
+                                    color: selected
+                                        ? FamilyMedColors.primary
+                                        : FamilyMedColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Text(
+                                      choice.$2,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyLarge
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
-              FilledButton(
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: FilledButton(
                 onPressed: () {
                   final relationship = Uri.encodeQueryComponent(_relationship);
                   context.go('/family/new?relationship=$relationship');
                 },
                 child: Text(l10n.continueLabel),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
