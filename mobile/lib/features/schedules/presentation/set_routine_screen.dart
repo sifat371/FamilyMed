@@ -239,6 +239,7 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
                           child: FamilyMedSectionLabel(l10n.reminderTime),
                         ),
                         TextButton.icon(
+                          key: const Key('addReminderTimeButton'),
                           onPressed: _rows.length >= 8
                               ? null
                               : () => setState(() => _rows.add(_RoutineRow())),
