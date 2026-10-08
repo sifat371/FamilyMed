@@ -135,6 +135,7 @@ class EmptyMedicationRepository implements MedicationRepository {
     String? dosageForm,
     required DateTime startDate,
     DateTime? endDate,
+    String? creationId,
   }) {
     throw UnimplementedError();
   }

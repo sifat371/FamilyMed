@@ -184,3 +184,59 @@ async def test_cross_family_medication_paths_return_scoped_404(client):
     for response in (read_probe, update_probe):
         assert response.status_code == 404
         assert response.json()["error"]["code"] == "MEDICATION_NOT_FOUND"
+
+
+async def test_creation_id_retries_and_reuse_rejection(client):
+    from uuid import uuid4
+
+    auth = await register_user(client, "create-retry-a@example.com")
+    member = await create_member(client, auth)
+    url = f"/api/v1/family-members/{member['id']}/medications"
+    payload = {
+        "display_name": "Metformin",
+        "strength": "500 mg",
+        "dosage_form": "tablet",
+        "start_date": "2026-09-23",
+        "creation_id": str(uuid4()),
+    }
+    first = await client.post(url, headers=auth_headers(auth), json=payload)
+    retry = await client.post(url, headers=auth_headers(auth), json=payload)
+    assert first.status_code == retry.status_code == 201
+    assert first.json()["id"] == retry.json()["id"] == payload["creation_id"]
+    listed = await client.get(url, headers=auth_headers(auth))
+    assert len(listed.json()) == 1
+
+    changed = await client.post(url, headers=auth_headers(auth), json={**payload, "strength": "750 mg"})
+    assert changed.status_code == 409
+    assert changed.json()["error"]["code"] == "CREATION_ID_CONFLICT"
+
+    other_member = await create_member(client, auth, "Abbu")
+    reused_for_other_member = await client.post(
+        f"/api/v1/family-members/{other_member['id']}/medications",
+        headers=auth_headers(auth),
+        json=payload,
+    )
+    assert reused_for_other_member.status_code == 409
+
+    other_user = await register_user(client, "create-retry-b@example.com")
+    other_user_member = await create_member(client, other_user)
+    cross_account = await client.post(
+        f"/api/v1/family-members/{other_user_member['id']}/medications",
+        headers=auth_headers(other_user),
+        json=payload,
+    )
+    assert cross_account.status_code == 409
+
+    invalid = await client.post(
+        url, headers=auth_headers(auth), json={**payload, "creation_id": "not-a-uuid"}
+    )
+    assert invalid.status_code == 422
+
+
+async def test_create_without_client_id_preserves_legacy_behavior(client):
+    auth = await register_user(client, "create-retry-legacy@example.com")
+    member = await create_member(client, auth)
+    first = await create_metformin(client, auth, str(member["id"]))
+    second = await create_metformin(client, auth, str(member["id"]))
+    assert first.status_code == second.status_code == 201
+    assert first.json()["id"] != second.json()["id"]

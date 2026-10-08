@@ -43,3 +43,12 @@ Updated 2026-10-08. Canonical handoff; verify remote before resuming.
 - D: Prescription capture/OCR deferred until mandatory V1 acceptance; no fake extraction.
 - Next: harden medication creation against ambiguous network retries; finalize regression coverage and checkpoint.
 - No merge or deployment authorized. Device notification behavior and visual fidelity remain unverified.
+
+## Pending slice: retry-safe manual medication creation
+- Implementation branch: `feat/idempotent-medication-creation`, stacked on PR #10.
+- Flutter manual entry reuses a generated creation UUID across form retries.
+- FastAPI accepts optional `creation_id`, atomically upserts with `ON CONFLICT DO NOTHING` on the existing medication ID, and rejects mismatched key reuse with 409.
+- Older clients without a creation UUID remain compatible; no database migration required.
+- Tests added for repeated POST, account/member isolation, legacy compatibility, and UI retry key.
+- GitHub CI verification pending; no Flutter/Dart or PostgreSQL test runner is available here.
+- Next: inspect CI, fix any failures, then resume V1 device UI/notification checks.

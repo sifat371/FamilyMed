@@ -22,6 +22,8 @@ class ManualMedicationCreate(BaseModel):
     dosage_form: OptionalText = None
     start_date: date
     end_date: date | None = None
+    # Optional client UUID makes retries safe when the POST response is lost.
+    creation_id: UUID | None = None
 
     @field_validator("strength", "dosage_form")
     @classmethod
