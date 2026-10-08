@@ -102,3 +102,22 @@ Verify the remote SHA matches the local HEAD; `git status` alone does not prove 
 3. On a new machine/account: clone or open repo, authenticate GitHub, fetch all relevant refs, check out the **checkpoint's active feature branch**, read relevant rules/mission, install toolchains, and resume.
 4. Restore local `.env` using secure provisioning (never from GitHub) and initialize a **local/test** DB. Do not claim production or medical data is backed up by source-code pushes.
 5. If a push fails, keep local commits and say **NOT BACKED UP TO GITHUB** until resolved.
+
+## 7. Live repository integration (disposable local database only)
+
+`mobile/test/integration/live_backend_test.dart` exercises the real Flutter repositories
+against HTTP FastAPI and PostgreSQL, with an in-memory Drift cache. Only the platform
+notification scheduler is substituted. It creates synthetic accounts and medications;
+use a separate disposable database, never a database containing actual family records.
+The test is skipped in ordinary unit-test runs and restricts the API URL to loopback.
+
+Start FastAPI on port 58008 with `FAMILYMED_ENV=test`, an explicit isolated
+`FAMILYMED_DATABASE_URL`, and a test JWT secret of at least 32 bytes. Run migrations
+with the same environment before starting the API. Then, from `mobile`:
+
+```bash
+flutter test --no-pub --dart-define=FAMILYMED_LIVE_TEST_URL=http://127.0.0.1:58008/api/v1 test/integration/live_backend_test.dart
+```
+
+This proves persisted repository/API behavior, including relogin with a fresh cache,
+not Android platform notification delivery or a full device UI walkthrough.

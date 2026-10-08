@@ -1,4 +1,6 @@
 {
+  "careTimezone": "Care timezone",
+  "careTimezoneHelp": "Used for new routines. Existing routines keep their saved timezone.",
   "meTab": "Me",
   "accountDetails": "Your account",
   "saveAccount": "Save account",

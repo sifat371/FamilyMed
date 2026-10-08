@@ -251,6 +251,7 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
                             ),
                             const SizedBox(height: 14),
                             DropdownButtonFormField<String>(
+                              isExpanded: true,
                               initialValue: _mealRelation,
                               decoration: InputDecoration(
                                 labelText: l10n.mealRelation,
@@ -266,7 +267,10 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
                                       .map(
                                         (entry) => DropdownMenuItem(
                                           value: entry.key,
-                                          child: Text(entry.value),
+                                          child: Text(
+                                            entry.value,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
                                       )
                                       .toList(growable: false),
@@ -281,11 +285,10 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: FamilyMedSectionLabel(l10n.reminderTime),
-                        ),
+                        FamilyMedSectionLabel(l10n.reminderTime),
                         TextButton.icon(
                           key: const Key('addReminderTimeButton'),
                           onPressed: _rows.length >= 8
