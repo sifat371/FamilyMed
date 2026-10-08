@@ -5,8 +5,8 @@ Updated 2026-10-09. Canonical handoff; fetch and verify remote before resuming.
 ## Branch and preservation
 - Active: `feat/v1-care-reminder-reliability`, based on PR #11 HEAD `bd41801a4877b3241b88a589965daea8a8bd926e`.
 - Verified open/unmerged stack: [#9](https://github.com/sifat371/FamilyMed/pull/9) → [#10](https://github.com/sifat371/FamilyMed/pull/10) (`504bfd0`) → [#11](https://github.com/sifat371/FamilyMed/pull/11) (`bd41801a`). PR #11 backend/mobile CI both SUCCESS.
-- Current branch's PR targets `feat/idempotent-medication-creation`; no merge or deployment authorized.
-- Latest verified push before this checkpoint: `e199e19` (session-safe reminders/retries).
+- Current draft [PR #12](https://github.com/sifat371/FamilyMed/pull/12) targets `feat/idempotent-medication-creation`; no merge or deployment authorized.
+- Verified implementation pushes: `e199e19` (session-safe reminders/retries), `c0deebf` (fresh-cache history correction).
 - Preserve original local changes: `backend/uv.lock`, `mobile/pubspec.lock`, `docker-compose.yml`, generated `mobile/android/build/`, and ignored `.env`. Excluded from commits.
 
 ## Completed inherited work (do not repeat)
