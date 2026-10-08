@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:familymed/core/database/app_database.dart';
 import 'package:familymed/core/notifications/notification_scheduler.dart';
@@ -113,8 +113,9 @@ Widget _localized(Widget child) {
 }
 
 void main() {
-  testWidgets('history shows marked adherence and preserves correction trail',
-      (tester) async {
+  testWidgets('history shows marked adherence and preserves correction trail', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _localized(
         MemberHistoryScreen(
@@ -132,11 +133,58 @@ void main() {
     expect(find.text('Correct record'), findsOneWidget);
   });
 
+  testWidgets('history correction works with a fresh empty Today cache', (
+    tester,
+  ) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final coordinator = SyncCoordinator(
+      database: db,
+      transport: _OfflineTransport(),
+      userId: 'user-1',
+    );
+    addTearDown(coordinator.dispose);
+    final repository = DoseRepository(
+      database: db,
+      syncCoordinator: coordinator,
+      notificationScheduler: _Scheduler(),
+      userId: 'user-1',
+      idFactory: () => 'history-action',
+    );
+    final history = await _HistoryRepository().load('member-1');
+    final dose = history.days.single.doses.single.dose;
+    await tester.pumpWidget(
+      _localized(
+        CorrectRecordScreen(
+          doseId: dose.id,
+          repository: repository,
+          initialStatus: dose.status,
+          historyDose: dose,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Skipped'));
+    await tester.tap(find.text('Save correction'));
+    await tester.pumpAndSettle();
+    final cached = await db.select(db.cachedDoses).getSingle();
+    final queued = await db.select(db.syncOperations).getSingle();
+    expect(cached.userId, 'user-1');
+    expect(cached.medicationName, 'Metformin');
+    expect(cached.status, 'skipped');
+    expect(cached.reminderEligible, isFalse);
+    expect(queued.action, 'correct');
+    expect(queued.userId, 'user-1');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('correction queues durable correct action', (tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final scheduled = DateTime.utc(2026, 9, 23, 2);
-    await db.into(db.cachedDoses).insert(
+    await db
+        .into(db.cachedDoses)
+        .insert(
           CachedDosesCompanion.insert(
             doseId: 'dose-1',
             scheduleId: 'schedule-1',

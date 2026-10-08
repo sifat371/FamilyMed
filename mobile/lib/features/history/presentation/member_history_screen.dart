@@ -153,6 +153,7 @@ class HistoryDoseCard extends StatelessWidget {
                 onPressed: () async {
                   await context.push(
                     '/doses/${dose.id}/correct?status=${dose.status}',
+                    extra: dose,
                   );
                   if (context.mounted) await onChanged();
                 },

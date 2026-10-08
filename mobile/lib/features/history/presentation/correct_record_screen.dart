@@ -1,4 +1,5 @@
 import 'package:familymed/features/doses/data/dose_repository.dart';
+import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
@@ -8,11 +9,13 @@ class CorrectRecordScreen extends StatefulWidget {
     required this.doseId,
     required this.repository,
     required this.initialStatus,
+    this.historyDose,
   });
 
   final String doseId;
   final DoseRepository repository;
   final String initialStatus;
+  final DoseProjection? historyDose;
 
   @override
   State<CorrectRecordScreen> createState() => _CorrectRecordScreenState();
@@ -108,6 +111,7 @@ class _CorrectRecordScreenState extends State<CorrectRecordScreen> {
         reason: _reasonController.text.trim().isEmpty
             ? null
             : _reasonController.text.trim(),
+        historyDose: widget.historyDose,
       );
       if (mounted) Navigator.of(context).maybePop();
     } on Object {
@@ -132,17 +136,23 @@ class _CorrectRecordScreenState extends State<CorrectRecordScreen> {
                 ChoiceChip(
                   label: Text(l10n.takenStatus),
                   selected: _status == 'taken',
-                  onSelected: _saving ? null : (_) => setState(() => _status = 'taken'),
+                  onSelected: _saving
+                      ? null
+                      : (_) => setState(() => _status = 'taken'),
                 ),
                 ChoiceChip(
                   label: Text(l10n.skippedStatus),
                   selected: _status == 'skipped',
-                  onSelected: _saving ? null : (_) => setState(() => _status = 'skipped'),
+                  onSelected: _saving
+                      ? null
+                      : (_) => setState(() => _status = 'skipped'),
                 ),
                 ChoiceChip(
                   label: Text(l10n.missedStatus),
                   selected: _status == 'missed',
-                  onSelected: _saving ? null : (_) => setState(() => _status = 'missed'),
+                  onSelected: _saving
+                      ? null
+                      : (_) => setState(() => _status = 'missed'),
                 ),
               ],
             ),
@@ -164,10 +174,7 @@ class _CorrectRecordScreenState extends State<CorrectRecordScreen> {
               enabled: !_saving,
               decoration: InputDecoration(labelText: l10n.correctionReason),
             ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!),
-            ],
+            if (_error != null) ...[const SizedBox(height: 12), Text(_error!)],
             const SizedBox(height: 20),
             FilledButton(
               onPressed: _saving ? null : _save,
