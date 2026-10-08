@@ -206,7 +206,9 @@ async def test_creation_id_retries_and_reuse_rejection(client):
     listed = await client.get(url, headers=auth_headers(auth))
     assert len(listed.json()) == 1
 
-    changed = await client.post(url, headers=auth_headers(auth), json={**payload, "strength": "750 mg"})
+    changed = await client.post(
+        url, headers=auth_headers(auth), json={**payload, "strength": "750 mg"}
+    )
     assert changed.status_code == 409
     assert changed.json()["error"]["code"] == "CREATION_ID_CONFLICT"
 
