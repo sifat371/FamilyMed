@@ -64,7 +64,7 @@ class ApiMedicationRepository implements MedicationRepository {
         'strength': _nullableText(strength),
         'dosage_form': _nullableText(dosageForm),
         'start_date': _dateOnly(startDate),
-        if (creationId != null) 'creation_id': creationId,
+        'creation_id': ?creationId,
         'end_date': endDate == null ? null : _dateOnly(endDate),
       },
     );
