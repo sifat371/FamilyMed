@@ -1,9 +1,10 @@
 # FamilyMed V1 — Implementation checkpoint
 
-Updated 2026-10-08. Canonical handoff; verify remote before resuming.
+Updated 2026-10-09. Canonical handoff; verify remote before resuming.
 
 ## Branch and preservation
-- Active: `feat/v1-product-completion`, based on Figma HEAD `9e1a948`.
+- Active: `feat/v1-care-reminder-reliability`, based on PR #11 HEAD `bd41801a4877b3241b88a589965daea8a8bd926e`.
+- Verified open/unmerged stack: #9 → #10 (`504bfd0`) → #11 (`bd41801a`). PR #11 backend/mobile CI both SUCCESS. Next PR targets `feat/idempotent-medication-creation`.
 - Instructions checkpoint `6f9cb64` pushed successfully; product checkpoints follow on this branch.
 - Product draft [PR #10](https://github.com/sifat371/FamilyMed/pull/10) is stacked on PR #9; latest prior pushed slice `556d6ee`.
 - [PR #9](https://github.com/sifat371/FamilyMed/pull/9) remains open and unchanged. Product PR must target its branch while it is unmerged.
@@ -37,18 +38,24 @@ Updated 2026-10-08. Canonical handoff; verify remote before resuming.
 - Timezone form-state regression and full Flutter suite: PASSED locally during checkpoint recovery; automated menu-scroll interaction not covered.
 
 ## Milestones and next work
-- [ ] A: Manual-care repository integration verified; ambiguous create retry protection remains.
+- [ ] A: Manual-care repository integration and retry-safe medicine creation implemented; complete device walkthrough remains unverified.
 - [ ] B: History/Me/account preferences and responsive routine/reminder layouts implemented. Full device render comparison and account deletion workflow remain (scoped deletion plan required before release).
 - [ ] C: Full mobile checks/debug build, live integration, authorization/reliability regression tests and device QA where available.
 - D: Prescription capture/OCR deferred until mandatory V1 acceptance; no fake extraction.
-- Next: harden medication creation against ambiguous network retries; finalize regression coverage and checkpoint.
+- Next: continue reminder reliability and end-to-end care navigation; device checks only if hardware/emulator becomes available.
 - No merge or deployment authorized. Device notification behavior and visual fidelity remain unverified.
 
-## Pending slice: retry-safe manual medication creation
+## Completed handoff: retry-safe manual medication creation
 - Implementation branch: `feat/idempotent-medication-creation`, stacked on PR #10.
 - Flutter manual entry reuses a generated creation UUID across form retries.
 - FastAPI accepts optional `creation_id`, atomically upserts with `ON CONFLICT DO NOTHING` on the existing medication ID, and rejects mismatched key reuse with 409.
 - Older clients without a creation UUID remain compatible; no database migration required.
 - Tests added for repeated POST, account/member isolation, legacy compatibility, and UI retry key.
-- GitHub CI verification pending; no Flutter/Dart or PostgreSQL test runner is available here.
-- Next: inspect CI, fix any failures, then resume V1 device UI/notification checks.
+- Verified GitHub CI passed for PR #11 backend and mobile; local Flutter toolchain is available in this resumed session.
+
+## Current slice: session-safe reminders and recovery
+- Reminder coordinator persists across account changes, reads the current account repository on refresh, discards obsolete responses after clear, and serializes platform scheduling/cancellation.
+- App checks account identity after sync completes; logout/account switch clears reminders before a new session schedules them.
+- Preference-load failures and scheduling failures now offer Retry; scheduling retry does not write the preference twice. Disable reconciliation failures remain visible.
+- Validation: targeted coordinator/lifecycle/responsive/reminder tests: 20 passed after final changes; `flutter analyze --no-pub` passed.
+- Original dirty lock/config files, generated report and `.env` remain untouched and uncommitted.

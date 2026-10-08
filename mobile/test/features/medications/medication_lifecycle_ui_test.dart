@@ -23,16 +23,16 @@ const _member = FamilyMember(
 );
 
 MemberMedication _medication(String status) => MemberMedication(
-      id: 'med-1',
-      familyMemberId: 'member-1',
-      medicineMasterId: null,
-      displayName: 'Metformin',
-      strength: '500 mg',
-      dosageForm: 'tablet',
-      status: status,
-      startDate: DateTime(2026, 9, 24),
-      endDate: null,
-    );
+  id: 'med-1',
+  familyMemberId: 'member-1',
+  medicineMasterId: null,
+  displayName: 'Metformin',
+  strength: '500 mg',
+  dosageForm: 'tablet',
+  status: status,
+  startDate: DateTime(2026, 9, 24),
+  endDate: null,
+);
 
 class _FamilyRepository implements FamilyRepository {
   @override
@@ -69,8 +69,9 @@ class _MedicationRepository implements MedicationRepository {
   String status = 'active';
 
   @override
-  Future<List<MemberMedication>> listMedications(String memberId) async =>
-      [_medication(status)];
+  Future<List<MemberMedication>> listMedications(String memberId) async => [
+    _medication(status),
+  ];
 
   @override
   Future<MemberMedication> getMedication(String id) async =>
@@ -135,10 +136,8 @@ class _TodayRepository implements TodayRepository {
       const [];
 
   @override
-  Future<TodayLoadResult> loadToday() async => const TodayLoadResult(
-        groups: <TodayMemberGroup>[],
-        isOffline: false,
-      );
+  Future<TodayLoadResult> loadToday() async =>
+      const TodayLoadResult(groups: <TodayMemberGroup>[], isOffline: false);
 }
 
 class _Scheduler implements NotificationScheduler {
@@ -174,7 +173,7 @@ Future<void> _pump(
         todayRepositoryProvider.overrideWithValue(today),
         reminderCoordinatorProvider.overrideWithValue(
           ReminderCoordinator(
-            todayRepository: today,
+            todayRepository: () => today,
             scheduler: _Scheduler(),
           ),
         ),
@@ -211,8 +210,9 @@ void main() {
     expect(find.text('Pause medicine'), findsOneWidget);
   });
 
-  testWidgets('ending medication requires confirmation and preserves card',
-      (tester) async {
+  testWidgets('ending medication requires confirmation and preserves card', (
+    tester,
+  ) async {
     final medications = _MedicationRepository();
     await _pump(tester, medications);
 

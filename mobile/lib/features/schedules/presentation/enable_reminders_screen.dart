@@ -24,6 +24,7 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
   bool _loadingPreference = true;
   bool? _enabled;
   String? _message;
+  bool _schedulingFailed = false;
 
   @override
   void initState() {
@@ -32,6 +33,10 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
   }
 
   Future<void> _loadPreference() async {
+    setState(() {
+      _loadingPreference = true;
+      _message = null;
+    });
     try {
       final preference = await ref
           .read(notificationPreferenceRepositoryProvider)
@@ -72,14 +77,7 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
       if (mounted) {
         setState(() => _enabled = true);
       }
-      try {
-        await ref.read(reminderCoordinatorProvider).refresh();
-      } on Object {
-        if (mounted) {
-          setState(() => _message = l10n.notificationSchedulingFailed);
-        }
-        return;
-      }
+      if (!await _refreshReminders()) return;
       ref.invalidate(todayProvider);
       if (mounted) context.go('/today');
     } on Object {
@@ -87,6 +85,32 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<bool> _refreshReminders() async {
+    try {
+      await ref.read(reminderCoordinatorProvider).refresh();
+      if (mounted) setState(() => _schedulingFailed = false);
+      return true;
+    } on Object {
+      if (mounted) {
+        setState(() {
+          _schedulingFailed = true;
+          _message = AppLocalizations.of(context).notificationSchedulingFailed;
+        });
+      }
+      return false;
+    }
+  }
+
+  Future<void> _retryScheduling() async {
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _message = null;
+    });
+    await _refreshReminders();
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _disable() async {
@@ -99,11 +123,7 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
       await ref
           .read(notificationPreferenceRepositoryProvider)
           .updatePreference(widget.memberId, enabled: false);
-      try {
-        await ref.read(reminderCoordinatorProvider).refresh();
-      } on Object {
-        // Preference is canonical even if local reconciliation fails.
-      }
+      await _refreshReminders();
       ref.invalidate(todayProvider);
       if (!mounted) return;
       setState(() => _enabled = false);
@@ -193,6 +213,16 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
                 Text(_message!, style: Theme.of(context).textTheme.bodyMedium),
               ],
               const SizedBox(height: 24),
+              if (_enabled == null && !_loadingPreference)
+                OutlinedButton(
+                  onPressed: _loading ? null : _loadPreference,
+                  child: Text(l10n.retry),
+                ),
+              if (_schedulingFailed)
+                OutlinedButton(
+                  onPressed: _loading ? null : _retryScheduling,
+                  child: Text(l10n.retry),
+                ),
               if (_enabled != true)
                 FilledButton(
                   onPressed: _loading || _loadingPreference ? null : _enable,
