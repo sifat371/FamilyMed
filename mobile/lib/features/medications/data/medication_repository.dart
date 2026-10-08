@@ -55,6 +55,7 @@ class ApiMedicationRepository implements MedicationRepository {
     String? dosageForm,
     required DateTime startDate,
     DateTime? endDate,
+    String? creationId,
   }) async {
     final response = await _client.post<Map<String, dynamic>>(
       '/family-members/$memberId/medications',
