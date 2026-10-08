@@ -175,7 +175,7 @@ class EmptyTodayRepository implements TodayRepository {
       const [];
 }
 
-ProviderContainer makeContainer(RecordingMedicationRepository repository) {
+ProviderContainer makeContainer(RecordingMedicationRepository repository, {List<Override> overrides = const []}) {
   return ProviderContainer(
     overrides: [
       scheduleRepositoryProvider.overrideWithValue(DraftScheduleRepository()),
@@ -184,6 +184,7 @@ ProviderContainer makeContainer(RecordingMedicationRepository repository) {
       familyRepositoryProvider.overrideWithValue(MedicationFamilyRepository()),
       medicationRepositoryProvider.overrideWithValue(repository),
       todayRepositoryProvider.overrideWithValue(EmptyTodayRepository()),
+      ...overrides,
     ],
   );
 }

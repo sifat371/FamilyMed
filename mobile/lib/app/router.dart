@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:familymed/app/app_shell.dart';
+import 'package:familymed/features/account/presentation/account_screen.dart';
+import 'package:familymed/features/history/presentation/history_screen.dart';
 import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/core/auth/auth_state.dart';
 import 'package:familymed/features/auth/presentation/login_screen.dart';
@@ -73,10 +75,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
       ),
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/home',
         builder: (context, state) => const _AuthenticatedLandingScreen(),
@@ -88,15 +87,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/family/new',
         builder: (context, state) => AddFamilyMemberScreen(
-          initialRelationship: state.uri.queryParameters['relationship'] ?? 'mother',
+          initialRelationship:
+              state.uri.queryParameters['relationship'] ?? 'mother',
         ),
       ),
       ShellRoute(
-        builder: (context, state, child) => AppShell(
-          location: state.uri.path,
-          child: child,
-        ),
+        builder: (context, state, child) =>
+            AppShell(location: state.uri.path, child: child),
         routes: [
+          GoRoute(
+            path: '/history',
+            builder: (context, state) => const HistoryScreen(),
+          ),
+          GoRoute(
+            path: '/me',
+            builder: (context, state) => const AccountScreen(),
+          ),
           GoRoute(
             path: '/today',
             builder: (context, state) => const TodayScreen(),
@@ -181,6 +187,8 @@ final routerProvider = Provider<GoRouter>((ref) {
 
 bool _isProtected(String path) {
   return path == '/home' ||
+      path == '/history' ||
+      path == '/me' ||
       path == '/care-for' ||
       path == '/today' ||
       path.startsWith('/doses/') ||
@@ -193,9 +201,7 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
 

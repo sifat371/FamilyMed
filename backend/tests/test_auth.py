@@ -180,3 +180,40 @@ async def test_me_without_bearer_token_returns_standard_invalid_token(client):
     response = await client.get(ME_URL)
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "INVALID_TOKEN"
+
+
+async def test_account_preferences_persist_and_are_isolated(client):
+    first = (await register(client)).json()
+    second = (await register(client, email="second@example.com", name="Second")).json()
+    headers = {"Authorization": f"Bearer {first['access_token']}"}
+    response = await client.patch(
+        ME_URL, headers=headers, json={"name": " Updated ", "preferred_language": "bn"}
+    )
+    assert response.status_code == 200
+    assert response.json()["name"] == "Updated"
+    restored = await client.get(ME_URL, headers=headers)
+    assert restored.json()["preferred_language"] == "bn"
+    other = await client.get(
+        ME_URL, headers={"Authorization": f"Bearer {second['access_token']}"}
+    )
+    assert other.json()["name"] == "Second"
+    assert other.json()["preferred_language"] == "en"
+    login = await client.post(
+        LOGIN_URL, json={"email": "user@example.com", "password": "password123"}
+    )
+    assert login.json()["user"]["preferred_language"] == "bn"
+
+
+async def test_account_preferences_require_auth_and_valid_fields(client):
+    payload = {"name": "Updated", "preferred_language": "bn"}
+    assert (await client.patch(ME_URL, json=payload)).status_code == 401
+    account = (await register(client)).json()
+    headers = {"Authorization": f"Bearer {account['access_token']}"}
+    for invalid in [
+        {"name": " ", "preferred_language": "en"},
+        {"name": "Name", "preferred_language": "fr"},
+        {**payload, "id": account["user"]["id"]},
+        {**payload, "email": "another@example.com"},
+    ]:
+        assert (await client.patch(ME_URL, headers=headers, json=invalid)).status_code == 422
+    assert (await client.get(ME_URL, headers=headers)).json()["name"] == "Sifat"

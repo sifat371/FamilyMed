@@ -104,9 +104,11 @@ final familyRepositoryProvider = Provider<FamilyRepository>((ref) {
 });
 
 final familyMembersProvider = FutureProvider<List<FamilyMember>>((ref) {
+  ref.watch(authControllerProvider.select((auth) => auth.user?.id));
   return ref.watch(familyRepositoryProvider).listMembers();
 });
 
 final familyMemberProvider = FutureProvider.family<FamilyMember, String>((ref, id) {
+  ref.watch(authControllerProvider.select((auth) => auth.user?.id));
   return ref.watch(familyRepositoryProvider).getMember(id);
 });

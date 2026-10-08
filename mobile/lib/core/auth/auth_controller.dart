@@ -16,10 +16,10 @@ class AuthController extends StateNotifier<AuthState> {
     required AuthRepository repository,
     required TokenStore tokenStore,
     required SessionEvents sessionEvents,
-  })  : _repository = repository,
-        _tokenStore = tokenStore,
-        _sessionEvents = sessionEvents,
-        super(const AuthState.loading()) {
+  }) : _repository = repository,
+       _tokenStore = tokenStore,
+       _sessionEvents = sessionEvents,
+       super(const AuthState.loading()) {
     _expiredSubscription = _sessionEvents.expired.listen((_) {
       unawaited(_expireSession());
     });
@@ -89,6 +89,10 @@ class AuthController extends StateNotifier<AuthState> {
     state = const AuthState.unauthenticated();
   }
 
+  void updateCurrentUser(CurrentUser user) {
+    if (state.user?.id == user.id) state = AuthState.authenticated(user);
+  }
+
   Future<void> _expireSession() async {
     await _tokenStore.clear();
     state = const AuthState.unauthenticated();
@@ -127,12 +131,14 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return ApiAuthRepository(ref.watch(apiClientProvider));
 });
 
-final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
-  final controller = AuthController(
-    repository: ref.watch(authRepositoryProvider),
-    tokenStore: ref.watch(tokenStoreProvider),
-    sessionEvents: ref.watch(sessionEventsProvider),
-  );
-  unawaited(controller.restore());
-  return controller;
-});
+final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
+  (ref) {
+    final controller = AuthController(
+      repository: ref.watch(authRepositoryProvider),
+      tokenStore: ref.watch(tokenStoreProvider),
+      sessionEvents: ref.watch(sessionEventsProvider),
+    );
+    unawaited(controller.restore());
+    return controller;
+  },
+);
