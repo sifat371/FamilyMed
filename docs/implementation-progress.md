@@ -1,45 +1,32 @@
-# FamilyMed V1 — GitHub Handoff / Implementation Progress
+# FamilyMed V1 — Implementation checkpoint
 
-> **Canonical checkpoint.** Updated and pushed with every meaningful development slice. A new Codex session/account should start here and verify GitHub before assuming this file is current. Keep this file under ~100 lines. Never put secrets or personal/health data here.
+Updated 2026-10-08. Canonical handoff; verify remote before resuming.
 
-## Current handoff (2026-10-08)
+## Branch and preservation
+- Active: `feat/v1-product-completion`, based on Figma HEAD `9e1a948`.
+- Instructions checkpoint `6f9cb64` pushed successfully; product checkpoints follow on this branch.
+- [PR #9](https://github.com/sifat371/FamilyMed/pull/9) remains open and unchanged. Product PR must target its branch while it is unmerged.
+- Preserve original local changes: `backend/uv.lock`, `mobile/pubspec.lock`, `docker-compose.yml`, generated `mobile/android/build/`, and ignored `.env`. These are excluded from commits.
 
-- **Status:** Implementation started; GitHub authenticated and Figma branch verified.
-- **Repo:** `https://github.com/sifat371/FamilyMed`.
-- **Last verified `origin/main`:** `9e2116362d8bcb1fdb538785036d03750b98e0c8` (2026-10-08 verification; re-fetch).
-- **Last verified Figma branch:** `feat/figma-v1-visual-alignment` / `9e1a94890a5ef299aacfc45d907ee4d17eedb819`; [PR #9](https://github.com/sifat371/FamilyMed/pull/9) open/unmerged.
-- **Active product development branch:** `feat/v1-product-completion`, created from verified Figma HEAD `9e1a948`.
-- **GitHub backup of this checkpoint:** Initial instructions checkpoint being committed and pushed on the product branch.
-- **Local dirty files at last check:** `backend/uv.lock`, `docker-compose.yml`, `mobile/pubspec.lock`; untracked generated Android report; mission Markdown newly copied by owner. Preserve/review; do not accidentally stage them.
-- **PR dependency:** New product-completion PR should be stacked on PR #9 while PR #9 is unmerged.
+## Implemented slices
+- Manual medicine save opens routine setup with the persisted medication ID; back from a profile-launched flow returns to profile without resubmitting medication.
+- New routines use member timezone and medication start/end dates; existing routines preserve their own timezone/date boundaries.
+- Schedule lookup failure blocks saving and offers retry instead of treating a network error as no existing schedule.
+- Routine displays saved medicine summary using existing Figma theme. Retrieved Figma `11:130` design context and screenshot; no rendered-device visual comparison yet.
+- Reminder preference failures display an error; failed reads no longer falsely report disabled. Reminder screen scrolls for smaller viewports.
 
-## Existing code baseline (NOT equivalent to device-verified done)
+## Verification
+- Isolated Postgres container `familymed-product-test-20261008`, loopback port 55438, database/user `familymed_test`; local test credentials supplied explicitly to commands, existing `.env` untouched.
+- Isolated test environment `uv run --frozen alembic upgrade head`: passed.
+- Same environment `uv run --frozen pytest -q`: 71 passed. `uv run --frozen ruff check .`: passed.
+- `flutter analyze --no-pub`: passed.
+- Focused Flutter tests: manual medication, routine setup, reminder refresh, registration/manual entry, online/offline care path: 17 passed.
+- Widget tests use test repositories; they are not evidence of Flutter-to-live-backend or device verification.
 
-- Source already contains auth, family CRUD, manual medication CRUD, medication lifecycle, schedules, Today/dose actions, member history/correction, local notifications, offline sync, English/Bangla, FastAPI/Postgres and tests.
-- PR #9 has Figma-themed presentation/localization changes; does not add the missing features.
-- Figma requires functional 4-tab navigation; current app only has Today/Family. Manual medicine flow currently returns to profile rather than guiding to routine. Scan prescription is disabled; backend production deployment not in scope of this build mission.
-
-## Mandatory V1 milestones — update only with verified evidence
-
-- [ ] **A:** Guided manual-care path: registration → family → medication → routine → reminders → Today → dose actions → history; real backend persistence.
-- [ ] **B:** Figma-aligned **working** Today / Family / History / Me navigation, complete accessible Flutter UI, account management, English/Bangla, error/offline states.
-- [ ] **C:** Backend/mobile integration, auth isolation, dose lifecycle/idempotency, timezone and notification reliability; passing applicable checks and Android build.
-- [ ] **D optional:** User-controlled prescription photo capture/preview; real extraction only if safe and tested, otherwise explicitly deferred.
-
-## Next executable actions
-
-1. Verify current Git status, PR #9 and worktree; preserve all pre-existing changes.
-2. Read root `AGENTS.md`, `codex.md`, and **relevant** V1 mission sections. Create a product feature branch from Figma branch if safe; don't merge PR #9.
-3. Implement highest-impact working-flow gap, likely **manual add → guided routine → reminders → Today**, with backend persistence and targeted tests; then commit/push checkpoint.
-4. Continue with four-tab functional navigation/settings and other mandatory gaps; test/commit/push each coherent slice.
-
-## Latest completed slice / proof
-
-- **Feature/changes:** None by Astra yet.
-- **Last pushed implementation commit:** None on product-completion branch yet.
-- **Tests run by new development session:** None yet. Prior PR #9 CI passed, but does not constitute device/E2E verification.
-- **Known blockers:** Physical Android device and direct Figma access in Codex not yet confirmed. Continue independent core work.
-
-## Handoff discipline
-
-On each checkpoint replace the current fields above with actual branch/commit/PR, test commands + results, verified features, incomplete work, one precise next step. Push this file alongside code. If push fails, say **LOCAL ONLY**. Keep prior major decisions in commit history rather than accumulating verbose session logs here.
+## Milestones and next work
+- [ ] A: Finish guided manual-care acceptance and verify real backend integration.
+- [ ] B: Add functioning History/Me tabs, account preferences, refresh after correction; validate responsive English/Bangla screens.
+- [ ] C: Full mobile checks/debug build, live integration, authorization/reliability regression tests and device QA where available.
+- D: Prescription capture/OCR deferred until mandatory V1 acceptance; no fake extraction.
+- Next: implement History and Me navigation using existing persisted repositories; add targeted tests and push checkpoint.
+- No merge or deployment authorized. Device notification behavior and visual fidelity remain unverified.

@@ -1,4 +1,6 @@
 import 'package:familymed/app/app.dart';
+import '../support/draft_schedule_repository.dart';
+import 'package:familymed/features/schedules/data/schedule_repository.dart';
 import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/core/auth/auth_tokens.dart';
 import 'package:familymed/core/auth/token_store.dart';
@@ -41,7 +43,10 @@ class AcceptanceAuthRepository implements AuthRepository {
   );
 
   @override
-  Future<AuthSession> login({required String email, required String password}) async {
+  Future<AuthSession> login({
+    required String email,
+    required String password,
+  }) async {
     return session;
   }
 
@@ -136,7 +141,9 @@ class AcceptanceMedicationRepository implements MedicationRepository {
 
   @override
   Future<List<MemberMedication>> listMedications(String memberId) async {
-    return medications.where((item) => item.familyMemberId == memberId).toList();
+    return medications
+        .where((item) => item.familyMemberId == memberId)
+        .toList();
   }
 
   @override
@@ -161,6 +168,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          scheduleRepositoryProvider.overrideWithValue(
+            DraftScheduleRepository(),
+          ),
           tokenStoreProvider.overrideWithValue(tokenStore),
           authRepositoryProvider.overrideWithValue(AcceptanceAuthRepository()),
           familyRepositoryProvider.overrideWithValue(familyRepository),
@@ -198,15 +208,22 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Add manually'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('medicationName')), 'Metformin');
-    await tester.enterText(find.byKey(const Key('medicationStrength')), '500 mg');
-    await tester.enterText(find.byKey(const Key('medicationDosageForm')), 'tablet');
+    await tester.enterText(
+      find.byKey(const Key('medicationName')),
+      'Metformin',
+    );
+    await tester.enterText(
+      find.byKey(const Key('medicationStrength')),
+      '500 mg',
+    );
+    await tester.enterText(
+      find.byKey(const Key('medicationDosageForm')),
+      'tablet',
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Save medicine'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Amma'), findsOneWidget);
-    expect(find.text('Metformin'), findsOneWidget);
-    expect(find.text('500 mg • tablet'), findsOneWidget);
-    expect(find.text('Draft'), findsOneWidget);
+    expect(find.text('Metformin 500 mg'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Save routine'), findsOneWidget);
   });
 }

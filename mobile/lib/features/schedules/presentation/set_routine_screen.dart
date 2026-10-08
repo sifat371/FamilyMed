@@ -5,6 +5,8 @@ import 'package:familymed/core/theme/familymed_theme.dart';
 import 'package:familymed/core/widgets/familymed_ui.dart';
 import 'package:familymed/core/time/local_time_format.dart';
 import 'package:familymed/features/medications/data/medication_repository.dart';
+import 'package:familymed/features/medications/domain/member_medication.dart';
+import 'package:familymed/features/family/data/family_repository.dart';
 import 'package:familymed/features/schedules/data/schedule_repository.dart';
 import 'package:familymed/features/schedules/domain/medication_schedule.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
@@ -35,6 +37,10 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
   String? _scheduleId;
   MedicationSchedule? _existingSchedule;
   bool _loading = false;
+  bool _initializing = true;
+  bool _loadFailed = false;
+  MemberMedication? _medication;
+  String? _memberTimezone;
   String? _error;
 
   @override
@@ -44,11 +50,28 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
   }
 
   Future<void> _loadExisting() async {
+    setState(() {
+      _initializing = true;
+      _loadFailed = false;
+      _error = null;
+    });
     try {
       final schedule = await ref
           .read(scheduleRepositoryProvider)
           .getCurrentSchedule(widget.medicationId);
-      if (!mounted || schedule == null) return;
+      if (!mounted) return;
+      if (schedule == null) {
+        final medication = await ref
+            .read(medicationRepositoryProvider)
+            .getMedication(widget.medicationId);
+        final member = await ref
+            .read(familyRepositoryProvider)
+            .getMember(widget.memberId);
+        if (!mounted) return;
+        _medication = medication;
+        _memberTimezone = member.timezone;
+        return;
+      }
       _scheduleId = schedule.id;
       _existingSchedule = schedule;
       _instruction.text = schedule.rawInstruction ?? '';
@@ -69,7 +92,14 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
         );
       setState(() {});
     } on Object {
-      // New routine path is valid when no current schedule exists.
+      if (mounted) {
+        setState(() {
+          _loadFailed = true;
+          _error = AppLocalizations.of(context).networkError;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _initializing = false);
     }
   }
 
@@ -83,7 +113,12 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || _loading) return;
+    if (_initializing ||
+        _loadFailed ||
+        _loading ||
+        !_formKey.currentState!.validate()) {
+      return;
+    }
     final clocks = _rows.map((row) => row.time).toList();
     if (clocks.toSet().length != clocks.length) {
       setState(
@@ -100,9 +135,9 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
       final draft = ScheduleDraft(
         rawInstruction: _instruction.text,
         mealRelation: _mealRelation,
-        timezone: existing?.timezone ?? 'Asia/Dhaka',
-        startDate: existing?.startDate ?? DateTime.now(),
-        endDate: existing?.endDate,
+        timezone: existing?.timezone ?? _memberTimezone!,
+        startDate: existing?.startDate ?? _medication!.startDate,
+        endDate: existing?.endDate ?? _medication?.endDate,
         times: _rows
             .map(
               (row) => ScheduleDraftTime(
@@ -168,6 +203,19 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                   children: [
+                    if (_initializing) const LinearProgressIndicator(),
+                    if (_medication != null) ...[
+                      FamilyMedSoftCard(
+                        child: Text(
+                          [
+                            _medication!.displayName,
+                            _medication!.strength,
+                          ].whereType<String>().join(' '),
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     Align(
                       alignment: Alignment.centerLeft,
                       child: FamilyMedPill(label: l10n.setRoutine),
@@ -182,8 +230,8 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
                       child: Text(
                         l10n.reminderPrescriptionDisclaimer,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: FamilyMedColors.primary,
-                            ),
+                          color: FamilyMedColors.primary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -207,21 +255,21 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
                               decoration: InputDecoration(
                                 labelText: l10n.mealRelation,
                               ),
-                              items: <String, String>{
-                                'unspecified': l10n.unspecified,
-                                'before_food': l10n.beforeFood,
-                                'after_food': l10n.afterFood,
-                                'with_food': l10n.withFood,
-                                'none': l10n.noMealRelation,
-                              }
-                                  .entries
-                                  .map(
-                                    (entry) => DropdownMenuItem(
-                                      value: entry.key,
-                                      child: Text(entry.value),
-                                    ),
-                                  )
-                                  .toList(growable: false),
+                              items:
+                                  <String, String>{
+                                        'unspecified': l10n.unspecified,
+                                        'before_food': l10n.beforeFood,
+                                        'after_food': l10n.afterFood,
+                                        'with_food': l10n.withFood,
+                                        'none': l10n.noMealRelation,
+                                      }.entries
+                                      .map(
+                                        (entry) => DropdownMenuItem(
+                                          value: entry.key,
+                                          child: Text(entry.value),
+                                        ),
+                                      )
+                                      .toList(growable: false),
                               onChanged: (value) {
                                 if (value != null) {
                                   setState(() => _mealRelation = value);
@@ -283,7 +331,9 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
                       const SizedBox(height: 8),
                     ],
                     FilledButton(
-                      onPressed: _loading ? null : _submit,
+                      onPressed: _loading || _initializing || _loadFailed
+                          ? null
+                          : _submit,
                       child: _loading
                           ? const SizedBox.square(
                               dimension: 20,
@@ -291,6 +341,11 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
                             )
                           : Text(l10n.saveRoutine),
                     ),
+                    if (_loadFailed)
+                      TextButton(
+                        onPressed: _loadExisting,
+                        child: Text(l10n.retry),
+                      ),
                   ],
                 ),
               ),
@@ -300,7 +355,6 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
       ),
     );
   }
-
 }
 
 class _RoutineRow {
@@ -308,8 +362,8 @@ class _RoutineRow {
     this.time = '08:00',
     String quantity = '1',
     String unit = 'tablet',
-  })  : quantity = TextEditingController(text: quantity),
-        unit = TextEditingController(text: unit);
+  }) : quantity = TextEditingController(text: quantity),
+       unit = TextEditingController(text: unit);
 
   String time;
   final TextEditingController quantity;
@@ -383,7 +437,9 @@ class _RoutineRowFields extends StatelessWidget {
           Expanded(
             child: TextFormField(
               controller: row.quantity,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: InputDecoration(labelText: l10n.quantity),
               validator: (value) {
                 final parsed = double.tryParse(value?.trim() ?? '');

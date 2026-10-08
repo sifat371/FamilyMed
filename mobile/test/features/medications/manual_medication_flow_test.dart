@@ -1,4 +1,6 @@
 import 'dart:async';
+import '../../support/draft_schedule_repository.dart';
+import 'package:familymed/features/schedules/data/schedule_repository.dart';
 
 import 'package:familymed/app/app.dart';
 import 'package:familymed/app/router.dart';
@@ -142,7 +144,9 @@ class RecordingMedicationRepository implements MedicationRepository {
 
   @override
   Future<List<MemberMedication>> listMedications(String memberId) async {
-    return medications.where((item) => item.familyMemberId == memberId).toList();
+    return medications
+        .where((item) => item.familyMemberId == memberId)
+        .toList();
   }
 
   @override
@@ -163,10 +167,8 @@ class EmptyTodayRepository implements TodayRepository {
   Future<List<DoseProjection>> cachedReminderDoses() async => const [];
 
   @override
-  Future<TodayLoadResult> loadToday() async => const TodayLoadResult(
-        groups: <TodayMemberGroup>[],
-        isOffline: false,
-      );
+  Future<TodayLoadResult> loadToday() async =>
+      const TodayLoadResult(groups: <TodayMemberGroup>[], isOffline: false);
 
   @override
   Future<List<DoseProjection>> loadReminderDoses({int days = 30}) async =>
@@ -176,6 +178,7 @@ class EmptyTodayRepository implements TodayRepository {
 ProviderContainer makeContainer(RecordingMedicationRepository repository) {
   return ProviderContainer(
     overrides: [
+      scheduleRepositoryProvider.overrideWithValue(DraftScheduleRepository()),
       tokenStoreProvider.overrideWithValue(StoredTokenStore()),
       authRepositoryProvider.overrideWithValue(MedicationAuthRepository()),
       familyRepositoryProvider.overrideWithValue(MedicationFamilyRepository()),
@@ -185,10 +188,7 @@ ProviderContainer makeContainer(RecordingMedicationRepository repository) {
   );
 }
 
-Future<void> pumpApp(
-  WidgetTester tester,
-  ProviderContainer container,
-) async {
+Future<void> pumpApp(WidgetTester tester, ProviderContainer container) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
@@ -199,7 +199,12 @@ Future<void> pumpApp(
 }
 
 String currentPath(ProviderContainer container) {
-  return container.read(routerProvider).routerDelegate.currentConfiguration.uri.path;
+  return container
+      .read(routerProvider)
+      .routerDelegate
+      .currentConfiguration
+      .uri
+      .path;
 }
 
 void main() {
@@ -218,7 +223,9 @@ void main() {
     expect(find.byKey(const Key('medicationName')), findsOneWidget);
   });
 
-  testWidgets('manual form requires name and defaults start date to today', (tester) async {
+  testWidgets('manual form requires name and defaults start date to today', (
+    tester,
+  ) async {
     final repository = RecordingMedicationRepository();
     final container = makeContainer(repository);
     addTearDown(container.dispose);
@@ -228,7 +235,8 @@ void main() {
     await tester.pumpAndSettle();
 
     final now = DateTime.now();
-    final expected = '${now.year.toString().padLeft(4, '0')}-'
+    final expected =
+        '${now.year.toString().padLeft(4, '0')}-'
         '${now.month.toString().padLeft(2, '0')}-'
         '${now.day.toString().padLeft(2, '0')}';
     final startField = tester.widget<TextFormField>(
@@ -242,7 +250,9 @@ void main() {
     expect(repository.createCalls, 0);
   });
 
-  testWidgets('end date picker does not allow dates before start date', (tester) async {
+  testWidgets('end date picker does not allow dates before start date', (
+    tester,
+  ) async {
     final repository = RecordingMedicationRepository();
     final container = makeContainer(repository);
     addTearDown(container.dispose);
@@ -259,11 +269,18 @@ void main() {
     await tester.tap(find.byKey(const Key('medicationEndDate')));
     await tester.pumpAndSettle();
 
-    final dialog = tester.widget<DatePickerDialog>(find.byType(DatePickerDialog));
-    expect(dialog.firstDate, DateTime(startDate.year, startDate.month, startDate.day));
+    final dialog = tester.widget<DatePickerDialog>(
+      find.byType(DatePickerDialog),
+    );
+    expect(
+      dialog.firstDate,
+      DateTime(startDate.year, startDate.month, startDate.day),
+    );
   });
 
-  testWidgets('network failure retains all entered medication values', (tester) async {
+  testWidgets('network failure retains all entered medication values', (
+    tester,
+  ) async {
     final repository = RecordingMedicationRepository()
       ..createError = const ApiError(
         code: 'NETWORK_ERROR',
@@ -275,9 +292,18 @@ void main() {
 
     container.read(routerProvider).go('/family/member-id/medications/new');
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('medicationName')), 'Metformin');
-    await tester.enterText(find.byKey(const Key('medicationStrength')), '500 mg');
-    await tester.enterText(find.byKey(const Key('medicationDosageForm')), 'tablet');
+    await tester.enterText(
+      find.byKey(const Key('medicationName')),
+      'Metformin',
+    );
+    await tester.enterText(
+      find.byKey(const Key('medicationStrength')),
+      '500 mg',
+    );
+    await tester.enterText(
+      find.byKey(const Key('medicationDosageForm')),
+      'tablet',
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Save medicine'));
     await tester.pumpAndSettle();
 
@@ -287,15 +313,21 @@ void main() {
     expect(find.text('tablet'), findsOneWidget);
   });
 
-  testWidgets('loading state blocks duplicate medication submit', (tester) async {
-    final repository = RecordingMedicationRepository()..createGate = Completer<void>();
+  testWidgets('loading state blocks duplicate medication submit', (
+    tester,
+  ) async {
+    final repository = RecordingMedicationRepository()
+      ..createGate = Completer<void>();
     final container = makeContainer(repository);
     addTearDown(container.dispose);
     await pumpApp(tester, container);
 
     container.read(routerProvider).go('/family/member-id/medications/new');
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('medicationName')), 'Metformin');
+    await tester.enterText(
+      find.byKey(const Key('medicationName')),
+      'Metformin',
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Save medicine'));
     await tester.pump();
 
@@ -308,29 +340,48 @@ void main() {
     expect(repository.createCalls, 1);
   });
 
-  testWidgets('successful create returns to profile and refreshes medication list', (tester) async {
-    final repository = RecordingMedicationRepository();
-    final container = makeContainer(repository);
-    addTearDown(container.dispose);
-    await pumpApp(tester, container);
+  testWidgets(
+    'successful create opens routine and back returns to profile without duplicating',
+    (tester) async {
+      final repository = RecordingMedicationRepository();
+      final container = makeContainer(repository);
+      addTearDown(container.dispose);
+      await pumpApp(tester, container);
 
-    container.read(routerProvider).go('/family/member-id');
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Add manually'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('medicationName')), 'Metformin');
-    await tester.enterText(find.byKey(const Key('medicationStrength')), '500 mg');
-    await tester.enterText(find.byKey(const Key('medicationDosageForm')), 'tablet');
-    await tester.tap(find.widgetWithText(FilledButton, 'Save medicine'));
-    await tester.pumpAndSettle();
+      container.read(routerProvider).go('/family/member-id');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add manually'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('medicationName')),
+        'Metformin',
+      );
+      await tester.enterText(
+        find.byKey(const Key('medicationStrength')),
+        '500 mg',
+      );
+      await tester.enterText(
+        find.byKey(const Key('medicationDosageForm')),
+        'tablet',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Save medicine'));
+      await tester.pumpAndSettle();
 
-    expect(currentPath(container), '/family/member-id');
-    expect(find.text('Metformin'), findsOneWidget);
-    expect(find.text('500 mg • tablet'), findsOneWidget);
-    expect(find.text('Draft'), findsOneWidget);
-  });
+      expect(find.widgetWithText(FilledButton, 'Save routine'), findsOneWidget);
+      expect(find.text('Metformin 500 mg'), findsOneWidget);
+      container.read(routerProvider).pop();
+      await tester.pumpAndSettle();
+      expect(currentPath(container), '/family/member-id');
+      expect(repository.createCalls, 1);
+      expect(find.text('Metformin'), findsOneWidget);
+      expect(find.text('500 mg • tablet'), findsOneWidget);
+      expect(find.text('Draft'), findsOneWidget);
+    },
+  );
 
-  testWidgets('manual medication form does not contain scheduling inputs', (tester) async {
+  testWidgets('manual medication form does not contain scheduling inputs', (
+    tester,
+  ) async {
     final repository = RecordingMedicationRepository();
     final container = makeContainer(repository);
     addTearDown(container.dispose);
@@ -344,8 +395,9 @@ void main() {
     expect(find.text('Meal relation'), findsNothing);
   });
 
-  testWidgets('profile localizes active medication lifecycle status',
-      (tester) async {
+  testWidgets('profile localizes active medication lifecycle status', (
+    tester,
+  ) async {
     final repository = RecordingMedicationRepository();
     repository.medications.add(
       MemberMedication(
@@ -370,6 +422,4 @@ void main() {
     expect(find.text('Active'), findsOneWidget);
     expect(find.text('active'), findsNothing);
   });
-
-
 }
