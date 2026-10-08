@@ -24,7 +24,15 @@ Updated 2026-10-09. Canonical handoff; fetch and verify remote before resuming.
 - History seeding never overwrites an existing queued action and does not make historical doses eligible for reminders.
 - Added regression tests for late feed responses, scheduling/clear overlap, new-session refresh, retry behavior, empty-cache history correction and preservation of queued snapshots.
 
-## Verification in this session
+## Latest slice: History routes and compact navigation
+- Verified PR #12 CI at `d7c1c0d`: backend and mobile both SUCCESS (run `37843238587`).
+- Added production-router regression coverage for global/member History → correction → save/cancel → originating History, refreshed status and selected History tab.
+- Fixed an uncaught refresh exception after successful correction when global History reload fails. Provider error/Retry UI remains responsible for recovery; retry does not resubmit the correction.
+- Compact 360×640 English/Bangla tests at 1.5× text cover all four tabs, correction scrolling, reachable save button and return navigation. No additional compact layout changes were needed.
+- Current validation: `flutter analyze --no-pub` PASS; targeted History/navigation/account suites: 12 passed (7 new route/compact regressions).
+- Tests use the production router and correction/sync repositories with in-memory storage and a controlled server fixture; they do not replace live API/device verification.
+
+## Prior milestone verification
 - `flutter analyze --no-pub`: PASS.
 - Full `flutter test --no-pub --reporter expanded`: 98 passed, 1 opt-in live test skipped by default.
 - Opt-in live test against loopback HTTP API + isolated Postgres: PASS, including newly added correction after relogin with an empty Drift cache and server history verification.
@@ -39,5 +47,5 @@ Updated 2026-10-09. Canonical handoff; fetch and verify remote before resuming.
 - [ ] B: Working Figma-derived navigation/screens; full rendered comparison remains. Account deletion needs a scoped implementation/retention plan before release.
 - [ ] C: Automated checks and live repository integration pass; Android notification permission/background/boot tests remain device-dependent.
 - D optional: Prescription capture/OCR deferred; no fake extraction.
-- Next independent task: verify History correction return/refresh through production routes and broaden compact-screen navigation coverage; then device/Figma render QA when available.
+- Next: device/Figma render QA when available; remaining device-dependent acceptance is listed above. History return/refresh and compact navigation task is complete.
 - Use the live runner instructions in `docs/DEVELOPMENT_RUNBOOK.md`; do not point it at a database containing actual family records.

@@ -23,7 +23,12 @@ class HistoryScreen extends ConsumerWidget {
     final history = ref.watch(familyHistoryProvider);
     Future<void> refresh() async {
       ref.invalidate(familyHistoryProvider);
-      await ref.read(familyHistoryProvider.future);
+      try {
+        await ref.read(familyHistoryProvider.future);
+      } on Object {
+        // The provider renders the error and Retry control. Do not let the
+        // awaited navigation/refresh callback surface an uncaught exception.
+      }
     }
 
     return Scaffold(
