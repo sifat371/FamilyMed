@@ -72,6 +72,8 @@ async def create_manual_medication(
                 or medication.end_date != payload.end_date
             )
         ):
+            # Release the request transaction on a rejected creation-ID reuse.
+            await session.rollback()
             raise ApiError(
                 409,
                 "CREATION_ID_CONFLICT",
