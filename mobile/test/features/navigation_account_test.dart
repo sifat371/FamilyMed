@@ -55,6 +55,34 @@ class _HistoryRepository implements HistoryRepository {
 }
 
 void main() {
+  testWidgets('account deletion requires password and can be cancelled', (tester) async {
+    final container = fixtures.makeContainer(fixtures.RecordingMedicationRepository());
+    addTearDown(container.dispose);
+    await fixtures.pumpApp(tester, container);
+
+    await tester.tap(find.byKey(const Key('meTab')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('deleteAccountButton')));
+    await tester.tap(find.byKey(const Key('deleteAccountButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete account'), findsWidgets);
+    final confirm = find.widgetWithText(FilledButton, 'Delete permanently');
+    expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('deleteAccountPassword')),
+      'password123',
+    );
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(fixtures.currentPath(container), '/me');
+    expect(container.read(authControllerProvider).user, isNotNull);
+  });
+
   testWidgets('Android Back on Today root asks before exiting', (tester) async {
     final container = fixtures.makeContainer(fixtures.RecordingMedicationRepository());
     addTearDown(container.dispose);
