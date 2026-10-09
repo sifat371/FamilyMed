@@ -209,6 +209,42 @@ String currentPath(ProviderContainer container) {
 }
 
 void main() {
+  testWidgets('Android back from onboarding add form returns to care-for', (tester) async {
+    final container = makeContainer(RecordingFamilyRepository());
+    addTearDown(container.dispose);
+    await pumpApp(tester, container);
+    container.read(routerProvider).go('/care-for');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/family/new');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/care-for');
+  });
+
+  testWidgets('saved new family member returns to family without reopening form', (tester) async {
+    final container = makeContainer(RecordingFamilyRepository());
+    addTearDown(container.dispose);
+    await pumpApp(tester, container);
+    container.read(routerProvider).go('/family');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Add family member'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('familyName')), 'Amma');
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Add family member'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Add family member'));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/family/created-member');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/family');
+  });
+
   testWidgets('new member saves the explicitly selected care timezone', (
     tester,
   ) async {
