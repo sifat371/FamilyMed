@@ -199,6 +199,60 @@ void main() {
     expect(currentPath(container), '/login');
   });
 
+  testWidgets('auth screens can switch flows and return to welcome', (tester) async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    await pumpApp(tester, container);
+
+    await tester.tap(find.text('Get started'));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/register');
+    expect(find.byKey(const Key('authBack')), findsOneWidget);
+
+    final switchToLogin = find.widgetWithText(TextButton, 'I already have an account');
+    await tester.ensureVisible(switchToLogin);
+    await tester.tap(switchToLogin);
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/login');
+    expect(find.byKey(const Key('authBack')), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Create account'));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/register');
+
+    await tester.tap(find.byKey(const Key('authBack')));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/welcome');
+
+    await tester.tap(find.text('I already have an account'));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/login');
+
+    await tester.tap(find.byKey(const Key('authBack')));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/welcome');
+  });
+
+  testWidgets('Android system back returns from auth screens to welcome', (tester) async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    await pumpApp(tester, container);
+
+    await tester.tap(find.text('Get started'));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/register');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/welcome');
+
+    await tester.tap(find.text('I already have an account'));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/login');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/welcome');
+  });
+
   testWidgets('seven-character password blocks registration', (tester) async {
     final authRepository = FakeAuthRepository();
     final container = makeContainer(authRepository: authRepository);
