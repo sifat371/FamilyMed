@@ -79,7 +79,7 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
       }
       if (!await _refreshReminders()) return;
       ref.invalidate(todayProvider);
-      if (mounted) context.go('/today');
+      if (mounted) context.pushReplacement('/today');
     } on Object {
       if (mounted) setState(() => _message = l10n.networkError);
     } finally {
