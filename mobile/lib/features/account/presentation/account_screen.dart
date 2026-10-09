@@ -79,42 +79,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   Future<void> _deleteAccount() async {
     if (_saving || _deleting) return;
     final l10n = AppLocalizations.of(context);
-    final password = TextEditingController();
     final confirmation = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text(l10n.deleteAccountTitle),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(l10n.deleteAccountWarning),
-              const SizedBox(height: 12),
-              TextField(
-                key: const Key('deleteAccountPassword'),
-                controller: password,
-                obscureText: true,
-                onChanged: (_) => setDialogState(() {}),
-                decoration: InputDecoration(labelText: l10n.passwordLabel),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: password.text.length < 8
-                  ? null
-                  : () => Navigator.of(dialogContext).pop(password.text),
-              child: Text(l10n.deleteAccountConfirm),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => const _DeleteAccountConfirmationDialog(),
     );
-    password.dispose();
     if (!mounted || confirmation == null) return;
     setState(() {
       _deleting = true;
@@ -267,6 +235,60 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+
+class _DeleteAccountConfirmationDialog extends StatefulWidget {
+  const _DeleteAccountConfirmationDialog();
+
+  @override
+  State<_DeleteAccountConfirmationDialog> createState() =>
+      _DeleteAccountConfirmationDialogState();
+}
+
+class _DeleteAccountConfirmationDialogState
+    extends State<_DeleteAccountConfirmationDialog> {
+  final _password = TextEditingController();
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l10n.deleteAccountTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(l10n.deleteAccountWarning),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('deleteAccountPassword'),
+            controller: _password,
+            obscureText: true,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(labelText: l10n.passwordLabel),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: _password.text.length < 8
+              ? null
+              : () => Navigator.of(context).pop(_password.text),
+          child: Text(l10n.deleteAccountConfirm),
+        ),
+      ],
     );
   }
 }
