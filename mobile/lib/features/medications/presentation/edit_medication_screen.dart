@@ -91,7 +91,11 @@ class _EditMedicationScreenState extends ConsumerState<EditMedicationScreen> {
           );
       ref.invalidate(memberMedicationsProvider(widget.memberId));
       if (!mounted) return;
-      context.go('/family/${widget.memberId}');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/family/${widget.memberId}');
+      };
     } on ApiError catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
