@@ -1,5 +1,25 @@
 # FamilyMed V1 — fastest safe Android release
 
+## Free beta deployment: Render Free + Neon Free
+
+**Use synthetic demo data only.** Free instances can sleep, be suspended at monthly quotas, and cannot guarantee availability for medication reminders. This is not a suitable service for patient reliance.
+
+The root `render.yaml` uses **only one Render Free web service**; it does not create any Render PostgreSQL resource, paid or free. Its database is an external persistent Neon Free project, with separate storage. This avoids Render's 30-day free-Postgres expiry.
+
+1. Create a **Neon Free** PostgreSQL project in a region close to Render Singapore (choose a provider region actually offered by your Neon project). Do not create a paid project. Use the **direct (unpooled) TLS connection string** for Alembic migrations and runtime V1. Copy the value privately; NEVER paste it in chat or commit it to GitHub.
+2. Open [Render Dashboard](https://dashboard.render.com/), connect GitHub, and import `render.yaml` from `main` into a Free Blueprint, or provision `familymed-beta-api` as a Free Docker web service with Dockerfile `backend/Dockerfile` and context `backend`.
+3. Enter `FAMILYMED_DATABASE_URL` privately in the Render UI using Neon's PostgreSQL connection string with `?sslmode=require` (Neon's URL may also include `channel_binding=require`). The backend translates these libpq parameters for asyncpg, while migrations use psycopg3.
+4. Set `FAMILYMED_SUPPORT_EMAIL` to an **owner-approved public inbox**. The Render Blueprint generates a private strong `FAMILYMED_JWT_SECRET`. Keep secrets out of chat, screenshots, logs, and GitHub.
+5. Confirm that the Render service is using the **Free** plan and Neon project is **Free**. Render may still charge overages on paid-on-file accounts; set workspace billing alerts and review included quotas.
+6. Wait for the first build to finish. Visit **the actual Render service URL** `https://<actual-host>.onrender.com/api/v1/ready` and confirm `{"status":"ready"}`. Then check public `/privacy` and `/account-deletion` routes.
+7. Register ONLY a fictional beta user and medication to test persistence, schedule and history. Free sleeping services may take about one minute to wake. Verify one post-restart persistence cycle and investigate error logs before distributing.
+8. After service URL is verified, rebuild Android using `--dart-define=FAMILYMED_API_BASE_URL=https://<actual-host>.onrender.com/api/v1`. The previously installed lab-PC/Tailscale APK is a different configuration and remains unchanged.
+9. **Do not publish for actual medication management** until hosting availability, backups/restore, monitoring, privacy retention, abuse protection and deletion paths are reviewed.
+
+Official caveats: https://render.com/docs/free and https://neon.com/pricing.
+
+**Original paid production runbook** (below) describes an eventual upgrade path and is not an instruction to provision paid services today.
+
 Status: repository preparation only. A successful PR CI run is not a public deployment or a Play Store approval.
 
 ## 1. Integration and release candidate
