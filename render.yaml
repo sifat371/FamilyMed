@@ -28,6 +28,9 @@ services:
           property: connectionString
       - key: FAMILYMED_JWT_SECRET
         generateValue: true
+      # Required before public access: confirmed owner-controlled inbox.
+      - key: FAMILYMED_SUPPORT_EMAIL
+        sync: false
       # Flutter uses native HTTP requests. Browser CORS is not required for V1.
       - key: FAMILYMED_CORS_ORIGINS
         value: ""
