@@ -35,7 +35,14 @@ if settings.env == "test":
 # psycopg/Alembic migrations, which understand the libpq query parameters.
 async_url = make_url(settings.database_url)
 ssl_mode = async_url.query.get("sslmode")
-if ssl_mode is not None and ssl_mode not in {"disable", "allow", "prefer", "require", "verify-ca", "verify-full"}:
+if ssl_mode is not None and ssl_mode not in {
+    "disable",
+    "allow",
+    "prefer",
+    "require",
+    "verify-ca",
+    "verify-full",
+}:
     raise ValueError("Unsupported PostgreSQL sslmode")
 if settings.env in {"production", "staging"}:
     # Never allow an unencrypted connection to cloud PostgreSQL.
@@ -43,7 +50,9 @@ if settings.env in {"production", "staging"}:
         raise ValueError("Cloud PostgreSQL requires sslmode=require or stronger")
     ssl_mode = ssl_mode or "require"
 if ssl_mode is not None:
-    engine_kwargs["connect_args"] = {"ssl": ssl_mode if ssl_mode != "disable" else False}
+    engine_kwargs["connect_args"] = {
+        "ssl": ssl_mode if ssl_mode != "disable" else False
+    }
 async_url = async_url.difference_update_query(["sslmode", "channel_binding"])
 
 engine = create_async_engine(async_url, **engine_kwargs)
