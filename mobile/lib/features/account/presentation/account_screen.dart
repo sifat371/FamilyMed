@@ -123,7 +123,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   title: Text(l10n.familyCareSettings),
                   subtitle: Text(l10n.familyCareSettingsBody),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.go('/family'),
+                  onTap: () => context.push('/family'),
                 ),
               ),
               const SizedBox(height: 20),
