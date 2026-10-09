@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.health import router as health_router
+from app.api.legal import router as legal_router
 from app.auth.router import router as auth_router
 from app.common.errors import ApiError
 from app.config import get_settings
