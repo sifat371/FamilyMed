@@ -94,7 +94,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       ShellRoute(
         builder: (context, state, child) =>
-            AppShell(location: state.uri.path, child: child),
+            AppShell(location: GoRouter.of(context).state.uri.path, child: child),
         routes: [
           GoRoute(
             path: '/history',
