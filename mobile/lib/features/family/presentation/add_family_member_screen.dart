@@ -63,7 +63,7 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
       ref.invalidate(familyMembersProvider);
       ref.invalidate(familyMemberProvider(member.id));
       if (!mounted) return;
-      context.go('/family/${member.id}');
+      context.pushReplacement('/family/${member.id}');
     } on ApiError catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
