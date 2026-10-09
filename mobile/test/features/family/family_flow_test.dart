@@ -204,6 +204,22 @@ String currentPath(ProviderContainer container) {
 }
 
 void main() {
+  testWidgets('Android Back on first care-for page asks before exiting', (tester) async {
+    final container = makeContainer(RecordingFamilyRepository());
+    addTearDown(container.dispose);
+    await pumpApp(tester, container);
+    container.read(routerProvider).go('/care-for');
+    await tester.pumpAndSettle();
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Exit FamilyMed?'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/care-for');
+  });
+
   testWidgets('Android back from onboarding add form returns to care-for', (tester) async {
     final container = makeContainer(RecordingFamilyRepository());
     addTearDown(container.dispose);
