@@ -119,7 +119,7 @@ class _EditFamilyMemberScreenState
         context.pop();
       } else {
         context.go('/family/${widget.memberId}');
-      };
+      }
     } on ApiError catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
