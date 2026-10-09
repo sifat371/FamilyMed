@@ -4,16 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class AppShell extends StatelessWidget {
-  const AppShell({
-    super.key,
-    required this.location,
-    required this.child,
-  });
+  const AppShell({super.key, required this.location, required this.child});
 
   final String location;
   final Widget child;
 
-  int get _selectedIndex => location.startsWith('/family') ? 1 : 0;
+  int get _selectedIndex => location == '/me'
+      ? 3
+      : location == '/history' || location.endsWith('/history')
+      ? 2
+      : location.startsWith('/family')
+      ? 1
+      : 0;
 
   bool get _showBottomNavigation {
     if (location.endsWith('/edit') ||
@@ -36,35 +38,61 @@ class AppShell extends StatelessWidget {
           ? DecoratedBox(
               decoration: const BoxDecoration(
                 color: FamilyMedColors.surface,
-                border: Border(
-                  top: BorderSide(color: FamilyMedColors.border),
-                ),
+                border: Border(top: BorderSide(color: FamilyMedColors.border)),
               ),
               child: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          final target = index == 0 ? '/today' : '/family';
-          if (location != target) {
-            context.go(target);
-          }
-        },
-        destinations: [
-          NavigationDestination(
-            key: const Key('todayTab'),
-            icon: const Icon(Icons.home_outlined),
-            selectedIcon: const Icon(Icons.home),
-            label: l10n.todayTitle,
-          ),
-          NavigationDestination(
-            key: const Key('familyTab'),
-            icon: const Icon(Icons.group_outlined),
-            selectedIcon: const Icon(Icons.group),
-            label: l10n.familyTab,
-          ),
-        ],
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: (index) {
+                  final target = [
+                    '/today',
+                    '/family',
+                    '/history',
+                    '/me',
+                  ][index];
+                  if (location != target) {
+                    context.go(target);
+                  }
+                },
+                destinations: [
+                  NavigationDestination(
+                    key: const Key('todayTab'),
+                    icon: _navIcon(context, 'today', false),
+                    selectedIcon: _navIcon(context, 'today', true),
+                    label: l10n.todayTitle,
+                  ),
+                  NavigationDestination(
+                    key: const Key('familyTab'),
+                    icon: _navIcon(context, 'family', false),
+                    selectedIcon: _navIcon(context, 'family', true),
+                    label: l10n.familyTab,
+                  ),
+                  NavigationDestination(
+                    key: const Key('historyTab'),
+                    icon: _navIcon(context, 'history', false),
+                    selectedIcon: _navIcon(context, 'history', true),
+                    label: l10n.historyTitle,
+                  ),
+                  NavigationDestination(
+                    key: const Key('meTab'),
+                    icon: _navIcon(context, 'me', false),
+                    selectedIcon: _navIcon(context, 'me', true),
+                    label: l10n.meTab,
+                  ),
+                ],
               ),
             )
           : null,
     );
   }
+
+  Widget _navIcon(BuildContext context, String name, bool selected) =>
+      Image.asset(
+        'assets/figma/$name.png',
+        width: 20,
+        height: 20,
+        color: selected
+            ? FamilyMedColors.primary
+            : FamilyMedColors.textSecondary,
+        excludeFromSemantics: true,
+      );
 }

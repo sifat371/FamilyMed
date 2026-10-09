@@ -81,7 +81,10 @@ class _FamilyMedAppState extends ConsumerState<FamilyMedApp>
         }
       });
     });
-    ref.listen<AsyncValue<String>>(notificationDoseTapProvider, (previous, next) {
+    ref.listen<AsyncValue<String>>(notificationDoseTapProvider, (
+      previous,
+      next,
+    ) {
       next.whenData((doseId) {
         ref.read(routerProvider).go('/doses/$doseId');
       });
@@ -91,7 +94,13 @@ class _FamilyMedAppState extends ConsumerState<FamilyMedApp>
       debugShowCheckedModeBanner: false,
       onGenerateTitle: (context) => AppLocalizations.of(context).appName,
       theme: FamilyMedTheme.light,
-      locale: widget.locale,
+      locale:
+          widget.locale ??
+          (ref.watch(authControllerProvider).user == null
+              ? null
+              : Locale(
+                  ref.watch(authControllerProvider).user!.preferredLanguage,
+                )),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: ref.watch(routerProvider),

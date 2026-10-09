@@ -31,6 +31,7 @@ class _MemberHistoryScreenState extends State<MemberHistoryScreen> {
   }
 
   Future<void> _load() async {
+    setState(() => _error = null);
     try {
       final history = await widget.repository.load(widget.memberId);
       if (!mounted) return;
@@ -46,54 +47,78 @@ class _MemberHistoryScreenState extends State<MemberHistoryScreen> {
     final l10n = AppLocalizations.of(context);
     final history = _history;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.historyTitle)),
+      appBar: AppBar(
+        title: Text(l10n.historyTitle),
+        actions: [
+          IconButton(
+            onPressed: _load,
+            tooltip: l10n.retry,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: _error != null
-            ? Center(child: Text(l10n.networkError))
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l10n.networkError),
+                    TextButton(onPressed: _load, child: Text(l10n.retry)),
+                  ],
+                ),
+              )
             : history == null
-                ? const Center(child: CircularProgressIndicator())
-                : ListView(
-                    padding: const EdgeInsets.all(20),
-                    children: [
-                      Text(
-                        history.memberName,
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        l10n.markedAdherence,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        history.markedAdherencePercentage == null
-                            ? l10n.notAvailable
-                            : '${compactQuantity(history.markedAdherencePercentage!)}%',
-                      ),
-                      const SizedBox(height: 24),
-                      for (final day in history.days) ...[
-                        Text(
-                          MaterialLocalizations.of(context).formatMediumDate(
-                            DateTime.parse(day.localDate),
-                          ),
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        for (final item in day.doses)
-                          _HistoryDoseCard(item: item),
-                        const SizedBox(height: 16),
-                      ],
-                    ],
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  Text(
+                    history.memberName,
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
+                  const SizedBox(height: 16),
+                  Text(
+                    l10n.markedAdherence,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    history.markedAdherencePercentage == null
+                        ? l10n.notAvailable
+                        : '${compactQuantity(history.markedAdherencePercentage!)}%',
+                  ),
+                  const SizedBox(height: 24),
+                  if (history.days.every((day) => day.doses.isEmpty))
+                    Text(l10n.noHistoryYet),
+                  for (final day in history.days) ...[
+                    Text(
+                      MaterialLocalizations.of(
+                        context,
+                      ).formatMediumDate(DateTime.parse(day.localDate)),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    for (final item in day.doses)
+                      HistoryDoseCard(item: item, onChanged: _load),
+                    const SizedBox(height: 16),
+                  ],
+                ],
+              ),
       ),
     );
   }
 }
 
-class _HistoryDoseCard extends StatelessWidget {
-  const _HistoryDoseCard({required this.item});
+class HistoryDoseCard extends StatelessWidget {
+  const HistoryDoseCard({
+    super.key,
+    required this.item,
+    required this.onChanged,
+  });
 
   final HistoryDose item;
+  final Future<void> Function() onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -125,9 +150,12 @@ class _HistoryDoseCard extends StatelessWidget {
             if (_isFinal(dose.status)) ...[
               const SizedBox(height: 8),
               TextButton(
-                onPressed: () => context.push(
-                  '/doses/${dose.id}/correct?status=${dose.status}',
-                ),
+                onPressed: () async {
+                  await context.push(
+                    '/doses/${dose.id}/correct?status=${dose.status}',
+                  );
+                  if (context.mounted) await onChanged();
+                },
                 child: Text(l10n.correctRecord),
               ),
             ],

@@ -1,3 +1,4 @@
+import 'package:familymed/core/widgets/timezone_field.dart';
 import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
 import 'package:familymed/features/family/presentation/family_relationship_label.dart';
@@ -7,10 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 class EditFamilyMemberScreen extends ConsumerStatefulWidget {
-  const EditFamilyMemberScreen({
-    super.key,
-    required this.memberId,
-  });
+  const EditFamilyMemberScreen({super.key, required this.memberId});
 
   final String memberId;
 
@@ -27,6 +25,7 @@ class _EditFamilyMemberScreenState
 
   String _relationship = 'other';
   String _preferredLanguage = 'bn';
+  String _timezone = 'Asia/Dhaka';
   bool _loading = true;
   bool _saving = false;
   String? _errorMessage;
@@ -39,14 +38,17 @@ class _EditFamilyMemberScreenState
 
   Future<void> _load() async {
     try {
-      final member =
-          await ref.read(familyRepositoryProvider).getMember(widget.memberId);
+      final member = await ref
+          .read(familyRepositoryProvider)
+          .getMember(widget.memberId);
       if (!mounted) return;
       _nameController.text = member.name;
       _relationship = _normalizedRelationship(member.relationship);
       _preferredLanguage = member.preferredLanguage;
-      _dobController.text =
-          member.dateOfBirth == null ? '' : _dateOnly(member.dateOfBirth!);
+      _timezone = member.timezone;
+      _dobController.text = member.dateOfBirth == null
+          ? ''
+          : _dateOnly(member.dateOfBirth!);
     } on ApiError catch (error) {
       if (!mounted) return;
       _errorMessage = error.message;
@@ -82,8 +84,7 @@ class _EditFamilyMemberScreenState
     final current = DateTime.tryParse(_dobController.text);
     final picked = await showDatePicker(
       context: context,
-      initialDate:
-          current ?? DateTime(today.year - 40, today.month, today.day),
+      initialDate: current ?? DateTime(today.year - 40, today.month, today.day),
       firstDate: DateTime(1900),
       lastDate: today,
     );
@@ -99,7 +100,9 @@ class _EditFamilyMemberScreenState
     });
 
     try {
-      await ref.read(familyRepositoryProvider).updateMember(
+      await ref
+          .read(familyRepositoryProvider)
+          .updateMember(
             widget.memberId,
             name: _nameController.text.trim(),
             relationship: _relationship,
@@ -107,6 +110,7 @@ class _EditFamilyMemberScreenState
                 ? null
                 : DateTime.parse(_dobController.text),
             preferredLanguage: _preferredLanguage,
+            timezone: _timezone,
           );
       ref.invalidate(familyMembersProvider);
       ref.invalidate(familyMemberProvider(widget.memberId));
@@ -155,19 +159,21 @@ class _EditFamilyMemberScreenState
                       TextFormField(
                         key: const Key('editFamilyName'),
                         controller: _nameController,
-                        decoration:
-                            InputDecoration(labelText: l10n.familyMemberName),
+                        decoration: InputDecoration(
+                          labelText: l10n.familyMemberName,
+                        ),
                         validator: (value) =>
                             value == null || value.trim().isEmpty
-                                ? l10n.requiredFieldError
-                                : null,
+                            ? l10n.requiredFieldError
+                            : null,
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         key: const Key('editFamilyRelationship'),
                         initialValue: _relationship,
-                        decoration:
-                            InputDecoration(labelText: l10n.relationshipLabel),
+                        decoration: InputDecoration(
+                          labelText: l10n.relationshipLabel,
+                        ),
                         items: relationshipOptions
                             .map(
                               (value) => DropdownMenuItem(
@@ -194,11 +200,22 @@ class _EditFamilyMemberScreenState
                         onTap: _saving ? null : _pickDob,
                         decoration: InputDecoration(
                           labelText: l10n.dateOfBirth,
-                          suffixIcon:
-                              const Icon(Icons.calendar_today_outlined),
+                          suffixIcon: const Icon(Icons.calendar_today_outlined),
                         ),
                       ),
                       const SizedBox(height: 20),
+                      TimezoneField(
+                        value: _timezone,
+                        onChanged: _saving
+                            ? null
+                            : (zone) => setState(() => _timezone = zone),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.careTimezoneHelp,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 16),
                       Text(
                         l10n.preferredLanguage,
                         style: Theme.of(context).textTheme.titleMedium,
@@ -212,18 +229,16 @@ class _EditFamilyMemberScreenState
                             selected: _preferredLanguage == 'bn',
                             onSelected: _saving
                                 ? null
-                                : (_) => setState(
-                                      () => _preferredLanguage = 'bn',
-                                    ),
+                                : (_) =>
+                                      setState(() => _preferredLanguage = 'bn'),
                           ),
                           ChoiceChip(
                             label: Text(l10n.englishLanguage),
                             selected: _preferredLanguage == 'en',
                             onSelected: _saving
                                 ? null
-                                : (_) => setState(
-                                      () => _preferredLanguage = 'en',
-                                    ),
+                                : (_) =>
+                                      setState(() => _preferredLanguage = 'en'),
                           ),
                         ],
                       ),
@@ -242,8 +257,9 @@ class _EditFamilyMemberScreenState
                         child: _saving
                             ? const SizedBox.square(
                                 dimension: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : Text(l10n.saveChanges),
                       ),

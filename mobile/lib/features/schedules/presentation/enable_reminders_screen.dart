@@ -10,10 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 class EnableRemindersScreen extends ConsumerStatefulWidget {
-  const EnableRemindersScreen({
-    super.key,
-    required this.memberId,
-  });
+  const EnableRemindersScreen({super.key, required this.memberId});
 
   final String memberId;
 
@@ -47,13 +44,14 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
     } on Object {
       if (!mounted) return;
       setState(() {
-        _enabled = false;
+        _message = AppLocalizations.of(context).networkError;
         _loadingPreference = false;
       });
     }
   }
 
   Future<void> _enable() async {
+    if (_loading) return;
     setState(() {
       _loading = true;
       _message = null;
@@ -84,6 +82,8 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
       }
       ref.invalidate(todayProvider);
       if (mounted) context.go('/today');
+    } on Object {
+      if (mounted) setState(() => _message = l10n.networkError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -107,6 +107,10 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
       ref.invalidate(todayProvider);
       if (!mounted) return;
       setState(() => _enabled = false);
+    } on Object {
+      if (mounted) {
+        setState(() => _message = AppLocalizations.of(context).networkError);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -118,7 +122,7 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
     return Scaffold(
       appBar: AppBar(),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -148,7 +152,9 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          _enabled == true
+                          _enabled == null
+                              ? l10n.notAvailable
+                              : _enabled == true
                               ? l10n.remindersOn
                               : l10n.remindersOff,
                           style: Theme.of(context).textTheme.titleMedium,
@@ -184,12 +190,9 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
               ),
               if (_message != null) ...[
                 const SizedBox(height: 16),
-                Text(
-                  _message!,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
+                Text(_message!, style: Theme.of(context).textTheme.bodyMedium),
               ],
-              const Spacer(),
+              const SizedBox(height: 24),
               if (_enabled != true)
                 FilledButton(
                   onPressed: _loading || _loadingPreference ? null : _enable,
@@ -211,5 +214,4 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
       ),
     );
   }
-
 }

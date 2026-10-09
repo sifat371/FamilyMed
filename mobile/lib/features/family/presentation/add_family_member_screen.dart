@@ -1,3 +1,5 @@
+import 'package:familymed/core/widgets/timezone_field.dart';
+import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/core/theme/familymed_theme.dart';
 import 'package:familymed/core/widgets/familymed_ui.dart';
@@ -9,15 +11,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 class AddFamilyMemberScreen extends ConsumerStatefulWidget {
-  const AddFamilyMemberScreen({
-    super.key,
-    this.initialRelationship = 'mother',
-  });
+  const AddFamilyMemberScreen({super.key, this.initialRelationship = 'mother'});
 
   final String initialRelationship;
 
   @override
-  ConsumerState<AddFamilyMemberScreen> createState() => _AddFamilyMemberScreenState();
+  ConsumerState<AddFamilyMemberScreen> createState() =>
+      _AddFamilyMemberScreenState();
 }
 
 class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
@@ -26,6 +26,7 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
   final _dobController = TextEditingController();
   late String _relationship;
   String _preferredLanguage = 'bn';
+  String _timezone = 'Asia/Dhaka';
   bool _submitting = false;
   String? _errorMessage;
 
@@ -33,6 +34,7 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
   void initState() {
     super.initState();
     _relationship = _normalizedRelationship(widget.initialRelationship);
+    _timezone = ref.read(authControllerProvider).user?.timezone ?? 'Asia/Dhaka';
   }
 
   @override
@@ -49,12 +51,14 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
       _errorMessage = null;
     });
     try {
-      final member = await ref.read(familyRepositoryProvider).createMember(
+      final member = await ref
+          .read(familyRepositoryProvider)
+          .createMember(
             name: _nameController.text.trim(),
             relationship: _relationship,
             dateOfBirth: _parseDob(_dobController.text),
             preferredLanguage: _preferredLanguage,
-            timezone: 'Asia/Dhaka',
+            timezone: _timezone,
           );
       ref.invalidate(familyMembersProvider);
       ref.invalidate(familyMemberProvider(member.id));
@@ -150,16 +154,17 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
                       Text(
                         l10n.familyProfileIntro,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: FamilyMedColors.textSecondary,
-                            ),
+                          color: FamilyMedColors.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: 26),
                       TextFormField(
                         key: const Key('familyName'),
                         controller: _nameController,
                         textInputAction: TextInputAction.next,
-                        decoration:
-                            InputDecoration(labelText: l10n.familyMemberName),
+                        decoration: InputDecoration(
+                          labelText: l10n.familyMemberName,
+                        ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return l10n.requiredFieldError;
@@ -171,26 +176,28 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
                       DropdownButtonFormField<String>(
                         key: const Key('familyRelationship'),
                         initialValue: _relationship,
-                        decoration:
-                            InputDecoration(labelText: l10n.relationshipLabel),
-                        items: const [
-                          'parent',
-                          'mother',
-                          'father',
-                          'spouse',
-                          'child',
-                          'myself',
-                          'other',
-                        ]
-                            .map(
-                              (value) => DropdownMenuItem(
-                                value: value,
-                                child: Text(
-                                  familyRelationshipLabel(l10n, value),
-                                ),
-                              ),
-                            )
-                            .toList(growable: false),
+                        decoration: InputDecoration(
+                          labelText: l10n.relationshipLabel,
+                        ),
+                        items:
+                            const [
+                                  'parent',
+                                  'mother',
+                                  'father',
+                                  'spouse',
+                                  'child',
+                                  'myself',
+                                  'other',
+                                ]
+                                .map(
+                                  (value) => DropdownMenuItem(
+                                    value: value,
+                                    child: Text(
+                                      familyRelationshipLabel(l10n, value),
+                                    ),
+                                  ),
+                                )
+                                .toList(growable: false),
                         onChanged: _submitting
                             ? null
                             : (value) {
@@ -220,6 +227,18 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
                         validator: _validateDob,
                       ),
                       const SizedBox(height: 20),
+                      TimezoneField(
+                        value: _timezone,
+                        onChanged: _submitting
+                            ? null
+                            : (zone) => setState(() => _timezone = zone),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.careTimezoneHelp,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 16),
                       FamilyMedSectionLabel(l10n.preferredLanguage),
                       const SizedBox(height: 10),
                       Wrap(
@@ -228,16 +247,14 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
                           ChoiceChip(
                             label: Text(l10n.banglaLanguage),
                             selected: _preferredLanguage == 'bn',
-                            onSelected: (_) => setState(
-                              () => _preferredLanguage = 'bn',
-                            ),
+                            onSelected: (_) =>
+                                setState(() => _preferredLanguage = 'bn'),
                           ),
                           ChoiceChip(
                             label: Text(l10n.englishLanguage),
                             selected: _preferredLanguage == 'en',
-                            onSelected: (_) => setState(
-                              () => _preferredLanguage = 'en',
-                            ),
+                            onSelected: (_) =>
+                                setState(() => _preferredLanguage = 'en'),
                           ),
                         ],
                       ),
@@ -245,9 +262,8 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
                       FamilyMedSoftCard(
                         child: Text(
                           l10n.privacyMedicationCare,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: FamilyMedColors.primary,
-                              ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: FamilyMedColors.primary),
                         ),
                       ),
                       if (_errorMessage != null) ...[
@@ -281,5 +297,4 @@ class _AddFamilyMemberScreenState extends ConsumerState<AddFamilyMemberScreen> {
       ),
     );
   }
-
 }

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints, field_validator
@@ -40,6 +40,15 @@ class UserResponse(BaseModel):
     email: str
     preferred_language: str
     timezone: str
+
+
+class UpdateAccountRequest(BaseModel):
+    """Editable account details, excluding identity and medication settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Name
+    preferred_language: Literal["en", "bn"]
 
 
 class AuthResponse(BaseModel):

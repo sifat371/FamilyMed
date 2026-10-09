@@ -118,5 +118,6 @@ final medicationRepositoryProvider = Provider<MedicationRepository>((ref) {
 
 final memberMedicationsProvider =
     FutureProvider.family<List<MemberMedication>, String>((ref, memberId) {
+  ref.watch(authControllerProvider.select((auth) => auth.user?.id));
   return ref.watch(medicationRepositoryProvider).listMedications(memberId);
 });

@@ -9,6 +9,7 @@ from app.auth.schemas import (
     RefreshRequest,
     RefreshResponse,
     RegisterRequest,
+    UpdateAccountRequest,
     UserResponse,
 )
 from app.auth.service import login_user, refresh_access_token, register_user
@@ -38,4 +39,16 @@ async def refresh(payload: RefreshRequest) -> RefreshResponse:
 
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: CurrentUser) -> UserResponse:
+    return UserResponse.model_validate(current_user)
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    payload: UpdateAccountRequest, current_user: CurrentUser, session: DbSession
+) -> UserResponse:
+    """Persist preferences only for the authenticated account."""
+    current_user.name = payload.name
+    current_user.preferred_language = payload.preferred_language
+    await session.commit()
+    await session.refresh(current_user)
     return UserResponse.model_validate(current_user)

@@ -1,4 +1,13 @@
 {
+  "careTimezone": "Care timezone",
+  "careTimezoneHelp": "Used for new routines. Existing routines keep their saved timezone.",
+  "meTab": "Me",
+  "accountDetails": "Your account",
+  "saveAccount": "Save account",
+  "accountSaved": "Account saved",
+  "familyCareSettings": "Family care settings",
+  "familyCareSettingsBody": "Choose a family member to manage their timezone and reminders.",
+  "noHistoryYet": "No dose records in this period.",
   "appName": "FamilyMed",
   "welcomeHeadline": "Medication care for the people you love.",
   "welcomeBody": "Add medicines, build routines, and keep track of your family's medication care.",

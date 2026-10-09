@@ -6,10 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 class AddManualMedicationScreen extends ConsumerStatefulWidget {
-  const AddManualMedicationScreen({
-    super.key,
-    required this.memberId,
-  });
+  const AddManualMedicationScreen({super.key, required this.memberId});
 
   final String memberId;
 
@@ -57,7 +54,9 @@ class _AddManualMedicationScreenState
       _errorMessage = null;
     });
     try {
-      await ref.read(medicationRepositoryProvider).createMedication(
+      final medication = await ref
+          .read(medicationRepositoryProvider)
+          .createMedication(
             widget.memberId,
             displayName: _nameController.text.trim(),
             strength: _strengthController.text,
@@ -67,11 +66,9 @@ class _AddManualMedicationScreenState
           );
       ref.invalidate(memberMedicationsProvider(widget.memberId));
       if (!mounted) return;
-      if (context.canPop()) {
-        context.pop();
-      } else {
-        context.go('/family/${widget.memberId}');
-      }
+      context.pushReplacement(
+        '/family/${widget.memberId}/medications/${medication.id}/routine',
+      );
     } on ApiError catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);
@@ -224,7 +221,9 @@ class _AddManualMedicationScreenState
                   const SizedBox(height: 16),
                   Text(
                     _errorMessage!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 28),
