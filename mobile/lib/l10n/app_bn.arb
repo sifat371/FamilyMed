@@ -155,6 +155,9 @@
   "endMedicineTitle": "এই ওষুধটি শেষ করবেন?",
   "endMedicineBody": "ভবিষ্যতের রিমাইন্ডার ও অনস্পর্শিত ডোজ বন্ধ হবে। আগের ইতিহাস সংরক্ষিত থাকবে।",
   "cancel": "বাতিল",
+  "exitAppTitle": "FamilyMed থেকে বের হবেন?",
+  "exitAppMessage": "আপনি কি FamilyMed বন্ধ করতে চান?",
+  "exitAppConfirm": "বের হোন",
   "snoozedStatus": "পরে মনে করানো হবে",
   "snoozedUntil": "{time} পর্যন্ত পরে মনে করানো হয়েছে",
   "@snoozedUntil": {
