@@ -1,7 +1,16 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val releaseKeyProperties = Properties()
+val releaseKeyPropertiesFile = rootProject.file("key.properties")
+if (releaseKeyPropertiesFile.exists()) {
+    FileInputStream(releaseKeyPropertiesFile).use(releaseKeyProperties::load)
 }
 
 android {
@@ -27,10 +36,19 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = releaseKeyProperties.getProperty("keyAlias")
+            keyPassword = releaseKeyProperties.getProperty("keyPassword")
+            storeFile = releaseKeyProperties.getProperty("storeFile")?.let { file(it) }
+            storePassword = releaseKeyProperties.getProperty("storePassword")
+        }
+    }
+
     buildTypes {
         release {
-            // Development scaffold only; production release signing is intentionally not configured.
-            signingConfig = signingConfigs.getByName("debug")
+            // A production upload MUST use its private upload key, never debug signing.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
