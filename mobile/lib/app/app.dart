@@ -88,7 +88,7 @@ class _FamilyMedAppState extends ConsumerState<FamilyMedApp>
       next,
     ) {
       next.whenData((doseId) {
-        ref.read(routerProvider).go('/doses/$doseId');
+        ref.read(routerProvider).push('/doses/$doseId');
       });
     });
 

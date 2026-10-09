@@ -115,7 +115,11 @@ class _EditFamilyMemberScreenState
       ref.invalidate(familyMembersProvider);
       ref.invalidate(familyMemberProvider(widget.memberId));
       if (!mounted) return;
-      context.go('/family/${widget.memberId}');
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/family/${widget.memberId}');
+      }
     } on ApiError catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.message);

@@ -56,12 +56,12 @@ class WelcomeScreen extends StatelessWidget {
               ),
               const Spacer(),
               FilledButton(
-                onPressed: () => context.go('/register'),
+                onPressed: () => context.push('/register'),
                 child: Text(l10n.getStarted),
               ),
               const SizedBox(height: 6),
               TextButton(
-                onPressed: () => context.go('/login'),
+                onPressed: () => context.push('/login'),
                 child: Text(l10n.alreadyHaveAccount),
               ),
               const SizedBox(height: 2),

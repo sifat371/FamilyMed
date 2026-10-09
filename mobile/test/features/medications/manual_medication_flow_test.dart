@@ -203,12 +203,7 @@ Future<void> pumpApp(WidgetTester tester, ProviderContainer container) async {
 }
 
 String currentPath(ProviderContainer container) {
-  return container
-      .read(routerProvider)
-      .routerDelegate
-      .currentConfiguration
-      .uri
-      .path;
+  return container.read(routerProvider).state.uri.path;
 }
 
 void main() {

@@ -79,7 +79,7 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
       }
       if (!await _refreshReminders()) return;
       ref.invalidate(todayProvider);
-      if (mounted) context.go('/today');
+      if (mounted) context.pushReplacement('/today');
     } on Object {
       if (mounted) setState(() => _message = l10n.networkError);
     } finally {
@@ -235,7 +235,7 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
                 ),
               const SizedBox(height: 10),
               TextButton(
-                onPressed: _loading ? null : () => context.go('/today'),
+                onPressed: _loading ? null : () => context.pushReplacement('/today'),
                 child: Text(l10n.continueToToday),
               ),
             ],

@@ -61,7 +61,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        leading: IconButton(
+          key: const Key('authBack'),
+          onPressed: () => context.go('/welcome'),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          icon: const Icon(Icons.arrow_back),
+        ),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -146,6 +153,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Text(l10n.createAccount),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _submitting
+                      ? null
+                      : () => context.pushReplacement('/login'),
+                  child: Text(l10n.alreadyHaveAccount),
                 ),
               ],
             ),

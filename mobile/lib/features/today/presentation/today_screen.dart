@@ -137,7 +137,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                         const SizedBox(height: 20),
                         FilledButton.icon(
                           key: const Key('openFamilyButton'),
-                          onPressed: () => context.go('/family'),
+                          onPressed: () => context.push('/family'),
                           icon: const Icon(Icons.family_restroom),
                           label: Text(l10n.familyTab),
                         ),

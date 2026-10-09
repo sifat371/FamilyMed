@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:familymed/app/app_shell.dart';
+import 'package:familymed/app/exit_confirmation_guard.dart';
 import 'package:familymed/features/account/presentation/account_screen.dart';
 import 'package:familymed/features/history/presentation/history_screen.dart';
 import 'package:familymed/core/auth/auth_controller.dart';
@@ -70,7 +71,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/welcome',
-        builder: (context, state) => const WelcomeScreen(),
+        builder: (context, state) =>
+            const ExitConfirmationGuard(child: WelcomeScreen()),
       ),
       GoRoute(
         path: '/register',
@@ -83,7 +85,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/care-for',
-        builder: (context, state) => const WhoDoYouCareForScreen(),
+        builder: (context, state) =>
+            const ExitConfirmationGuard(child: WhoDoYouCareForScreen()),
       ),
       GoRoute(
         path: '/family/new',
@@ -94,19 +97,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       ShellRoute(
         builder: (context, state, child) =>
-            AppShell(location: state.uri.path, child: child),
+            AppShell(location: GoRouter.of(context).state.uri.path, child: child),
         routes: [
           GoRoute(
             path: '/history',
-            builder: (context, state) => const HistoryScreen(),
+            builder: (context, state) =>
+                const ExitConfirmationGuard(child: HistoryScreen()),
           ),
           GoRoute(
             path: '/me',
-            builder: (context, state) => const AccountScreen(),
+            builder: (context, state) =>
+                const ExitConfirmationGuard(child: AccountScreen()),
           ),
           GoRoute(
             path: '/today',
-            builder: (context, state) => const TodayScreen(),
+            builder: (context, state) =>
+                const ExitConfirmationGuard(child: TodayScreen()),
           ),
           GoRoute(
             path: '/doses/:doseId/correct',
@@ -128,7 +134,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/family',
-            builder: (context, state) => const FamilyListScreen(),
+            builder: (context, state) =>
+                const ExitConfirmationGuard(child: FamilyListScreen()),
           ),
           GoRoute(
             path: '/family/:memberId/edit',

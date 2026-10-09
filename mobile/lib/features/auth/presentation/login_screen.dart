@@ -60,7 +60,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        leading: IconButton(
+          key: const Key('authBack'),
+          onPressed: () => context.go('/welcome'),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          icon: const Icon(Icons.arrow_back),
+        ),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -132,6 +139,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Text(l10n.signIn),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _submitting
+                      ? null
+                      : () => context.pushReplacement('/register'),
+                  child: Text(l10n.createAccount),
                 ),
               ],
             ),

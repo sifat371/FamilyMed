@@ -132,7 +132,7 @@ class _WhoDoYouCareForScreenState extends State<WhoDoYouCareForScreen> {
               child: FilledButton(
                 onPressed: () {
                   final relationship = Uri.encodeQueryComponent(_relationship);
-                  context.go('/family/new?relationship=$relationship');
+                  context.push('/family/new?relationship=$relationship');
                 },
                 child: Text(l10n.continueLabel),
               ),

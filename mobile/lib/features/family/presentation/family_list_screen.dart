@@ -64,7 +64,7 @@ class FamilyListScreen extends ConsumerWidget {
                             title: Text(member.name),
                             subtitle: Text(familyRelationshipLabel(l10n, member.relationship)),
                             trailing: const Icon(Icons.chevron_right),
-                            onTap: () => context.go('/family/${member.id}'),
+                            onTap: () => context.push('/family/${member.id}'),
                           ),
                         );
                       },

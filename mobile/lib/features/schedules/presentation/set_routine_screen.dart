@@ -168,11 +168,15 @@ class _SetRoutineScreenState extends ConsumerState<SetRoutineScreen> {
       ref.invalidate(memberMedicationsProvider(widget.memberId));
       if (!mounted) return;
       if (isNewRoutine) {
-        context.go(
+        context.pushReplacement(
           '/family/${widget.memberId}/medications/${widget.medicationId}/reminders',
         );
       } else {
-        context.go('/today');
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/today');
+        }
       }
     } on ApiError catch (error) {
       if (mounted) setState(() => _error = error.message);
