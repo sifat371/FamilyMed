@@ -55,6 +55,61 @@ class _HistoryRepository implements HistoryRepository {
 }
 
 void main() {
+  testWidgets('Android back follows history across all four tabs', (tester) async {
+    final container = fixtures.makeContainer(
+      fixtures.RecordingMedicationRepository(),
+      overrides: [historyRepositoryProvider.overrideWithValue(_HistoryRepository())],
+    );
+    addTearDown(container.dispose);
+    await fixtures.pumpApp(tester, container);
+
+    expect(fixtures.currentPath(container), '/today');
+
+    await tester.tap(find.byKey(const Key('familyTab')));
+    await tester.pumpAndSettle();
+    expect(fixtures.currentPath(container), '/family');
+
+    await tester.tap(find.byKey(const Key('historyTab')));
+    await tester.pumpAndSettle();
+    expect(fixtures.currentPath(container), '/history');
+
+    await tester.tap(find.byKey(const Key('meTab')));
+    await tester.pumpAndSettle();
+    expect(fixtures.currentPath(container), '/me');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(fixtures.currentPath(container), '/history');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(fixtures.currentPath(container), '/family');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(fixtures.currentPath(container), '/today');
+  });
+
+  testWidgets('Android back returns profile to family then Today', (tester) async {
+    final container = fixtures.makeContainer(fixtures.RecordingMedicationRepository());
+    addTearDown(container.dispose);
+    await fixtures.pumpApp(tester, container);
+
+    await tester.tap(find.byKey(const Key('familyTab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Amma'));
+    await tester.pumpAndSettle();
+    expect(fixtures.currentPath(container), '/family/member-id');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(fixtures.currentPath(container), '/family');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(fixtures.currentPath(container), '/today');
+  });
+
   testWidgets(
     'four tabs reach history and account; account saves and signs out',
     (tester) async {
