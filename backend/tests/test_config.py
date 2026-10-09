@@ -42,6 +42,7 @@ def test_managed_postgres_url_normalizes_for_asyncpg():
         env="production",
         database_url="postgresql://user:pass@private-host:5432/familymed",
         jwt_secret="unique-production-secret-over-32-chars-long",
+        support_email="help@familymed.example",
     )
     assert settings.database_url == (
         "postgresql+asyncpg://user:pass@private-host:5432/familymed"
