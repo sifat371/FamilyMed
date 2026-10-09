@@ -13,6 +13,7 @@ from app.auth.schemas import (
     UpdateAccountRequest,
     UserResponse,
 )
+from app.auth.account_deletion import delete_account
 from app.auth.service import login_user, refresh_access_token, register_user
 from app.common.auth import get_current_user
 from app.db import get_db_session
@@ -53,3 +54,10 @@ async def update_me(
     await session.commit()
     await session.refresh(current_user)
     return UserResponse.model_validate(current_user)
+
+
+@router.post("/me/delete", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_my_account(
+    payload: DeleteAccountRequest, session: DbSession, current_user: CurrentUser
+) -> None:
+    await delete_account(session, current_user, payload.password)
