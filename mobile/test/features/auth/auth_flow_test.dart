@@ -176,7 +176,7 @@ Future<void> pumpApp(
 }
 
 String currentPath(ProviderContainer container) {
-  return container.read(routerProvider).routerDelegate.currentConfiguration.uri.path;
+  return container.read(routerProvider).state.uri.path;
 }
 
 Finder createAccountButton() => find.widgetWithText(FilledButton, 'Create account');
