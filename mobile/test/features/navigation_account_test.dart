@@ -68,14 +68,17 @@ void main() {
     await tester.tap(find.byKey(const Key('familyTab')));
     await tester.pumpAndSettle();
     expect(fixtures.currentPath(container), '/family');
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 1);
 
     await tester.tap(find.byKey(const Key('historyTab')));
     await tester.pumpAndSettle();
     expect(fixtures.currentPath(container), '/history');
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 2);
 
     await tester.tap(find.byKey(const Key('meTab')));
     await tester.pumpAndSettle();
     expect(fixtures.currentPath(container), '/me');
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 3);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
