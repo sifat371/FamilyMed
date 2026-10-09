@@ -1,36 +1,26 @@
-# FamilyMed V1 production infrastructure (Render Blueprint)
-# Import after all stacked PRs are merged to main. Plans below are PAID.
-databases:
-  - name: familymed-prod-db
-    region: singapore
-    postgresMajorVersion: "17"
-    plan: 0.1c-256mb
-    databaseName: familymed
-    user: familymed
-    ipAllowList: []
-
+# Zero-cost FamilyMed demo/beta: Render Free web + external Neon Free PostgreSQL.
+# Not suitable for safety-critical medication reminders or actual patient records.
+# Render Free spins down after inactivity. Neon Free can also scale to zero.
+# No Render database is provisioned by this Blueprint.
 services:
   - type: web
-    name: familymed-api
+    name: familymed-beta-api
     runtime: docker
-    plan: 0.5c-512mb
+    plan: free
     region: singapore
     branch: main
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
+    autoDeployTrigger: checksPass
     healthCheckPath: /api/v1/ready
     envVars:
       - key: FAMILYMED_ENV
         value: production
       - key: FAMILYMED_DATABASE_URL
-        fromDatabase:
-          name: familymed-prod-db
-          property: connectionString
+        sync: false # Supply Neon Free TLS-required URL in Render's secret input.
       - key: FAMILYMED_JWT_SECRET
         generateValue: true
-      # Required before public access: confirmed owner-controlled inbox.
       - key: FAMILYMED_SUPPORT_EMAIL
-        sync: false
-      # Flutter uses native HTTP requests. Browser CORS is not required for V1.
+        sync: false # Owner-approved public support/privacy inbox.
       - key: FAMILYMED_CORS_ORIGINS
         value: ""
