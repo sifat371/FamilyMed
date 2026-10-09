@@ -1,4 +1,5 @@
 import 'package:familymed/core/auth/auth_controller.dart';
+import 'package:familymed/core/api/api_config.dart';
 import 'package:familymed/core/database/app_database.dart';
 import 'package:familymed/core/notifications/reminder_coordinator.dart';
 import 'package:familymed/features/account/data/account_deletion_repository.dart';
@@ -7,6 +8,7 @@ import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AccountScreen extends ConsumerStatefulWidget {
   const AccountScreen({super.key});
@@ -58,6 +60,19 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _openLegalPage(String path) async {
+    try {
+      final destination = Uri.parse(apiBaseUrl).replace(path: path, query: null);
+      if (!await launchUrl(destination, mode: LaunchMode.externalApplication)) {
+        throw StateError('Could not open legal information');
+      }
+    } on Object {
+      if (mounted) {
+        setState(() => _error = AppLocalizations.of(context).networkError);
+      }
     }
   }
 
@@ -225,6 +240,18 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                       },
                 icon: const Icon(Icons.logout),
                 label: Text(l10n.signOut),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const Key('privacyPolicyButton'),
+                onPressed: _deleting ? null : () => _openLegalPage('/privacy'),
+                icon: const Icon(Icons.privacy_tip_outlined),
+                label: Text(l10n.privacyPolicy),
+              ),
+              TextButton(
+                key: const Key('accountDeletionHelpButton'),
+                onPressed: _deleting ? null : () => _openLegalPage('/account-deletion'),
+                child: Text(l10n.accountDeletionHelp),
               ),
               const SizedBox(height: 12),
               TextButton.icon(
