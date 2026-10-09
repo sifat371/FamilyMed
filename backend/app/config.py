@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import EmailStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEV_DATABASE_URL = "postgresql+asyncpg://familymed:familymed@localhost:5432/familymed"
@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     access_token_minutes: int = 15
     refresh_token_days: int = 30
     cors_origins: str = "http://localhost:3000"
+    support_email: EmailStr | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -44,6 +45,8 @@ class Settings(BaseSettings):
                 raise ValueError("FAMILYMED_DATABASE_URL must be explicitly configured")
             if not self.database_url.startswith("postgresql+asyncpg://"):
                 raise ValueError("FAMILYMED_DATABASE_URL must be a PostgreSQL URL")
+        if self.env == "production" and self.support_email is None:
+            raise ValueError("FAMILYMED_SUPPORT_EMAIL is required for public support and deletion")
         return self
 
 
