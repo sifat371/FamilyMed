@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:familymed/core/notifications/notification_scheduler.dart';
 import 'package:familymed/core/notifications/reminder_coordinator.dart';
 import 'package:familymed/features/today/data/today_repository.dart';
@@ -10,6 +11,7 @@ class _TodayRepository implements TodayRepository {
 
   final List<DoseProjection> doses;
   int loads = 0;
+  Completer<List<DoseProjection>>? gate;
 
   @override
   Future<List<DoseProjection>> cachedReminderDoses() async => doses;
@@ -17,7 +19,7 @@ class _TodayRepository implements TodayRepository {
   @override
   Future<List<DoseProjection>> loadReminderDoses({int days = 30}) async {
     loads++;
-    return doses;
+    return gate == null ? doses : await gate!.future;
   }
 
   @override
@@ -27,6 +29,8 @@ class _TodayRepository implements TodayRepository {
 
 class _Scheduler implements NotificationScheduler {
   List<DoseProjection>? reconciled;
+  Completer<void>? gate;
+  final started = Completer<void>();
 
   @override
   Future<void> cancelDose(String doseId) async {}
@@ -36,6 +40,8 @@ class _Scheduler implements NotificationScheduler {
 
   @override
   Future<void> reconcile(List<DoseProjection> doses) async {
+    if (!started.isCompleted) started.complete();
+    if (gate != null) await gate!.future;
     reconciled = List<DoseProjection>.from(doses);
   }
 
@@ -68,24 +74,74 @@ DoseProjection _dose() {
 }
 
 void main() {
-  test('refresh reconciles exactly the server-approved reminder feed', () async {
-    final repository = _TodayRepository(<DoseProjection>[_dose()]);
+  test('logout discards a feed response that arrives after clear', () async {
+    final repository = _TodayRepository([_dose()])..gate = Completer();
     final scheduler = _Scheduler();
     final coordinator = ReminderCoordinator(
-      todayRepository: repository,
+      todayRepository: () => repository,
       scheduler: scheduler,
     );
-
-    await coordinator.refresh();
-
-    expect(repository.loads, 1);
-    expect(scheduler.reconciled?.map((dose) => dose.id), <String>['dose-1']);
+    final refresh = coordinator.refresh();
+    await coordinator.clear();
+    repository.gate!.complete([_dose()]);
+    await refresh;
+    expect(scheduler.reconciled, isEmpty);
   });
+
+  test('clear runs after an in-flight platform scheduling operation', () async {
+    final scheduler = _Scheduler()..gate = Completer<void>();
+    final coordinator = ReminderCoordinator(
+      todayRepository: () => _TodayRepository([_dose()]),
+      scheduler: scheduler,
+    );
+    final refresh = coordinator.refresh();
+    await scheduler.started.future;
+    final clear = coordinator.clear();
+    scheduler.gate!.complete();
+    await Future.wait([refresh, clear]);
+    expect(scheduler.reconciled, isEmpty);
+  });
+
+  test('new session refresh is independent of old session fetch', () async {
+    final old = _TodayRepository([_dose()])..gate = Completer();
+    final next = _TodayRepository([]);
+    var repository = old;
+    final scheduler = _Scheduler();
+    final coordinator = ReminderCoordinator(
+      todayRepository: () => repository,
+      scheduler: scheduler,
+    );
+    final oldRefresh = coordinator.refresh();
+    await coordinator.clear();
+    repository = next;
+    await coordinator.refresh();
+    old.gate!.complete([_dose()]);
+    await oldRefresh;
+    expect(next.loads, 1);
+    expect(scheduler.reconciled, isEmpty);
+  });
+
+  test(
+    'refresh reconciles exactly the server-approved reminder feed',
+    () async {
+      final repository = _TodayRepository(<DoseProjection>[_dose()]);
+      final scheduler = _Scheduler();
+      final coordinator = ReminderCoordinator(
+        todayRepository: () => repository,
+        scheduler: scheduler,
+      );
+
+      await coordinator.refresh();
+
+      expect(repository.loads, 1);
+      expect(scheduler.reconciled?.map((dose) => dose.id), <String>['dose-1']);
+    },
+  );
 
   test('clear removes locally scheduled medication reminders', () async {
     final scheduler = _Scheduler();
     final coordinator = ReminderCoordinator(
-      todayRepository: _TodayRepository(const <DoseProjection>[]),
+      todayRepository: () => _TodayRepository(const <DoseProjection>[]),
       scheduler: scheduler,
     );
 

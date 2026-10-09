@@ -17,11 +17,11 @@ class DoseRepository {
     required NotificationScheduler notificationScheduler,
     String Function()? idFactory,
     String userId = '',
-  })  : _database = database,
-        _syncCoordinator = syncCoordinator,
-        _notificationScheduler = notificationScheduler,
-        _idFactory = idFactory ?? const Uuid().v4,
-        _userId = userId;
+  }) : _database = database,
+       _syncCoordinator = syncCoordinator,
+       _notificationScheduler = notificationScheduler,
+       _idFactory = idFactory ?? const Uuid().v4,
+       _userId = userId;
 
   final AppDatabase _database;
   final SyncCoordinator _syncCoordinator;
@@ -29,10 +29,7 @@ class DoseRepository {
   final String Function() _idFactory;
   final String _userId;
 
-  Future<void> markTaken(
-    String doseId, {
-    required DateTime occurredAt,
-  }) async {
+  Future<void> markTaken(String doseId, {required DateTime occurredAt}) async {
     final actionId = _idFactory();
     await _queue(
       doseId,
@@ -50,10 +47,7 @@ class DoseRepository {
     await _syncCoordinator.drain();
   }
 
-  Future<void> skip(
-    String doseId, {
-    required DateTime occurredAt,
-  }) async {
+  Future<void> skip(String doseId, {required DateTime occurredAt}) async {
     final actionId = _idFactory();
     await _queue(
       doseId,
@@ -103,7 +97,14 @@ class DoseRepository {
     required String newStatus,
     required DateTime effectiveAt,
     String? reason,
+    DoseProjection? historyDose,
   }) async {
+    if (historyDose != null) {
+      if (historyDose.id != doseId) {
+        throw ArgumentError('History dose must match the correction target.');
+      }
+      await _cacheHistoryDoseIfAbsent(historyDose);
+    }
     final actionId = _idFactory();
     final payload = <String, dynamic>{
       'client_action_id': actionId,
@@ -128,14 +129,47 @@ class DoseRepository {
   }
 
   Future<DoseProjection?> cachedDose(String doseId) async {
-    final row = await (_database.select(_database.cachedDoses)
-          ..where(
-            (dose) =>
-                dose.doseId.equals(doseId) &
-                dose.userId.equals(_userId),
-          ))
-        .getSingleOrNull();
+    final row =
+        await (_database.select(_database.cachedDoses)..where(
+              (dose) =>
+                  dose.doseId.equals(doseId) & dose.userId.equals(_userId),
+            ))
+            .getSingleOrNull();
     return row == null ? null : _fromRow(row);
+  }
+
+  Future<void> _cacheHistoryDoseIfAbsent(DoseProjection dose) async {
+    // A history record may predate the Today cache. Never overwrite a queued
+    // local action with the server snapshot used to open the correction form.
+    await _database
+        .into(_database.cachedDoses)
+        .insert(
+          CachedDosesCompanion.insert(
+            doseId: dose.id,
+            userId: Value(_userId),
+            scheduleId: dose.scheduleId,
+            memberId: dose.familyMemberId,
+            memberName: Value(dose.familyMemberName ?? ''),
+            medicationId: dose.memberMedicationId,
+            medicationName: dose.medicationName,
+            strength: Value(dose.strength),
+            quantityText: dose.quantityText,
+            unit: dose.unit,
+            mealRelation: Value(dose.mealRelation),
+            scheduledAt: dose.scheduledAt,
+            scheduledLocalDate: dose.scheduledLocalDate,
+            scheduledLocalTime: dose.scheduledLocalTime,
+            timezone: dose.timezone,
+            status: dose.status,
+            snoozedUntil: Value(dose.snoozedUntil),
+            takenAt: Value(dose.takenAt),
+            skippedAt: Value(dose.skippedAt),
+            missedAt: Value(dose.missedAt),
+            effectiveReminderAt: dose.effectiveReminderAt,
+            updatedAt: DateTime.now().toUtc(),
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
   }
 
   Future<void> _queue(
@@ -152,39 +186,37 @@ class DoseRepository {
     bool clearSnooze = false,
   }) async {
     await _database.transaction(() async {
-      final current = await (_database.select(_database.cachedDoses)
-            ..where(
-              (dose) =>
-                  dose.doseId.equals(doseId) &
-                  dose.userId.equals(_userId),
-            ))
-          .getSingle();
+      final current =
+          await (_database.select(_database.cachedDoses)..where(
+                (dose) =>
+                    dose.doseId.equals(doseId) & dose.userId.equals(_userId),
+              ))
+              .getSingle();
       final queuedPayload = <String, dynamic>{
         ...payload,
         '_previous': _rowSnapshot(current),
       };
-      await (_database.update(_database.cachedDoses)
-            ..where(
-              (dose) =>
-                  dose.doseId.equals(doseId) &
-                  dose.userId.equals(_userId),
-            ))
+      await (_database.update(_database.cachedDoses)..where(
+            (dose) => dose.doseId.equals(doseId) & dose.userId.equals(_userId),
+          ))
           .write(
-        CachedDosesCompanion(
-          status: Value<String>(optimisticStatus),
-          snoozedUntil: clearSnooze
-              ? const Value<DateTime?>(null)
-              : Value<DateTime?>(snoozedUntil ?? current.snoozedUntil),
-          takenAt: Value<DateTime?>(takenAt ?? current.takenAt),
-          skippedAt: Value<DateTime?>(skippedAt ?? current.skippedAt),
-          missedAt: Value<DateTime?>(missedAt ?? current.missedAt),
-          effectiveReminderAt: Value<DateTime>(
-            effectiveReminderAt ?? current.effectiveReminderAt,
-          ),
-          updatedAt: Value<DateTime>(DateTime.now().toUtc()),
-        ),
-      );
-      await _database.into(_database.syncOperations).insert(
+            CachedDosesCompanion(
+              status: Value<String>(optimisticStatus),
+              snoozedUntil: clearSnooze
+                  ? const Value<DateTime?>(null)
+                  : Value<DateTime?>(snoozedUntil ?? current.snoozedUntil),
+              takenAt: Value<DateTime?>(takenAt ?? current.takenAt),
+              skippedAt: Value<DateTime?>(skippedAt ?? current.skippedAt),
+              missedAt: Value<DateTime?>(missedAt ?? current.missedAt),
+              effectiveReminderAt: Value<DateTime>(
+                effectiveReminderAt ?? current.effectiveReminderAt,
+              ),
+              updatedAt: Value<DateTime>(DateTime.now().toUtc()),
+            ),
+          );
+      await _database
+          .into(_database.syncOperations)
+          .insert(
             SyncOperationsCompanion.insert(
               operationId: actionId,
               userId: Value<String>(_userId),
@@ -204,7 +236,9 @@ class DoseRepository {
       'taken_at': row.takenAt?.toUtc().toIso8601String(),
       'skipped_at': row.skippedAt?.toUtc().toIso8601String(),
       'missed_at': row.missedAt?.toUtc().toIso8601String(),
-      'effective_reminder_at': row.effectiveReminderAt.toUtc().toIso8601String(),
+      'effective_reminder_at': row.effectiveReminderAt
+          .toUtc()
+          .toIso8601String(),
     };
   }
 
@@ -233,7 +267,6 @@ class DoseRepository {
     );
   }
 }
-
 
 final doseRepositoryProvider = Provider<DoseRepository>((ref) {
   final userId = ref.watch(authControllerProvider).user?.id ?? '';

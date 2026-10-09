@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:familymed/core/database/app_database.dart';
@@ -35,7 +36,9 @@ class FakeNotificationScheduler implements NotificationScheduler {
 }
 
 Future<void> seedDose(AppDatabase db) async {
-  await db.into(db.cachedDoses).insert(
+  await db
+      .into(db.cachedDoses)
+      .insert(
         CachedDosesCompanion.insert(
           doseId: 'dose-1',
           scheduleId: 'schedule-1',
@@ -58,37 +61,84 @@ Future<void> seedDose(AppDatabase db) async {
 }
 
 void main() {
-  test('mark taken updates cache immediately and queues one stable action', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
-    await seedDose(db);
-    final scheduler = FakeNotificationScheduler();
-    final coordinator = SyncCoordinator(
-      database: db,
-      transport: NeverSyncTransport(),
-    );
-    final repository = DoseRepository(
-      database: db,
-      syncCoordinator: coordinator,
-      notificationScheduler: scheduler,
-      idFactory: () => 'action-1',
-    );
+  test(
+    'history snapshot does not overwrite an existing queued action',
+    () async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      await seedDose(db);
+      final coordinator = SyncCoordinator(
+        database: db,
+        transport: NeverSyncTransport(),
+      );
+      addTearDown(coordinator.dispose);
+      var sequence = 0;
+      final repository = DoseRepository(
+        database: db,
+        syncCoordinator: coordinator,
+        notificationScheduler: FakeNotificationScheduler(),
+        idFactory: () => 'action-${++sequence}',
+      );
+      final historySnapshot = await repository.cachedDose('dose-1');
+      final now = DateTime.now().toUtc();
+      await repository.markTaken('dose-1', occurredAt: now);
+      await repository.correct(
+        'dose-1',
+        occurredAt: now,
+        newStatus: 'skipped',
+        effectiveAt: now,
+        historyDose: historySnapshot,
+      );
+      final actions = await db.select(db.syncOperations).get();
+      final correction = actions.singleWhere(
+        (item) => item.action == 'correct',
+      );
+      expect(
+        (jsonDecode(correction.payloadJson) as Map)['_previous']['status'],
+        'taken',
+      );
+      expect(actions, hasLength(2));
+      expect((await repository.cachedDose('dose-1'))!.status, 'skipped');
+    },
+  );
 
-    await repository.markTaken(
-      'dose-1',
-      occurredAt: DateTime.utc(2026, 9, 23, 14, 5),
-    );
+  test(
+    'mark taken updates cache immediately and queues one stable action',
+    () async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      await seedDose(db);
+      final scheduler = FakeNotificationScheduler();
+      final coordinator = SyncCoordinator(
+        database: db,
+        transport: NeverSyncTransport(),
+      );
+      final repository = DoseRepository(
+        database: db,
+        syncCoordinator: coordinator,
+        notificationScheduler: scheduler,
+        idFactory: () => 'action-1',
+      );
 
-    final dose = await (db.select(db.cachedDoses)
-          ..where((row) => row.doseId.equals('dose-1')))
-        .getSingle();
-    final operations = await db.select(db.syncOperations).get();
-    expect(dose.status, 'taken');
-    expect(operations, hasLength(1));
-    expect(operations.single.operationId, 'action-1');
-    expect(operations.single.payloadJson, contains('"client_action_id":"action-1"'));
-    expect(scheduler.cancelled, <String>['dose-1']);
-  });
+      await repository.markTaken(
+        'dose-1',
+        occurredAt: DateTime.utc(2026, 9, 23, 14, 5),
+      );
+
+      final dose = await (db.select(
+        db.cachedDoses,
+      )..where((row) => row.doseId.equals('dose-1'))).getSingle();
+      final operations = await db.select(db.syncOperations).get();
+      expect(dose.status, 'taken');
+      expect(operations, hasLength(1));
+      expect(operations.single.operationId, 'action-1');
+      expect(
+        operations.single.payloadJson,
+        contains('"client_action_id":"action-1"'),
+      );
+      expect(scheduler.cancelled, <String>['dose-1']);
+    },
+  );
 
   test('snooze remains pending and reschedules notification', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -113,9 +163,9 @@ void main() {
       snoozedUntil: snoozedUntil,
     );
 
-    final dose = await (db.select(db.cachedDoses)
-          ..where((row) => row.doseId.equals('dose-1')))
-        .getSingle();
+    final dose = await (db.select(
+      db.cachedDoses,
+    )..where((row) => row.doseId.equals('dose-1'))).getSingle();
     expect(dose.status, 'pending');
     expect(dose.snoozedUntil?.toUtc(), snoozedUntil);
     expect(scheduler.snoozed, <String>['dose-1']);
@@ -142,9 +192,9 @@ void main() {
       occurredAt: DateTime.utc(2026, 9, 23, 14, 5),
     );
 
-    final dose = await (db.select(db.cachedDoses)
-          ..where((row) => row.doseId.equals('dose-1')))
-        .getSingle();
+    final dose = await (db.select(
+      db.cachedDoses,
+    )..where((row) => row.doseId.equals('dose-1'))).getSingle();
     expect(dose.status, 'skipped');
     expect(scheduler.cancelled, <String>['dose-1']);
   });

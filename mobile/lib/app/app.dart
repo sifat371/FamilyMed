@@ -44,10 +44,12 @@ class _FamilyMedAppState extends ConsumerState<FamilyMedApp>
   }
 
   Future<void> _syncAndRefreshReminders() async {
+    final userId = ref.read(authControllerProvider).user?.id;
     if (ref.read(authControllerProvider).status != AuthStatus.authenticated) {
       return;
     }
     await ref.read(syncCoordinatorProvider).drain();
+    if (!mounted || ref.read(authControllerProvider).user?.id != userId) return;
     try {
       await ref.read(reminderCoordinatorProvider).refresh();
     } on Object {
@@ -66,12 +68,12 @@ class _FamilyMedAppState extends ConsumerState<FamilyMedApp>
   @override
   Widget build(BuildContext context) {
     ref.listen<AuthState>(authControllerProvider, (previous, next) {
-      if (next.status == AuthStatus.authenticated &&
-          previous?.status != AuthStatus.authenticated) {
-        unawaited(_syncAndRefreshReminders());
-      } else if (next.status == AuthStatus.unauthenticated &&
-          previous?.status == AuthStatus.authenticated) {
+      if (previous?.user != null && previous?.user?.id != next.user?.id) {
         unawaited(_cancelSessionReminders());
+      }
+      if (next.status == AuthStatus.authenticated &&
+          previous?.user?.id != next.user?.id) {
+        unawaited(_syncAndRefreshReminders());
       }
     });
     ref.listen<AsyncValue<SyncEvent>>(syncEventsProvider, (previous, next) {

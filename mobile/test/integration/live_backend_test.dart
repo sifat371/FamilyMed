@@ -186,6 +186,62 @@ void main() {
       expect(restored.user.preferredLanguage, 'bn');
       final freshDatabase = AppDatabase.forTesting(NativeDatabase.memory());
       addTearDown(freshDatabase.close);
+      final freshSync = SyncCoordinator(
+        database: freshDatabase,
+        transport: ApiSyncTransport(client),
+        userId: restored.user.id,
+      );
+      addTearDown(freshSync.dispose);
+      final freshDoses = DoseRepository(
+        database: freshDatabase,
+        syncCoordinator: freshSync,
+        notificationScheduler: FakeNotificationScheduler(),
+        userId: restored.user.id,
+      );
+      final restoredHistory = await ApiHistoryRepository(
+        client,
+      ).load(member.id);
+      final historyDose = restoredHistory.days
+          .expand((day) => day.doses)
+          .first
+          .dose;
+      expect(
+        await freshDatabase.select(freshDatabase.cachedDoses).get(),
+        isEmpty,
+      );
+      await freshDoses.correct(
+        historyDose.id,
+        occurredAt: DateTime.now().toUtc(),
+        effectiveAt: DateTime.now().toUtc().subtract(
+          const Duration(seconds: 1),
+        ),
+        newStatus: 'skipped',
+        historyDose: historyDose,
+      );
+      expect(
+        await freshDatabase.select(freshDatabase.syncOperations).get(),
+        isEmpty,
+      );
+      final correctedHistory = await ApiHistoryRepository(
+        client,
+      ).load(member.id);
+      expect(
+        correctedHistory.days
+            .expand((day) => day.doses)
+            .singleWhere((item) => item.dose.id == historyDose.id)
+            .dose
+            .status,
+        'skipped',
+      );
+      await freshDoses.correct(
+        historyDose.id,
+        occurredAt: DateTime.now().toUtc(),
+        effectiveAt: DateTime.now().toUtc().subtract(
+          const Duration(seconds: 1),
+        ),
+        newStatus: 'taken',
+        historyDose: historyDose,
+      );
       final freshToday = ApiTodayRepository(
         client,
         freshDatabase,

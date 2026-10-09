@@ -1,3 +1,4 @@
+import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:familymed/core/notifications/notification_providers.dart';
 import 'package:familymed/core/theme/familymed_theme.dart';
 import 'package:familymed/features/schedules/data/notification_preference_repository.dart';
@@ -14,15 +15,21 @@ import '../core/notifications/notification_scheduler_test.dart'
 
 class _Preferences implements NotificationPreferenceRepository {
   bool fail = false;
+  bool failLoad = false;
+  int reads = 0;
   bool enabled = false;
   int writes = 0;
   @override
-  Future<NotificationPreference> getPreference(String memberId) async =>
-      NotificationPreference(
-        memberId: memberId,
-        enabled: enabled,
-        defaultSnoozeMinutes: 15,
-      );
+  Future<NotificationPreference> getPreference(String memberId) async {
+    reads++;
+    if (failLoad) throw Exception("Offline");
+    return NotificationPreference(
+      memberId: memberId,
+      enabled: enabled,
+      defaultSnoozeMinutes: 15,
+    );
+  }
+
   @override
   Future<NotificationPreference> updatePreference(
     String memberId, {
@@ -36,7 +43,89 @@ class _Preferences implements NotificationPreferenceRepository {
   }
 }
 
+class _FailingScheduler extends FakeNotificationScheduler {
+  bool fail = true;
+  int reconciles = 0;
+  @override
+  Future<void> reconcile(List<DoseProjection> doses) async {
+    reconciles++;
+    if (fail) throw Exception('Platform unavailable');
+    await super.reconcile(doses);
+  }
+}
+
 void main() {
+  testWidgets('failed preference load can retry without changing preference', (
+    tester,
+  ) async {
+    final preferences = _Preferences()..failLoad = true;
+    final container = fixtures.makeContainer(
+      fixtures.RecordingMedicationRepository(),
+      overrides: [
+        notificationPreferenceRepositoryProvider.overrideWithValue(preferences),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const EnableRemindersScreen(memberId: 'member-id'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    preferences.failLoad = false;
+    await tester.ensureVisible(find.text('Retry'));
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(preferences.reads, 2);
+    expect(preferences.writes, 0);
+    expect(find.text('Retry'), findsNothing);
+  });
+
+  testWidgets('scheduling retry does not write the enabled preference twice', (
+    tester,
+  ) async {
+    final preferences = _Preferences();
+    final scheduler = _FailingScheduler()..permission = true;
+    final container = fixtures.makeContainer(
+      fixtures.RecordingMedicationRepository(),
+      overrides: [
+        notificationPreferenceRepositoryProvider.overrideWithValue(preferences),
+        notificationSchedulerProvider.overrideWithValue(scheduler),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const EnableRemindersScreen(memberId: 'member-id'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final enable = find.widgetWithText(FilledButton, 'Enable reminders');
+    await tester.ensureVisible(enable);
+    await tester.tap(enable);
+    await tester.pumpAndSettle();
+    expect(preferences.enabled, isTrue);
+    expect(preferences.writes, 1);
+    scheduler.fail = false;
+    await tester.ensureVisible(find.text('Retry'));
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(preferences.writes, 1);
+    expect(scheduler.reconciles, 2);
+    expect(find.text('Retry'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final locale in ['en', 'bn']) {
     for (final size in [
       const Size(360, 800),

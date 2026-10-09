@@ -23,6 +23,7 @@ import 'package:familymed/features/medications/presentation/edit_medication_scre
 import 'package:familymed/features/schedules/presentation/enable_reminders_screen.dart';
 import 'package:familymed/features/schedules/presentation/set_routine_screen.dart';
 import 'package:familymed/features/today/presentation/today_screen.dart';
+import 'package:familymed/features/today/domain/dose_projection.dart';
 import 'package:familymed/features/welcome/presentation/welcome_screen.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -113,6 +114,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               doseId: state.pathParameters['doseId']!,
               repository: ref.read(doseRepositoryProvider),
               initialStatus: state.uri.queryParameters['status'] ?? 'missed',
+              historyDose: state.extra is DoseProjection
+                  ? state.extra as DoseProjection
+                  : null,
             ),
           ),
           GoRoute(
