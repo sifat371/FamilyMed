@@ -51,6 +51,12 @@ class UpdateAccountRequest(BaseModel):
     preferred_language: Literal["en", "bn"]
 
 
+class DeleteAccountRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    password: Password
+
+
 class AuthResponse(BaseModel):
     user: UserResponse
     access_token: str

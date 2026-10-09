@@ -3,8 +3,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.account_deletion import delete_account
 from app.auth.schemas import (
     AuthResponse,
+    DeleteAccountRequest,
     LoginRequest,
     RefreshRequest,
     RefreshResponse,
@@ -52,3 +54,10 @@ async def update_me(
     await session.commit()
     await session.refresh(current_user)
     return UserResponse.model_validate(current_user)
+
+
+@router.post("/me/delete", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_my_account(
+    payload: DeleteAccountRequest, session: DbSession, current_user: CurrentUser
+) -> None:
+    await delete_account(session, current_user, payload.password)

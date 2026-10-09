@@ -61,3 +61,10 @@ jobs:
         working-directory: mobile
       - run: flutter build apk --debug
         working-directory: mobile
+
+  production-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify production Docker image builds
+        run: docker build -f backend/Dockerfile -t familymed-api-ci backend

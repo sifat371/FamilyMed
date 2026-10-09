@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.health import router as health_router
+from app.api.legal import router as legal_router
 from app.auth.router import router as auth_router
 from app.common.errors import ApiError
 from app.config import get_settings
@@ -52,6 +53,7 @@ async def validation_error_handler(_request: Request, exc: RequestValidationErro
     )
 
 
+app.include_router(legal_router)
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(family_router, prefix="/api/v1")
