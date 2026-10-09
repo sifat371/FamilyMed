@@ -12,12 +12,13 @@ class WelcomeScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 26, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Spacer(),
-              Center(
+              const SizedBox(height: 44),
+              Align(
+                alignment: Alignment.centerLeft,
                 child: Container(
                   width: 72,
                   height: 72,
@@ -33,32 +34,42 @@ class WelcomeScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               Text(
                 l10n.appName,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               Text(
                 l10n.welcomeHeadline,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineMedium,
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 16),
-              Text(l10n.welcomeBody, textAlign: TextAlign.center),
-              const Spacer(flex: 2),
+              Text(
+                l10n.welcomeBody,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: FamilyMedColors.textSecondary,
+                    ),
+              ),
+              const Spacer(),
               FilledButton(
                 onPressed: () => context.go('/register'),
                 child: Text(l10n.getStarted),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               TextButton(
                 onPressed: () => context.go('/login'),
                 child: Text(l10n.alreadyHaveAccount),
               ),
-              const SizedBox(height: 12),
-              Text(l10n.aiConfirmationNote, textAlign: TextAlign.center),
+              const SizedBox(height: 2),
+              Text(
+                l10n.aiConfirmationNote,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const Spacer(),
             ],
           ),

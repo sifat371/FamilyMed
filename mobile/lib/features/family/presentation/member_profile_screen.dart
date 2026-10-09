@@ -1,5 +1,7 @@
 import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/core/notifications/reminder_coordinator.dart';
+import 'package:familymed/core/theme/familymed_theme.dart';
+import 'package:familymed/core/widgets/familymed_ui.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
 import 'package:familymed/features/family/presentation/family_relationship_label.dart';
 import 'package:familymed/features/medications/data/medication_lifecycle_repository.dart';
@@ -24,9 +26,9 @@ class MemberProfileScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final member = ref.watch(familyMemberProvider(memberId));
     final medications = ref.watch(memberMedicationsProvider(memberId));
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.familyProfile),
         actions: [
           IconButton(
             tooltip: l10n.editFamilyMember,
@@ -52,82 +54,146 @@ class MemberProfileScreen extends ConsumerWidget {
               ],
             ),
           ),
-          data: (value) => ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(
-                value.name,
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(familyRelationshipLabel(l10n, value.relationship)),
-              const SizedBox(height: 4),
-              Text(
-                value.preferredLanguage == 'bn'
-                    ? l10n.banglaLanguage
-                    : l10n.englishLanguage,
-              ),
-              const SizedBox(height: 28),
-              medications.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, _) => Column(
-                  children: [
-                    Text(l10n.networkError),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          ref.invalidate(memberMedicationsProvider(memberId)),
-                      icon: const Icon(Icons.refresh),
-                      label: Text(l10n.retry),
-                    ),
-                  ],
+          data: (value) {
+            final medicationItems =
+                medications.asData?.value ?? const <MemberMedication>[];
+            final hasMedications = medicationItems.isNotEmpty;
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+              children: [
+                Text(
+                  value.name,
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
-                data: (items) => items.isEmpty
-                    ? _EmptyMedicationCard(label: l10n.noMedicinesYet)
-                    : Column(
-                        children: items
-                            .map(
-                              (item) => Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: _MedicationCard(medication: item),
-                              ),
-                            )
-                            .toList(growable: false),
+                const SizedBox(height: 18),
+                FamilyMedSoftCard(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const CircleAvatar(
+                        radius: 24,
+                        backgroundColor: FamilyMedColors.surface,
+                        child: Icon(
+                          Icons.person_outline,
+                          color: FamilyMedColors.primary,
+                        ),
                       ),
-              ),
-              const SizedBox(height: 20),
-              OutlinedButton.icon(
-                onPressed: () => context.push('/family/$memberId/history'),
-                icon: const Icon(Icons.history),
-                label: Text(l10n.historyTitle),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () => context.push('/family/$memberId/reminders'),
-                icon: const Icon(Icons.notifications_outlined),
-                label: Text(l10n.reminderSettings),
-              ),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: () => context.push(
-                  '/family/$memberId/medications/new',
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              familyRelationshipLabel(
+                                l10n,
+                                value.relationship,
+                              ),
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              value.preferredLanguage == 'bn'
+                                  ? l10n.banglaLanguage
+                                  : l10n.englishLanguage,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                icon: const Icon(Icons.add),
-                label: Text(l10n.addManually),
-              ),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                key: const Key('scanPrescriptionButton'),
-                onPressed: null,
-                icon: const Icon(Icons.document_scanner_outlined),
-                label: Text(l10n.scanPrescriptionComingSoon),
-              ),
-            ],
-          ),
+                if (hasMedications) ...[
+                  const SizedBox(height: 16),
+                  for (final item in medicationItems)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _MedicationCard(medication: item),
+                    ),
+                ],
+                const SizedBox(height: 18),
+                FamilyMedSectionLabel(l10n.addMedicineSection),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  key: const Key('scanPrescriptionButton'),
+                  onPressed: null,
+                  icon: const Icon(Icons.document_scanner_outlined),
+                  label: Text(l10n.scanPrescriptionComingSoon),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: () => context.push(
+                    '/family/$memberId/medications/new',
+                  ),
+                  icon: const Icon(Icons.add),
+                  label: Text(l10n.addManually),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(17),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.youStayInControl,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          l10n.aiSuggestionSafety,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: FamilyMedColors.textSecondary,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (!hasMedications) ...[
+                  const SizedBox(height: 18),
+                  medications.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (_, _) => Column(
+                      children: [
+                        Text(l10n.networkError),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: () => ref.invalidate(
+                            memberMedicationsProvider(memberId),
+                          ),
+                          icon: const Icon(Icons.refresh),
+                          label: Text(l10n.retry),
+                        ),
+                      ],
+                    ),
+                    data: (items) =>
+                        _EmptyMedicationCard(label: l10n.noMedicinesYet),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  onPressed: () => context.push('/family/$memberId/history'),
+                  icon: const Icon(Icons.history),
+                  label: Text(l10n.historyTitle),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => context.push('/family/$memberId/reminders'),
+                  icon: const Icon(Icons.notifications_outlined),
+                  label: Text(l10n.reminderSettings),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
+
 }
 
 class _EmptyMedicationCard extends StatelessWidget {

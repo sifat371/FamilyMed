@@ -1,3 +1,4 @@
+import 'package:familymed/core/theme/familymed_theme.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -32,7 +33,14 @@ class AppShell extends StatelessWidget {
     return Scaffold(
       body: child,
       bottomNavigationBar: _showBottomNavigation
-          ? NavigationBar(
+          ? DecoratedBox(
+              decoration: const BoxDecoration(
+                color: FamilyMedColors.surface,
+                border: Border(
+                  top: BorderSide(color: FamilyMedColors.border),
+                ),
+              ),
+              child: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           final target = index == 0 ? '/today' : '/family';
@@ -43,18 +51,19 @@ class AppShell extends StatelessWidget {
         destinations: [
           NavigationDestination(
             key: const Key('todayTab'),
-            icon: const Icon(Icons.today_outlined),
-            selectedIcon: const Icon(Icons.today),
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home),
             label: l10n.todayTitle,
           ),
           NavigationDestination(
             key: const Key('familyTab'),
-            icon: const Icon(Icons.family_restroom_outlined),
-            selectedIcon: const Icon(Icons.family_restroom),
+            icon: const Icon(Icons.group_outlined),
+            selectedIcon: const Icon(Icons.group),
             label: l10n.familyTab,
           ),
         ],
-      )
+              ),
+            )
           : null,
     );
   }

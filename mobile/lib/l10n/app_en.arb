@@ -154,5 +154,29 @@
         "type": "String"
       }
     }
+  },
+  "careForSubtitle": "Choose one person to begin. You can add everyone else later.",
+  "familyProfileIntro": "We'll use this profile to organize medicines and reminders.",
+  "privacyMedicationCare": "Only the information needed for medication care is required.",
+  "addMedicineSection": "Add medicine",
+  "youStayInControl": "You stay in control",
+  "aiSuggestionSafety": "AI suggestions are never activated until you review and confirm the medicine and routine.",
+  "todaysCare": "Today's care",
+  "familyCare": "Family care",
+  "doseForMember": "Dose for {member}",
+  "markDoseCareNote": "Mark this dose only after {member} has taken it.",
+  "@doseForMember": {
+    "placeholders": {
+      "member": {
+        "type": "String"
+      }
+    }
+  },
+  "@markDoseCareNote": {
+    "placeholders": {
+      "member": {
+        "type": "String"
+      }
+    }
   }
 }
