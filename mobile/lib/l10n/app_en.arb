@@ -156,6 +156,8 @@
   "endMedicineBody": "Future reminders and untouched doses will stop. Existing history will be kept.",
   "cancel": "Cancel",
   "deleteAccountTitle": "Delete account",
+  "privacyPolicy": "Privacy policy",
+  "accountDeletionHelp": "Account deletion help",
   "deleteAccountWarning": "This permanently deletes your account and the medication-care records in your family. Enter your password to confirm. This cannot be undone.",
   "deleteAccountConfirm": "Delete permanently",
   "deleteAccountFailed": "Could not delete your account. Check your password and connection, or contact support.",
