@@ -183,6 +183,23 @@ Finder createAccountButton() => find.widgetWithText(FilledButton, 'Create accoun
 Finder signInButton() => find.widgetWithText(FilledButton, 'Sign in');
 
 void main() {
+  testWidgets('Android Back on Welcome asks before exiting', (tester) async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    await pumpApp(tester, container);
+    expect(currentPath(container), '/welcome');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Exit FamilyMed?'), findsOneWidget);
+    expect(find.text('Are you sure you want to close FamilyMed?'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(currentPath(container), '/welcome');
+    expect(find.text('Exit FamilyMed?'), findsNothing);
+  });
+
   testWidgets('welcome actions navigate to register and login', (tester) async {
     final container = makeContainer();
     addTearDown(container.dispose);
