@@ -50,7 +50,7 @@ class AppShell extends StatelessWidget {
                     '/me',
                   ][index];
                   if (location != target) {
-                    context.go(target);
+                    context.push(target);
                   }
                 },
                 destinations: [
