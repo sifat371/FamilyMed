@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.schemas import (
     AuthResponse,
+    DeleteAccountRequest,
     LoginRequest,
     RefreshRequest,
     RefreshResponse,
