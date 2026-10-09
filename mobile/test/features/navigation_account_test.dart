@@ -62,7 +62,11 @@ void main() {
 
     await tester.tap(find.byKey(const Key('meTab')));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('deleteAccountButton')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('deleteAccountButton')),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.byKey(const Key('deleteAccountButton')));
     await tester.pumpAndSettle();
 
