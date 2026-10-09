@@ -2,7 +2,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from app.families.models import Family, FamilyMember
+from app.families.models import Family, FamilyMember, FamilyMembership
 from app.medications.models import MemberMedication
 from app.schedules.models import MedicationSchedule
 from app.users.models import User
@@ -99,3 +99,31 @@ async def test_deletion_requires_authenticated_password(client):
         "/api/v1/auth/me/delete", json={"password": "password123"}
     )
     assert unauthenticated.status_code == 401
+
+
+async def test_shared_family_is_not_destroyed_by_account_deletion(client, db_session):
+    owner = await _register(client, "shared-owner@example.com")
+    guest = await _register(client, "shared-guest@example.com")
+    owner_id = UUID(owner["user"]["id"])
+    guest_id = UUID(guest["user"]["id"])
+    family = await db_session.scalar(select(Family).where(Family.created_by_user_id == owner_id))
+    assert family is not None
+    db_session.add(
+        FamilyMembership(
+            family_id=family.id,
+            user_id=guest_id,
+            role="viewer",
+            status="active",
+        )
+    )
+    await db_session.flush()
+
+    response = await client.post(
+        "/api/v1/auth/me/delete",
+        headers=_headers(owner),
+        json={"password": "password123"},
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "ACCOUNT_DELETION_SUPPORT_REQUIRED"
+    assert await db_session.get(User, owner_id) is not None
+    assert await db_session.get(Family, family.id) is not None
