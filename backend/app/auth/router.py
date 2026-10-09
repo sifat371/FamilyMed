@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.account_deletion import delete_account
 from app.auth.schemas import (
     AuthResponse,
     DeleteAccountRequest,
@@ -13,7 +14,6 @@ from app.auth.schemas import (
     UpdateAccountRequest,
     UserResponse,
 )
-from app.auth.account_deletion import delete_account
 from app.auth.service import login_user, refresh_access_token, register_user
 from app.common.auth import get_current_user
 from app.db import get_db_session
