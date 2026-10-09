@@ -1,4 +1,7 @@
 import 'package:familymed/core/auth/auth_controller.dart';
+import 'package:familymed/core/database/app_database.dart';
+import 'package:familymed/core/notifications/reminder_coordinator.dart';
+import 'package:familymed/features/account/data/account_deletion_repository.dart';
 import 'package:familymed/features/account/data/account_repository.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +20,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   late final TextEditingController _name;
   late String _language;
   bool _saving = false;
+  bool _deleting = false;
   String? _error;
 
   @override
@@ -54,6 +58,83 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    if (_saving || _deleting) return;
+    final l10n = AppLocalizations.of(context);
+    final password = TextEditingController();
+    final confirmation = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(l10n.deleteAccountTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.deleteAccountWarning),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('deleteAccountPassword'),
+                controller: password,
+                obscureText: true,
+                onChanged: (_) => setDialogState(() {}),
+                decoration: InputDecoration(labelText: l10n.passwordLabel),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: password.text.length < 8
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(password.text),
+              child: Text(l10n.deleteAccountConfirm),
+            ),
+          ],
+        ),
+      ),
+    );
+    password.dispose();
+    if (!mounted || confirmation == null) return;
+    setState(() {
+      _deleting = true;
+      _error = null;
+    });
+    try {
+      final userId = ref.read(authControllerProvider).user?.id;
+      await ref.read(accountDeletionRepositoryProvider).deleteAccount(confirmation);
+      // Clear account-scoped SQLite cache and unsent sync operations after
+      // successful server-side deletion; never send them under another account.
+      try {
+        if (userId != null) {
+          final db = ref.read(appDatabaseProvider);
+          await db.transaction(() async {
+            await db.customStatement(
+              'DELETE FROM sync_operations WHERE user_id = ?', [userId],
+            );
+            await db.customStatement(
+              'DELETE FROM cached_doses WHERE user_id = ?', [userId],
+            );
+            await db.customStatement(
+              'DELETE FROM cached_today_members WHERE user_id = ?', [userId],
+            );
+          });
+        }
+        await ref.read(reminderCoordinatorProvider).clear();
+      } finally {
+        await ref.read(authControllerProvider.notifier).logout();
+      }
+    } on Object {
+      if (mounted) {
+        setState(() => _error = l10n.deleteAccountFailed);
+      }
+    } finally {
+      if (mounted) setState(() => _deleting = false);
     }
   }
 
@@ -144,6 +225,16 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                       },
                 icon: const Icon(Icons.logout),
                 label: Text(l10n.signOut),
+              ),
+              const SizedBox(height: 12),
+              TextButton.icon(
+                key: const Key('deleteAccountButton'),
+                onPressed: _saving || _deleting ? null : _deleteAccount,
+                icon: const Icon(Icons.delete_forever_outlined),
+                label: Text(l10n.deleteAccountTitle),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
               ),
             ],
           ),
