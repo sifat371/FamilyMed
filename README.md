@@ -40,3 +40,16 @@ Use an address reachable from the device. Do not hard-code development hosts int
 
     cd backend && uv run ruff check . && uv run pytest
     cd mobile && flutter analyze && flutter test
+
+## Production release
+
+The public API and Play Store build are **not** the local lab-PC/Tailscale QA stack.
+See [the release runbook](docs/RELEASE_RUNBOOK.md) before deploying or signing an AAB.
+
+- Render Blueprint: `render.yaml` (paid FastAPI service + private PostgreSQL).
+- Production Docker image: `backend/Dockerfile`.
+- Public health check: `/api/v1/ready`.
+- Public policy pages: `/privacy` and `/account-deletion` (require `FAMILYMED_SUPPORT_EMAIL`).
+- Android AAB release signing reads the private, gitignored `mobile/android/key.properties`.
+
+Never deploy with the development DB/JWT secret or use the debug/Tailscale APK for the Play Store.
