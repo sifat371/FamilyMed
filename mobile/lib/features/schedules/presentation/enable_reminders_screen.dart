@@ -235,7 +235,7 @@ class _EnableRemindersScreenState extends ConsumerState<EnableRemindersScreen> {
                 ),
               const SizedBox(height: 10),
               TextButton(
-                onPressed: _loading ? null : () => context.go('/today'),
+                onPressed: _loading ? null : () => context.pushReplacement('/today'),
                 child: Text(l10n.continueToToday),
               ),
             ],
