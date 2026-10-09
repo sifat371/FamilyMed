@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import delete, exists, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.errors import ApiError
@@ -32,20 +33,52 @@ async def create_manual_medication(
     payload: ManualMedicationCreate,
 ) -> MemberMedication:
     await require_writable_member(session, user_id, member_id)
-    medication = MemberMedication(
-        family_member_id=member_id,
-        medicine_master_id=None,
-        prescription_id=None,
-        extraction_id=None,
-        display_name=payload.display_name,
-        strength=payload.strength,
-        dosage_form=payload.dosage_form,
-        status="draft",
-        start_date=payload.start_date,
-        end_date=payload.end_date,
-        created_by_user_id=user_id,
-    )
-    session.add(medication)
+    values = {
+        "family_member_id": member_id,
+        "medicine_master_id": None,
+        "prescription_id": None,
+        "extraction_id": None,
+        "display_name": payload.display_name,
+        "strength": payload.strength,
+        "dosage_form": payload.dosage_form,
+        "status": "draft",
+        "start_date": payload.start_date,
+        "end_date": payload.end_date,
+        "created_by_user_id": user_id,
+    }
+    if payload.creation_id is None:
+        # Legacy requests continue receiving server-assigned IDs.
+        medication = MemberMedication(**values)
+        session.add(medication)
+    else:
+        # The client UUID is the medication PK; the conflict check is atomic.
+        result = await session.execute(
+            pg_insert(MemberMedication)
+            .values(id=payload.creation_id, **values)
+            .on_conflict_do_nothing(index_elements=[MemberMedication.id])
+            .returning(MemberMedication.id)
+        )
+        inserted_id = result.scalar_one_or_none()
+        medication = await session.get(MemberMedication, payload.creation_id)
+        if medication is None or (
+            inserted_id is None
+            and (
+                medication.created_by_user_id != user_id
+                or medication.family_member_id != member_id
+                or medication.display_name != payload.display_name
+                or medication.strength != payload.strength
+                or medication.dosage_form != payload.dosage_form
+                or medication.start_date != payload.start_date
+                or medication.end_date != payload.end_date
+            )
+        ):
+            # Release the request transaction on a rejected creation-ID reuse.
+            await session.rollback()
+            raise ApiError(
+                409,
+                "CREATION_ID_CONFLICT",
+                "This save request was used with different details. Review the member's medicines.",
+            )
     await session.commit()
     await session.refresh(medication)
     return medication

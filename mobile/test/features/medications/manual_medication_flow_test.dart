@@ -109,6 +109,7 @@ class RecordingMedicationRepository implements MedicationRepository {
   ApiError? createError;
   Completer<void>? createGate;
   int createCalls = 0;
+  final List<String?> creationIds = [];
 
   @override
   Future<MemberMedication> createMedication(
@@ -118,8 +119,10 @@ class RecordingMedicationRepository implements MedicationRepository {
     String? dosageForm,
     required DateTime startDate,
     DateTime? endDate,
+    String? creationId,
   }) async {
     createCalls++;
+    creationIds.add(creationId);
     if (createGate != null) await createGate!.future;
     if (createError != null) throw createError!;
     final medication = MemberMedication(
@@ -422,5 +425,29 @@ void main() {
 
     expect(find.text('Active'), findsOneWidget);
     expect(find.text('active'), findsNothing);
+  });
+
+  testWidgets('failed save retry uses the same creation UUID', (tester) async {
+    final repository = RecordingMedicationRepository()
+      ..createError = const ApiError(
+        code: 'NETWORK_ERROR',
+        message: 'Could not connect. Try again.',
+      );
+    final container = makeContainer(repository);
+    addTearDown(container.dispose);
+    await pumpApp(tester, container);
+    container.read(routerProvider).go('/family/member-id/medications/new');
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('medicationName')), 'Metformin');
+    await tester.tap(find.widgetWithText(FilledButton, 'Save medicine'));
+    await tester.pumpAndSettle();
+    expect(repository.creationIds, hasLength(1));
+    final originalId = repository.creationIds.single;
+    expect(originalId, isNotNull);
+    repository.createError = null;
+    await tester.tap(find.widgetWithText(FilledButton, 'Save medicine'));
+    await tester.pumpAndSettle();
+    expect(repository.creationIds, [originalId, originalId]);
+    expect(repository.medications, hasLength(1));
   });
 }

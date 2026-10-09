@@ -4,6 +4,7 @@ import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 
 class AddManualMedicationScreen extends ConsumerStatefulWidget {
   const AddManualMedicationScreen({super.key, required this.memberId});
@@ -23,6 +24,8 @@ class _AddManualMedicationScreenState
   final _dosageFormController = TextEditingController();
   final _startDateController = TextEditingController();
   final _endDateController = TextEditingController();
+  // A stable idempotency token throughout the form's lifetime.
+  final String _creationId = const Uuid().v4();
   bool _submitting = false;
   String? _errorMessage;
 
@@ -63,6 +66,7 @@ class _AddManualMedicationScreenState
             dosageForm: _dosageFormController.text,
             startDate: startDate,
             endDate: endDate,
+            creationId: _creationId,
           );
       ref.invalidate(memberMedicationsProvider(widget.memberId));
       if (!mounted) return;

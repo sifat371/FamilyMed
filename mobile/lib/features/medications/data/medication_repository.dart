@@ -13,6 +13,7 @@ abstract interface class MedicationRepository {
     String? dosageForm,
     required DateTime startDate,
     DateTime? endDate,
+    String? creationId,
   });
 
   Future<MemberMedication> getMedication(String id);
@@ -54,6 +55,7 @@ class ApiMedicationRepository implements MedicationRepository {
     String? dosageForm,
     required DateTime startDate,
     DateTime? endDate,
+    String? creationId,
   }) async {
     final response = await _client.post<Map<String, dynamic>>(
       '/family-members/$memberId/medications',
@@ -62,6 +64,7 @@ class ApiMedicationRepository implements MedicationRepository {
         'strength': _nullableText(strength),
         'dosage_form': _nullableText(dosageForm),
         'start_date': _dateOnly(startDate),
+        'creation_id': ?creationId,
         'end_date': endDate == null ? null : _dateOnly(endDate),
       },
     );
