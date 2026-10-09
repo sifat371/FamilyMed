@@ -55,6 +55,22 @@ class _HistoryRepository implements HistoryRepository {
 }
 
 void main() {
+  testWidgets('Android Back on Today root asks before exiting', (tester) async {
+    final container = fixtures.makeContainer(fixtures.RecordingMedicationRepository());
+    addTearDown(container.dispose);
+    await fixtures.pumpApp(tester, container);
+    expect(fixtures.currentPath(container), '/today');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Exit FamilyMed?'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(fixtures.currentPath(container), '/today');
+    expect(find.text('Exit FamilyMed?'), findsNothing);
+  });
+
   testWidgets('Android back follows history across all four tabs', (tester) async {
     final container = fixtures.makeContainer(
       fixtures.RecordingMedicationRepository(),
