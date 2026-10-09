@@ -53,6 +53,7 @@ async def validation_error_handler(_request: Request, exc: RequestValidationErro
     )
 
 
+app.include_router(legal_router)
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(family_router, prefix="/api/v1")
