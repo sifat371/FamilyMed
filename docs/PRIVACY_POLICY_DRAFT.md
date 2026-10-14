@@ -7,7 +7,7 @@ Last drafted: 2026-10-10
 FamilyMed is a medication-care organization and reminder app. It is not a medical diagnostic service, and reminder records are not a substitute for advice from a qualified healthcare professional.
 
 ## Information you provide
-- Account name, email, and a securely hashed account password; account preferences such as language and timezone.
+- Account name, email, and a securely hashed password when one is created; Google account subject ID when the user chooses Google sign-in or linking; account preferences such as language and timezone.
 - Family-member names, relationships, optional date of birth, and care timezone.
 - Medicines, strengths/forms, schedules, dose status and the date/time of recording actions.
 - Notification choices and app data necessary to display reminders and sync records.
