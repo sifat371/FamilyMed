@@ -5,6 +5,7 @@ import 'package:familymed/core/auth/auth_controller.dart';
 import 'package:familymed/core/auth/auth_tokens.dart';
 import 'package:familymed/core/auth/token_store.dart';
 import 'package:familymed/features/auth/data/auth_repository.dart';
+import 'package:familymed/features/auth/data/google_identity_service.dart';
 import 'package:familymed/features/auth/domain/auth_session.dart';
 import 'package:familymed/features/auth/domain/current_user.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
@@ -99,6 +100,14 @@ class FakeAuthRepository implements AuthRepository {
   }
 }
 
+class FakeGoogleIdentityService implements GoogleIdentityService {
+  @override
+  Future<String> getIdToken() async => 'test-google-token';
+
+  @override
+  Future<void> signOut() async {}
+}
+
 class FakeFamilyRepository implements FamilyRepository {
   FakeFamilyRepository(this.members);
 
@@ -162,6 +171,7 @@ ProviderContainer makeContainer({
       authRepositoryProvider.overrideWithValue(
         authRepository ?? FakeAuthRepository(),
       ),
+      googleIdentityServiceProvider.overrideWithValue(FakeGoogleIdentityService()),
       familyRepositoryProvider.overrideWithValue(FakeFamilyRepository(members)),
       todayRepositoryProvider.overrideWithValue(EmptyTodayRepository()),
     ],
@@ -204,6 +214,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(currentPath(container), '/welcome');
     expect(find.text('Exit FamilyMed?'), findsNothing);
+  });
+
+  testWidgets('Google sign-in works without password form input', (tester) async {
+    final container = makeContainer();
+    addTearDown(container.dispose);
+    await pumpApp(tester, container);
+    container.read(routerProvider).go('/login');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('googleSignInButton')));
+    await tester.pumpAndSettle();
+    expect(container.read(authControllerProvider).user?.email, 'sifat@example.com');
+    expect(currentPath(container), '/care-for');
   });
 
   testWidgets('welcome actions navigate to register and login', (tester) async {
