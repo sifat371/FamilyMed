@@ -84,6 +84,18 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
+  Future<CurrentUser> googleSignIn({required String idToken}) async {
+    try {
+      final session = await _repository.googleSignIn(idToken: idToken);
+      await _tokenStore.write(session.tokens);
+      state = AuthState.authenticated(session.user);
+      return session.user;
+    } on ApiError catch (error) {
+      state = AuthState.unauthenticated(error.message);
+      rethrow;
+    }
+  }
+
   Future<void> logout() async {
     await _tokenStore.clear();
     state = const AuthState.unauthenticated();
