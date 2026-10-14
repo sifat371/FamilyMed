@@ -4,7 +4,6 @@ import 'package:familymed/core/database/app_database.dart';
 import 'package:familymed/core/notifications/reminder_coordinator.dart';
 import 'package:familymed/features/account/data/account_deletion_repository.dart';
 import 'package:familymed/features/account/data/account_repository.dart';
-import 'package:familymed/features/auth/data/auth_repository.dart';
 import 'package:familymed/features/auth/data/google_identity_service.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
