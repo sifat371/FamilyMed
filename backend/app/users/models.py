@@ -21,3 +21,7 @@ class User(TimestampMixin, Base):
     @property
     def has_password(self) -> bool:
         return self.password_hash is not None
+
+    @property
+    def google_linked(self) -> bool:
+        return self.google_subject is not None
