@@ -76,6 +76,12 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<AuthSession> googleSignIn({required String idToken}) async => session;
+
+  @override
+  Future<void> linkGoogle({required String idToken}) async {}
+
+  @override
   Future<CurrentUser> me() async {
     if (meError != null) throw meError!;
     return currentUser;
