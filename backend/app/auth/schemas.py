@@ -47,6 +47,7 @@ class UserResponse(BaseModel):
     preferred_language: str
     timezone: str
     has_password: bool
+    google_linked: bool
 
 
 class UpdateAccountRequest(BaseModel):
