@@ -36,6 +36,14 @@ class _TokenStore implements TokenStore {
 }
 
 class _AuthRepository implements AuthRepository {
+  @override
+  Future<AuthSession> googleSignIn({required String idToken}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> linkGoogle({required String idToken}) =>
+      throw UnimplementedError();
+
   static const user = CurrentUser(
     id: 'user-1',
     name: 'Sifat',

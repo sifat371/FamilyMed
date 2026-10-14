@@ -67,9 +67,11 @@ async def register_user(session: AsyncSession, payload: RegisterRequest) -> Auth
 
 async def login_user(session: AsyncSession, payload: LoginRequest) -> AuthResponse:
     user = await session.scalar(select(User).where(User.email == str(payload.email)))
-    encoded_hash = user.password_hash if user is not None else DUMMY_PASSWORD_HASH
+    encoded_hash = (
+        user.password_hash if user is not None and user.password_hash else DUMMY_PASSWORD_HASH
+    )
     password_valid = verify_password(payload.password, encoded_hash)
-    if user is None or not password_valid:
+    if user is None or not user.password_hash or not password_valid:
         raise ApiError(
             401,
             "INVALID_CREDENTIALS",

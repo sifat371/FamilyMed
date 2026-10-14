@@ -39,6 +39,14 @@ class FakeTokenStore implements TokenStore {
 }
 
 class FakeAuthRepository implements AuthRepository {
+  @override
+  Future<AuthSession> googleSignIn({required String idToken}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> linkGoogle({required String idToken}) =>
+      throw UnimplementedError();
+
   FakeAuthRepository({this.meResult = user, this.meError});
 
   final CurrentUser meResult;

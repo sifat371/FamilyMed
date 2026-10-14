@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     refresh_token_days: int = 30
     cors_origins: str = "http://localhost:3000"
     support_email: EmailStr | None = None
+    # Public OAuth client identifier (not a client secret); unset disables Google sign-in.
+    google_web_client_id: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

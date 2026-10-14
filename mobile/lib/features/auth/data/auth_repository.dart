@@ -14,6 +14,10 @@ abstract interface class AuthRepository {
     required String password,
   });
 
+  Future<AuthSession> googleSignIn({required String idToken});
+
+  Future<void> linkGoogle({required String idToken});
+
   Future<CurrentUser> me();
 }
 
@@ -47,6 +51,21 @@ class ApiAuthRepository implements AuthRepository {
       skipAuth: true,
     );
     return AuthSession.fromJson(response.data!);
+  }
+
+  @override
+  Future<AuthSession> googleSignIn({required String idToken}) async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/auth/google',
+      data: {'id_token': idToken},
+      skipAuth: true,
+    );
+    return AuthSession.fromJson(response.data!);
+  }
+
+  @override
+  Future<void> linkGoogle({required String idToken}) async {
+    await _client.post<void>('/auth/me/google', data: {'id_token': idToken});
   }
 
   @override

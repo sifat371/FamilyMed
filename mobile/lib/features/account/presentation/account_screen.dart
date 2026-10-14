@@ -4,10 +4,12 @@ import 'package:familymed/core/database/app_database.dart';
 import 'package:familymed/core/notifications/reminder_coordinator.dart';
 import 'package:familymed/features/account/data/account_deletion_repository.dart';
 import 'package:familymed/features/account/data/account_repository.dart';
+import 'package:familymed/features/auth/data/google_identity_service.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AccountScreen extends ConsumerStatefulWidget {
@@ -76,23 +78,77 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     }
   }
 
+  Future<void> _linkGoogle() async {
+    if (_saving || _deleting) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final token = await ref.read(googleIdentityServiceProvider).getIdToken();
+      await ref.read(authRepositoryProvider).linkGoogle(idToken: token);
+      final updated = await ref.read(authRepositoryProvider).me();
+      ref.read(authControllerProvider.notifier).updateCurrentUser(updated);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).googleAccountLinked)),
+        );
+      }
+    } on GoogleSignInException catch (error) {
+      if (mounted && error.code != GoogleSignInExceptionCode.canceled) {
+        setState(() => _error = AppLocalizations.of(context).googleSignInFailed);
+      }
+    } on Object {
+      if (mounted) setState(() => _error = AppLocalizations.of(context).googleSignInFailed);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   Future<void> _deleteAccount() async {
     if (_saving || _deleting) return;
     final l10n = AppLocalizations.of(context);
-    final confirmation = await showDialog<String>(
-      context: context,
-      builder: (_) => const _DeleteAccountConfirmationDialog(),
-    );
-    if (!mounted || confirmation == null) return;
+    final googleOnly = ref.read(authControllerProvider).user?.hasPassword == false;
+    String? password;
+    if (googleOnly) {
+      final approved = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(l10n.deleteAccountTitle),
+          content: Text(l10n.googleDeleteConfirm),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(l10n.deleteAccountConfirm),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || approved != true) return;
+    } else {
+      password = await showDialog<String>(
+        context: context,
+        builder: (_) => const _DeleteAccountConfirmationDialog(),
+      );
+      if (!mounted || password == null) return;
+    }
     setState(() {
       _deleting = true;
       _error = null;
     });
     try {
+      final googleToken = googleOnly
+          ? await ref.read(googleIdentityServiceProvider).getIdToken()
+          : null;
       final userId = ref.read(authControllerProvider).user?.id;
-      await ref.read(accountDeletionRepositoryProvider).deleteAccount(confirmation);
-      // Clear account-scoped SQLite cache and unsent sync operations after
-      // successful server-side deletion; never send them under another account.
+      await ref.read(accountDeletionRepositoryProvider).deleteAccount(
+        password: password,
+        googleIdToken: googleToken,
+      );
       try {
         if (userId != null) {
           final db = ref.read(appDatabaseProvider);
@@ -111,11 +167,14 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         await ref.read(reminderCoordinatorProvider).clear();
       } finally {
         await ref.read(authControllerProvider.notifier).logout();
+        try {
+          await ref.read(googleIdentityServiceProvider).signOut();
+        } on Object {
+          // FamilyMed's own session has already been cleared.
+        }
       }
     } on Object {
-      if (mounted) {
-        setState(() => _error = l10n.deleteAccountFailed);
-      }
+      if (mounted) setState(() => _error = l10n.deleteAccountFailed);
     } finally {
       if (mounted) setState(() => _deleting = false);
     }
@@ -200,6 +259,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                           await ref
                               .read(authControllerProvider.notifier)
                               .logout();
+                          try {
+                            await ref.read(googleIdentityServiceProvider).signOut();
+                          } on Object {
+                            // FamilyMed's session has already been cleared.
+                          }
                         } on Object {
                           if (mounted) {
                             setState(() => _error = l10n.networkError);
@@ -231,6 +295,20 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   foregroundColor: Theme.of(context).colorScheme.error,
                 ),
               ),
+              const SizedBox(height: 12),
+              if (user?.googleLinked == false)
+                OutlinedButton.icon(
+                  key: const Key('linkGoogleButton'),
+                  onPressed: _saving || _deleting ? null : _linkGoogle,
+                  icon: const Icon(Icons.account_circle_outlined),
+                  label: Text(l10n.linkGoogle),
+                )
+              else
+                ListTile(
+                  leading: const Icon(Icons.verified_user_outlined),
+                  title: Text(l10n.googleLinked),
+                ),
+              const SizedBox(height: 12),
             ],
           ),
         ),

@@ -1,7 +1,14 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 Password = Annotated[str, StringConstraints(min_length=8, max_length=128)]
@@ -28,6 +35,12 @@ class LoginRequest(BaseModel):
         return str(value).strip().lower()
 
 
+class GoogleSignInRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id_token: Annotated[str, StringConstraints(min_length=40, max_length=8192)]
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
 
@@ -40,6 +53,8 @@ class UserResponse(BaseModel):
     email: str
     preferred_language: str
     timezone: str
+    has_password: bool
+    google_linked: bool
 
 
 class UpdateAccountRequest(BaseModel):
@@ -54,7 +69,14 @@ class UpdateAccountRequest(BaseModel):
 class DeleteAccountRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    password: Password
+    password: Password | None = None
+    google_id_token: Annotated[str, StringConstraints(min_length=40, max_length=8192)] | None = None
+
+    @model_validator(mode="after")
+    def exactly_one_confirmation(self) -> "DeleteAccountRequest":
+        if (self.password is None) == (self.google_id_token is None):
+            raise ValueError("Confirm with either a password or a Google ID token.")
+        return self
 
 
 class AuthResponse(BaseModel):

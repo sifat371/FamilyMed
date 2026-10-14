@@ -5,6 +5,8 @@ class CurrentUser {
     required this.email,
     required this.preferredLanguage,
     required this.timezone,
+    this.hasPassword = true,
+    this.googleLinked = false,
   });
 
   final String id;
@@ -12,6 +14,8 @@ class CurrentUser {
   final String email;
   final String preferredLanguage;
   final String timezone;
+  final bool hasPassword;
+  final bool googleLinked;
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) {
     return CurrentUser(
@@ -20,6 +24,8 @@ class CurrentUser {
       email: json['email'] as String,
       preferredLanguage: json['preferred_language'] as String,
       timezone: json['timezone'] as String,
+      hasPassword: json['has_password'] as bool? ?? true,
+      googleLinked: json['google_linked'] as bool? ?? false,
     );
   }
 }

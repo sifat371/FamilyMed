@@ -68,3 +68,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify production Docker image builds
         run: docker build -f backend/Dockerfile -t familymed-api-ci backend
+      - name: Verify production image can import the API and auth dependencies
+        run: docker run --rm familymed-api-ci python -c 'import app.main; import google.oauth2.id_token'

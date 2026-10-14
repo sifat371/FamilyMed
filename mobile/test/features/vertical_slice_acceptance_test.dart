@@ -37,6 +37,14 @@ class AcceptanceTokenStore implements TokenStore {
 }
 
 class AcceptanceAuthRepository implements AuthRepository {
+  @override
+  Future<AuthSession> googleSignIn({required String idToken}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> linkGoogle({required String idToken}) =>
+      throw UnimplementedError();
+
   static const session = AuthSession(
     user: user,
     tokens: AuthTokens(accessToken: 'access', refreshToken: 'refresh'),
