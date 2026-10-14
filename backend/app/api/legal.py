@@ -35,7 +35,7 @@ async def privacy() -> HTMLResponse:
         "<p>FamilyMed helps caregivers organize family medication records, routines, "
         "and reminders. It does not provide a diagnosis or prescription.</p>"
         "<h2>Information handled</h2>"
-        "<p>Account names, email addresses, password hashes, preferred languages and "
+        "<p>Account names, email addresses, password hashes where applicable, Google account IDs when used, preferred languages and "
         "timezones; family-member names, relationships, optional dates of birth; "
         "medicine names, strengths, routines, reminders and dose history. "
         "The app keeps account-scoped local copies to support normal operation.</p>"
@@ -85,7 +85,7 @@ async def account_deletion() -> HTMLResponse:
         "Account deletion",
         "<h1>Request deletion of your FamilyMed account</h1>"
         "<p>If FamilyMed is installed and you can sign in: open "
-        "<strong>Me → Delete account</strong>, enter your password, "
+        "<strong>Me → Delete account</strong>, confirm with your password or Google account, "
         "and confirm permanent deletion. This also removes the "
         "single-owner family medication-care records from the live database.</p>"
         "<p>If you cannot access the app or already uninstalled it, "
