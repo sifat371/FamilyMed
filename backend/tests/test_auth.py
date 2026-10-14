@@ -172,7 +172,7 @@ async def test_jwt_type_enforcement_refresh_and_me(client):
         headers={"Authorization": f"Bearer {refreshed.json()['access_token']}"},
     )
     assert me.status_code == 200
-    assert set(me.json()) == {"id", "name", "email", "preferred_language", "timezone"}
+    assert set(me.json()) == {"id", "name", "email", "preferred_language", "timezone", "has_password"}
     assert me.json()["email"] == "user@example.com"
 
 
