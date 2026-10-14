@@ -25,7 +25,8 @@ async def google_sign_in(session: AsyncSession, token: str) -> AuthResponse:
                     raise ApiError(
                         409,
                         "ACCOUNT_LINK_REQUIRED",
-                        "This email is already registered. Sign in with your password and link Google in Me.",
+                        "This email is already registered. Sign in with your password "
+                        "and link Google in Me.",
                     )
                 user = User(
                     name=identity.name,
@@ -75,4 +76,6 @@ async def link_google_to_account(session: AsyncSession, user: User, token: str) 
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        raise ApiError(409, "GOOGLE_ALREADY_LINKED", "This Google identity is already in use.") from exc
+        raise ApiError(
+            409, "GOOGLE_ALREADY_LINKED", "This Google identity is already in use."
+        ) from exc
