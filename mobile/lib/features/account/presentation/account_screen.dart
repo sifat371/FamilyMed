@@ -250,19 +250,6 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              if (user?.googleLinked == false)
-                OutlinedButton.icon(
-                  key: const Key('linkGoogleButton'),
-                  onPressed: _saving || _deleting ? null : _linkGoogle,
-                  icon: const Icon(Icons.account_circle_outlined),
-                  label: Text(l10n.linkGoogle),
-                )
-              else
-                ListTile(
-                  leading: const Icon(Icons.verified_user_outlined),
-                  title: Text(l10n.googleLinked),
-                ),
-              const SizedBox(height: 12),
               OutlinedButton.icon(
                 key: const Key('accountSignOut'),
                 onPressed: _saving
@@ -308,6 +295,20 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   foregroundColor: Theme.of(context).colorScheme.error,
                 ),
               ),
+              const SizedBox(height: 12),
+              if (user?.googleLinked == false)
+                OutlinedButton.icon(
+                  key: const Key('linkGoogleButton'),
+                  onPressed: _saving || _deleting ? null : _linkGoogle,
+                  icon: const Icon(Icons.account_circle_outlined),
+                  label: Text(l10n.linkGoogle),
+                )
+              else
+                ListTile(
+                  leading: const Icon(Icons.verified_user_outlined),
+                  title: Text(l10n.googleLinked),
+                ),
+              const SizedBox(height: 12),
             ],
           ),
         ),
