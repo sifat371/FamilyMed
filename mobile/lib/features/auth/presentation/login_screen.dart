@@ -1,10 +1,12 @@
 import 'package:familymed/core/api/api_error.dart';
 import 'package:familymed/core/auth/auth_controller.dart';
+import 'package:familymed/features/auth/data/google_identity_service.dart';
 import 'package:familymed/features/family/data/family_repository.dart';
 import 'package:familymed/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -53,6 +55,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         setState(() => _submitting = false);
       }
+    }
+  }
+
+  Future<void> _googleSignIn() async {
+    if (_submitting) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+    });
+    try {
+      final idToken = await ref.read(googleIdentityServiceProvider).getIdToken();
+      await ref.read(authControllerProvider.notifier).googleSignIn(idToken: idToken);
+      final members = await ref.read(familyRepositoryProvider).listMembers();
+      if (!mounted) return;
+      context.go(members.isEmpty ? '/care-for' : '/today');
+    } on GoogleSignInException catch (error) {
+      if (mounted && error.code != GoogleSignInExceptionCode.canceled) {
+        setState(() => _errorMessage = l10n.googleSignInFailed);
+      }
+    } on ApiError catch (error) {
+      if (mounted) setState(() => _errorMessage = error.message);
+    } on Object {
+      if (mounted) setState(() => _errorMessage = l10n.googleSignInFailed);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -139,6 +167,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Text(l10n.signIn),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton(
+                  key: const Key('googleSignInButton'),
+                  onPressed: _submitting ? null : _googleSignIn,
+                  child: Text(l10n.continueWithGoogle),
                 ),
                 const SizedBox(height: 8),
                 TextButton(
