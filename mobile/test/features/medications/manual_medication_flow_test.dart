@@ -56,6 +56,14 @@ class StoredTokenStore implements TokenStore {
 
 class MedicationAuthRepository implements AuthRepository {
   @override
+  Future<AuthSession> googleSignIn({required String idToken}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> linkGoogle({required String idToken}) =>
+      throw UnimplementedError();
+
+  @override
   Future<AuthSession> login({required String email, required String password}) {
     throw UnimplementedError();
   }
