@@ -1,4 +1,4 @@
-"""OAuth integration regressions. External Google tokens are verified in a separate unit boundary."""
+"""OAuth regressions: the third-party identity boundary is mocked explicitly."""
 
 from uuid import UUID
 
@@ -27,7 +27,9 @@ def mock_google(monkeypatch, *, email="new@example.com", subject="google-123", n
     monkeypatch.setattr(auth_router, "verify_google_identity", verify)
 
 
-async def test_google_creates_one_passwordless_account_and_is_idempotent(client, db_session, monkeypatch):
+async def test_google_creates_one_passwordless_account_and_is_idempotent(
+    client, db_session, monkeypatch
+):
     mock_google(monkeypatch)
     first = await client.post(GOOGLE_URL, json={"id_token": "a" * 64})
     assert first.status_code == 200, first.text
