@@ -17,15 +17,27 @@ from app.schedules.models import MedicationSchedule, ScheduleTime
 from app.users.models import User
 
 
-async def delete_account(session: AsyncSession, user: User, password: str) -> None:
+async def delete_account(
+    session: AsyncSession,
+    user: User,
+    password: str | None = None,
+    *,
+    google_subject: str | None = None,
+) -> None:
     """Erase account-owned care records in a single transaction.
 
     Shared families are deliberately rejected rather than destroying another
     person's medication history; support must handle those cases individually.
     """
 
-    if not verify_password(password, user.password_hash):
-        raise ApiError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.")
+    password_confirmed = (
+        password is not None
+        and user.password_hash is not None
+        and verify_password(password, user.password_hash)
+    )
+    google_confirmed = google_subject is not None and google_subject == user.google_subject
+    if not password_confirmed and not google_confirmed:
+        raise ApiError(401, "INVALID_CREDENTIALS", "Could not verify account ownership.")
 
     family_ids = select(Family.id).where(Family.created_by_user_id == user.id)
     member_ids = select(FamilyMember.id).where(FamilyMember.family_id.in_(family_ids))
