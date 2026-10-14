@@ -26,7 +26,9 @@ async def verify_google_identity(token: str) -> GoogleIdentity:
     try:
         claims = await asyncio.to_thread(id_token.verify_oauth2_token, token, Request(), audience)
     except (ValueError, GoogleAuthError) as exc:
-        raise ApiError(401, "INVALID_GOOGLE_TOKEN", "Google authentication was not verified.") from exc
+        raise ApiError(
+            401, "INVALID_GOOGLE_TOKEN", "Google authentication was not verified."
+        ) from exc
 
     # Never use an unverified email or the mutable email as a Google identity key.
     if claims.get("email_verified") is not True:
